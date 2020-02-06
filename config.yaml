@@ -1,0 +1,41 @@
+debug: true
+db_log: mysql://exchange:exchangeAA9944@@127.0.0.1/exchange
+db_history: mysql://exchange:exchangeAA9944@@127.0.0.1/exchange
+assets:
+  - name: BCH
+    prec_save: 20
+    prec_show: 8
+  - name: BTC
+    prec_save: 12
+    prec_show: 8
+  - name: LTC
+    prec_save: 12
+    prec_show: 8
+  - name: ETH
+    prec_save: 12
+    prec_show: 8
+  - name: ETC
+    prec_save: 12
+    prec_show: 8
+  - name: ZEC
+    prec_save: 12
+    prec_show: 8
+  - name: XMR
+    prec_save: 12
+    prec_show: 8
+  - name: DSH
+    prec_save: 12
+    prec_show: 8
+markets:
+  - name: ETH/BTC
+    stock:
+      name: ETH
+      prec: 8
+    money:
+      name: BTC
+      prec: 8
+    min_amount: '0.001'
+brokers: '127.0.0.1:9092'
+slice_interval: 3600
+slice_keeptime: 259200
+

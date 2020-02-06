@@ -1,0 +1,43 @@
+version: '3.4'
+services:
+
+  mysql:
+    image: mysql:8 
+    container_name: exchange_mysql
+    restart: always
+    logging:
+      options:
+        max-size: 10m
+    volumes:
+      - ./data/volumes/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: exchange
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_USER: exchange
+      MYSQL_PASSWORD: exchangeAA9944@
+      MYSQL_ROOT_PASSWORD: 12345678
+    command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --bind-address=0.0.0.0 --skip-ssl  
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - ./data/volumes/log_zookeeper:/var/log/zookeeper
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: exchange_kafka
+    restart: always
+    logging:
+      options:
+        max-size: 10m
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./data/volumes/log_kafka:/var/log/kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+

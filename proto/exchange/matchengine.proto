@@ -1,0 +1,203 @@
+syntax = "proto3";
+package matchengine;
+service Matchengine {
+    rpc BalanceQuery(BalanceQueryRequest) returns (BalanceQueryResponse) {}
+    rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {}
+    rpc AssetList(AssetListRequest) returns (AssetListResponse) {}
+    rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}
+    rpc OrderPut(OrderPutRequest) returns (OrderInfo) {}
+    rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {}
+    rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
+    rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
+    rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {}
+    rpc OrderDetail(OrderDetailRequest) returns (OrderInfo) {}
+
+    rpc MarketList(MarketListRequest) returns (MarketListResponse) {}
+    rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
+}
+//
+message BalanceQueryRequest {
+    uint32 user_id = 1;
+    repeated string assets = 2; // optional
+}
+
+message BalanceQueryResponse {
+    message AssetBalance {
+        string available = 1;
+        string freeze = 2;
+    }
+    map<string, AssetBalance> balances = 1;
+}
+
+message BalanceUpdateRequest {
+    uint32 user_id = 1;
+    string asset = 2;
+    string business = 3;
+    uint64 business_id = 4;
+    string delta = 5;
+    string detail = 6;
+}
+
+message BalanceUpdateResponse {
+}
+
+message AssetListRequest {
+    //repeated string assets = 1;
+}
+
+message AssetListResponse {
+    message AssetInfo {
+        string name = 1;
+        uint32 precision = 2;
+    };
+    repeated AssetInfo asset_lists = 1;
+}
+//
+// internal?
+message AssetSummaryRequest {
+    repeated string assets = 1;
+}
+
+message AssetSummaryResponse {
+    message AssetSummaryInfo {
+        string name = 1;
+        string total_balance = 2;
+        int32 available_count = 3;
+        string available_balance = 4;
+        int32 freeze_count = 5;
+        string freeze_balance = 6;
+    }
+    repeated AssetSummaryInfo asset_summaries = 1;
+}
+
+enum OrderSide {
+    ASK = 0;
+    BID = 1;
+}
+
+enum OrderType {
+    LIMIT = 0;
+    MARKET = 1;
+}
+
+message OrderPutRequest {
+    uint32 user_id = 1;
+    string market = 2;
+    OrderSide order_side = 3;
+    OrderType order_type = 4;
+    string amount = 5;
+    string price = 6;
+    string taker_fee = 7;
+    string maker_fee = 8; // not used in market order
+    string category = 9; // source
+}
+
+message OrderInfo {
+    uint64 id = 1;
+    string market = 2;
+    string category = 3;
+    OrderType type = 4;
+    OrderSide side = 5;
+    uint32 user_id = 6;
+    double create_time = 7;
+    double update_time = 8;
+    string price = 9;
+    string amount = 10;
+    string taker_fee = 11;
+    string maker_fee = 12;
+    string left = 13;
+    string deal_stock = 14;
+    string deal_money = 15;
+    string deal_fee = 16;
+}
+
+
+message OrderQueryRequest {
+    uint32 user_id = 1;
+    string market = 2;
+    int32 offset = 3;
+    int32 limit = 4;
+}
+
+message OrderQueryResponse {
+    int32 offset = 1;
+    int32 limit = 2;
+    int32 total = 3;
+    repeated OrderInfo records = 4;
+}
+
+message OrderCancelRequest {
+    uint32 user_id = 1;
+    string market = 2;
+    uint64 order_id = 3;
+}
+
+
+// why not both side
+message OrderBookRequest {
+    string market = 1;
+    OrderSide side = 2;
+    int32 offset = 3;
+    int32 limit = 4;
+}
+
+// strange api
+message OrderBookResponse {
+    int32 offset = 1;
+    int32 limit = 2;
+    uint64 total = 3;
+    repeated OrderInfo orders = 4;
+}
+
+// with cache
+message OrderBookDepthRequest {
+    string market = 1;
+    int32 limit = 2;
+    string interval = 3;
+}
+
+message OrderBookDepthResponse {
+    message PriceInfo {
+        string price = 1;
+        string amount = 2;
+    }
+    repeated PriceInfo asks = 1;
+    repeated PriceInfo bids = 2;
+}
+
+message OrderDetailRequest {
+    string market = 1;
+    uint64 order_id = 2;
+}
+
+message MarketListRequest {
+}
+
+message MarketListResponse {
+    message MarketInfo {
+        string name = 1;
+        string stock = 2; // base
+        string money = 3; // quote
+        int32 fee_precision = 4;
+        int32 stock_precision = 5;
+        int32 money_precision = 6;
+        string min_amount = 7;
+    }
+    repeated MarketInfo markets = 1;
+}
+
+message MarketSummaryRequest {
+    repeated string markets = 1;
+}
+
+message MarketSummaryResponse {
+    message MarketSummary {
+        string name = 1;
+        int32 ask_count = 2;
+        string ask_amount = 3;
+        int32 bid_count = 4;
+        string bid_amount = 5;
+    }
+    repeated MarketSummary market_summaries = 1;
+}
+
