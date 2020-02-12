@@ -1,59 +1,54 @@
-//#[allow(clippy::single_component_path_imports)]
+#![allow(unused_imports)]
+#![allow(clippy::single_component_path_imports)]
 
-use crate::schema::{balance_history_example, deal_history_example, operlog_example, order_history_example};
+use crate::schema::operation_log;
+use crate::schema::{balance_history, deal_history, order_history};
+use crate::schema::{balance_slice, order_slice, slice_history};
 //use rust_decimal::Decimal;
 
-// Can the following struct be auto generated in diesel?
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "operlog_example"]
-pub struct Operlog {
-    pub id: u64,
-    pub time: chrono::NaiveDateTime,
-    pub method: String,
-    // TODO: change it to jsonb
-    pub params: String,
-}
+pub type DecimalDbType = bigdecimal::BigDecimal;
+pub type TimestampDbType = chrono::NaiveDateTime;
 
 #[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "balance_history_example"]
+#[table_name = "balance_history"]
 pub struct BalanceHistory {
     //pub id: u64,
-    pub time: chrono::NaiveDateTime,
+    pub time: TimestampDbType,
     pub user_id: u32,
     pub asset: String,
     pub business: String,
     // TODO: bigdecimal or rust-decimal?
-    pub change: bigdecimal::BigDecimal,
-    pub balance: bigdecimal::BigDecimal,
+    pub change: DecimalDbType,
+    pub balance: DecimalDbType,
     // TODO: change it to jsonb
     pub detail: String,
 }
 
 #[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "order_history_example"]
+#[table_name = "order_history"]
 pub struct OrderHistory {
     pub id: u64,
-    pub create_time: chrono::NaiveDateTime,
-    pub finish_time: chrono::NaiveDateTime,
+    pub create_time: TimestampDbType,
+    pub finish_time: TimestampDbType,
     pub user_id: u32,
     pub market: String,
     pub source: String,
     // Type enum: MARKET or LIMIT
     pub t: u8,
     pub side: u8,
-    pub price: bigdecimal::BigDecimal,
-    pub amount: bigdecimal::BigDecimal,
-    pub taker_fee: bigdecimal::BigDecimal,
-    pub maker_fee: bigdecimal::BigDecimal,
-    pub deal_stock: bigdecimal::BigDecimal,
-    pub deal_money: bigdecimal::BigDecimal,
-    pub deal_fee: bigdecimal::BigDecimal,
+    pub price: DecimalDbType,
+    pub amount: DecimalDbType,
+    pub taker_fee: DecimalDbType,
+    pub maker_fee: DecimalDbType,
+    pub deal_stock: DecimalDbType,
+    pub deal_money: DecimalDbType,
+    pub deal_fee: DecimalDbType,
 }
 
 #[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "deal_history_example"]
+#[table_name = "deal_history"]
 pub struct DealHistory {
-    pub time: chrono::NaiveDateTime,
+    pub time: TimestampDbType,
     pub user_id: u32,
     pub market: String,
     pub deal_id: u64,
@@ -61,9 +56,77 @@ pub struct DealHistory {
     pub deal_order_id: u64,
     pub side: u8,
     pub role: u8,
-    pub price: bigdecimal::BigDecimal,
-    pub amount: bigdecimal::BigDecimal,
-    pub deal: bigdecimal::BigDecimal,
-    pub fee: bigdecimal::BigDecimal,
-    pub deal_fee: bigdecimal::BigDecimal,
+    pub price: DecimalDbType,
+    pub amount: DecimalDbType,
+    pub deal: DecimalDbType,
+    pub fee: DecimalDbType,
+    pub deal_fee: DecimalDbType,
+}
+
+// Can the following struct be auto generated in diesel?
+#[derive(Queryable, Insertable, Debug, Clone)]
+#[table_name = "operation_log"]
+pub struct OperationLog {
+    pub id: u64,
+    pub time: TimestampDbType,
+    pub method: String,
+    // TODO: change it to jsonb
+    pub params: String,
+}
+
+#[derive(Queryable, Insertable, Debug, Clone)]
+#[table_name = "balance_slice"]
+pub struct BalanceSlice {
+    pub id: u32,
+    pub slice_id: i64, // Unix timestamp
+    pub user_id: u32,
+    pub asset: String,
+    pub t: u8, // Enum: AVAILABLE or FREEZE
+    pub balance: DecimalDbType,
+}
+
+#[derive(Queryable, Insertable, Debug, Clone)]
+#[table_name = "balance_slice"]
+pub struct NewBalanceSlice {
+    //pub id: u32,
+    pub slice_id: i64, // Unix timestamp
+    pub user_id: u32,
+    pub asset: String,
+    pub t: u8, // Enum: AVAILABLE or FREEZE
+    pub balance: DecimalDbType,
+}
+
+#[derive(Queryable, Insertable, Debug, Clone)]
+#[table_name = "order_slice"]
+pub struct OrderSlice {
+    pub id: u64,
+    pub slice_id: i64,
+    // Type enum: MARKET or LIMIT
+    pub t: u8,
+    pub side: u8,
+    pub create_time: TimestampDbType,
+    pub update_time: TimestampDbType,
+    pub user_id: u32,
+    pub market: String,
+    //pub source: String,
+    pub price: DecimalDbType,
+    pub amount: DecimalDbType,
+    pub taker_fee: DecimalDbType,
+    pub maker_fee: DecimalDbType,
+    pub left: DecimalDbType,
+    pub freeze: DecimalDbType,
+    pub deal_stock: DecimalDbType,
+    pub deal_money: DecimalDbType,
+    pub deal_fee: DecimalDbType,
+}
+
+// xx_id here means the last persisted entry id
+#[derive(Queryable, Insertable, Debug, Clone)]
+#[table_name = "slice_history"]
+pub struct SliceHistory {
+    pub id: u32,
+    pub time: i64,
+    pub end_operation_log_id: u64,
+    pub end_order_id: u64,
+    pub end_deal_id: u64,
 }

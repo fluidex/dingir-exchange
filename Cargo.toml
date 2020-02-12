@@ -37,6 +37,7 @@ ttl_cache = "0.5.1"
 itertools = "0.8.2"
 dotenv = "0.15.0"
 bigdecimal = "0.1.0"
+num_enum = "0.4.2"
 
 [build-dependencies]
 tonic-build = "0.1.1"

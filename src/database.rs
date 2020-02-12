@@ -18,6 +18,9 @@ use crate::models;
 use crate::types;
 use crate::types::SimpleResult;
 
+pub const QUERY_LIMIT: i64 = 1000;
+pub const INSERT_LIMIT: i64 = 1000;
+
 pub struct DatabaseWriterStatus {
     pub pending_count: usize,
 }
@@ -171,7 +174,7 @@ where
         self.sender.is_full()
     }
 
-    pub fn append(&mut self, item: U) {
+    pub fn append(&self, item: U) {
         // must not block
         println!("append item done {:?}", item);
         self.sender.try_send(item).unwrap();
@@ -200,4 +203,4 @@ pub fn check_sql_conn(conn_str: &str) -> SimpleResult {
     }
 }
 
-pub type OperlogSender = DatabaseWriter<crate::operlog_example::table, models::Operlog>;
+pub type OperationLogSender = DatabaseWriter<crate::schema::operation_log::table, models::OperationLog>;

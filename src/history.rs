@@ -7,9 +7,9 @@ use crate::utils;
 
 use anyhow::Result;
 
-type BalanceWriter = DatabaseWriter<schema::balance_history_example::table, models::BalanceHistory>;
-type OrderWriter = DatabaseWriter<schema::order_history_example::table, models::OrderHistory>;
-type DealWriter = DatabaseWriter<schema::deal_history_example::table, models::DealHistory>;
+type BalanceWriter = DatabaseWriter<schema::balance_history::table, models::BalanceHistory>;
+type OrderWriter = DatabaseWriter<schema::order_history::table, models::OrderHistory>;
+type DealWriter = DatabaseWriter<schema::deal_history::table, models::DealHistory>;
 
 pub trait HistoryWriter {
     fn append_balance_history(&mut self, data: models::BalanceHistory);

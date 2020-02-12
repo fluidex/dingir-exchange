@@ -4,11 +4,11 @@ service Matchengine {
     rpc BalanceQuery(BalanceQueryRequest) returns (BalanceQueryResponse) {}
     rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {}
     rpc AssetList(AssetListRequest) returns (AssetListResponse) {}
-    rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}
+    //rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}
     rpc OrderPut(OrderPutRequest) returns (OrderInfo) {}
     rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {}
     rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
-    rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
+    //rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
     rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {}
     rpc OrderDetail(OrderDetailRequest) returns (OrderInfo) {}
 
@@ -23,10 +23,11 @@ message BalanceQueryRequest {
 
 message BalanceQueryResponse {
     message AssetBalance {
-        string available = 1;
-        string freeze = 2;
+        string asset_name = 1;
+        string available = 2;
+        string freeze = 3;
     }
-    map<string, AssetBalance> balances = 1;
+    repeated AssetBalance balances = 1;
 }
 
 message BalanceUpdateRequest {
@@ -178,9 +179,9 @@ message MarketListResponse {
         string name = 1;
         string stock = 2; // base
         string money = 3; // quote
-        int32 fee_precision = 4;
-        int32 stock_precision = 5;
-        int32 money_precision = 6;
+        uint32 fee_precision = 4;
+        uint32 stock_precision = 5;
+        uint32 money_precision = 6;
         string min_amount = 7;
     }
     repeated MarketInfo markets = 1;

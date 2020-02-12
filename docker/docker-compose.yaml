@@ -22,6 +22,7 @@ services:
 
   zookeeper:
     image: wurstmeister/zookeeper
+    container_name: exchange_zookeeper
     ports:
       - "2181:2181"
     volumes:

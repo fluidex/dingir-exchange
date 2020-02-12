@@ -5,7 +5,12 @@ const load = { keepCase: "true", defaults: "true" };
 const client = caller("0.0.0.0:50051", { file, load }, "Matchengine");
 
 async function balance_query(user_id) {
-  return (await client.BalanceQuery({ user_id: user_id })).balances;
+  const balances = (await client.BalanceQuery({ user_id: user_id })).balances;
+  let result = {};
+  for (const entry of balances) {
+    result[entry.asset_name] = entry;
+  }
+  return result;
 }
 
 async function balance_update(

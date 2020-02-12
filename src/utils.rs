@@ -1,4 +1,5 @@
 use chrono::Utc;
+
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -15,8 +16,40 @@ pub fn timestamp_to_chrono(t: f64) -> chrono::NaiveDateTime {
     chrono::NaiveDateTime::from_timestamp(sec, ns)
 }
 
+/*
+impl TryFrom<rust_decimal::Decimal> for bigdecimal::BigDecimal {
+    type Error = ParseBigDecimalError;
+    fn try_from(value: rust_decimal::Decimal) -> Result<Self, Self::Error> {
+        bigdecimal::BigDecimal::from_str(&value.to_string())
+    }
+}
+*/
+/*
+impl TryFrom<bigdecimal::BigDecimal> for rust_decimal::Decimal {
+    type Error = rust_decimal::Error;
+    fn try_from(value: rust_decimal::Decimal) -> Result<Self, Self::Error> {
+        rust_decimal::Decimal::from_str(&value.to_string())
+    }
+}
+*/
+/*
+struct DecimalWrapper {
+    inner: String,
+}
+impl TryInto<bigdecimal::BigDecimal> for X {
+    type Error = ParseBigDecimalError;
+
+    fn try_into(self) -> Result<bigdecimal::BigDecimal, Self::Error> {
+        bigdecimal::BigDecimal::from_str(&self.to_string())
+    }
+}
+*/
 pub fn decimal_r2b(d: &rust_decimal::Decimal) -> bigdecimal::BigDecimal {
     bigdecimal::BigDecimal::from_str(&d.to_string()).unwrap()
+}
+
+pub fn decimal_b2r(d: &bigdecimal::BigDecimal) -> rust_decimal::Decimal {
+    rust_decimal::Decimal::from_str(&d.to_string()).unwrap()
 }
 
 pub fn current_native_date_time() -> chrono::NaiveDateTime {

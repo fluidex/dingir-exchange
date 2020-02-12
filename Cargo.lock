@@ -275,6 +275,7 @@ dependencies = [
  "itertools",
  "log",
  "nix",
+ "num_enum",
  "prost",
  "prost-types",
  "rdkafka",

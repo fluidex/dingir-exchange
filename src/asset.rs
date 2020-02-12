@@ -10,14 +10,17 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use ttl_cache::TtlCache;
 
+use num_enum::TryFromPrimitive;
 use std::cell::RefCell;
 use std::collections::HashMap;
+
 use std::rc::Rc;
 use std::time::Duration;
 
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash, Copy, TryFromPrimitive)]
+#[repr(u8)]
 pub enum BalanceType {
     AVAILABLE = 1,
     FREEZE = 2,
@@ -131,6 +134,7 @@ impl BalanceManager {
     pub fn set_by_key(&mut self, key: BalanceMapKey, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prev(&key.asset));
+        log::debug!("set balance: {:?}, {}", key, amount);
         self.balances.insert(key, amount);
     }
     pub fn add(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) -> Decimal {
@@ -280,6 +284,7 @@ impl BalanceUpdateController {
                 .borrow_mut()
                 .sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
         };
+        log::debug!("change user balance: {} {} {}", user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
         if real {
             detail["id"] = serde_json::Value::from(business_id);

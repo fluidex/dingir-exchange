@@ -1,6 +1,7 @@
 use crate::asset::{BalanceManager, BalanceType};
 use crate::history::HistoryWriter;
 use crate::message::{MessageSender, OrderMessage};
+use crate::sequencer::Sequencer;
 use crate::types::{self, Deal, MarketRole, OrderEventType};
 use crate::utils;
 use crate::{config, message};
@@ -8,12 +9,15 @@ use anyhow::Result;
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
+use std::iter::Iterator;
 
-
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::cmp::{min, Ordering};
-use std::collections::{BTreeMap, HashMap};
+
+use std::collections::BTreeMap;
+
 use std::rc::Rc;
 
 #[derive(PartialEq, PartialOrd, Eq, Ord)]
@@ -40,12 +44,16 @@ impl Ord for MarketKeyBid {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+
+// TODO: store as string or int?
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[repr(u8)]
 pub enum OrderType {
     LIMIT = 1,
     MARKET = 2,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[repr(u8)]
 pub enum OrderSide {
     ASK = 1,
     BID = 2,
@@ -95,30 +103,6 @@ pub fn is_order_ask(order: &Order) -> bool {
     side == OrderSide::ASK
 }
 
-pub struct Sequencer {
-    pub order_id_start: u64,
-    pub deals_id_start: u64,
-    pub operlog_id_start: u64,
-}
-
-impl Sequencer {
-    pub fn next_order_id(&mut self) -> u64 {
-        self.order_id_start += 1;
-        self.order_id_start
-    }
-    pub fn next_deal_id(&mut self) -> u64 {
-        self.deals_id_start += 1;
-        self.deals_id_start
-    }
-    pub fn next_operlog_id(&mut self) -> u64 {
-        self.operlog_id_start += 1;
-        self.operlog_id_start
-    }
-    pub fn set_operlog_id(&mut self, id: u64) {
-        self.operlog_id_start = id;
-    }
-}
-
 pub struct Market {
     pub name: &'static str,
     pub stock: String,
@@ -128,8 +112,8 @@ pub struct Market {
     pub fee_prec: u32,
     pub min_amount: Decimal,
 
-    pub orders: HashMap<u64, OrderRc>,
-    pub users: HashMap<u32, BTreeMap<u64, OrderRc>>,
+    pub orders: BTreeMap<u64, OrderRc>,
+    pub users: BTreeMap<u32, BTreeMap<u64, OrderRc>>,
 
     pub asks: BTreeMap<MarketKeyAsk, OrderRc>,
     pub bids: BTreeMap<MarketKeyBid, OrderRc>,
@@ -212,8 +196,8 @@ impl Market {
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
             sequencer,
-            orders: HashMap::with_capacity(MAP_INIT_CAPACITY),
-            users: HashMap::with_capacity(MAP_INIT_CAPACITY),
+            orders: BTreeMap::new(), //HashMap::with_capacity(MAP_INIT_CAPACITY),
+            users: BTreeMap::new(),  //HashMap::with_capacity(MAP_INIT_CAPACITY),
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
             balance_manager: BalanceManagerWrapper { inner: balance_manager },
@@ -334,10 +318,10 @@ impl Market {
             ask_order.update_time = timestamp;
             bid_order.update_time = timestamp;
 
-            let deals_id = self.sequencer.borrow_mut().next_deal_id();
+            let deal_id = self.sequencer.borrow_mut().next_deal_id();
             if real {
                 let deal = types::Deal {
-                    id: deals_id,
+                    id: deal_id,
                     timestamp: utils::current_timestamp(),
                     market: self.name.to_string(),
                     stock: self.stock.clone(),
@@ -537,14 +521,29 @@ impl Market {
             bid_amount: self.bids.values().map(|item| item.borrow_mut().left).sum(),
         }
     }
-    pub fn depth(&self, limit: usize) -> MarketDepth {
-        MarketDepth {
-            asks: Self::group_ordebook(&self.asks, limit),
-            bids: Self::group_ordebook(&self.bids, limit),
+    pub fn depth(&self, limit: usize, interval: &Decimal) -> MarketDepth {
+        if interval.is_zero() {
+            let id_fn = |order: &Order| -> Decimal { order.price };
+            MarketDepth {
+                asks: Self::group_ordebook_by_fn(&self.asks, limit, id_fn),
+                bids: Self::group_ordebook_by_fn(&self.bids, limit, id_fn),
+            }
+        } else {
+            let ask_group_fn = |order: &Order| -> Decimal { (order.price / interval).ceil() * interval };
+            let bid_group_fn = |order: &Order| -> Decimal { (order.price / interval).floor() * interval };
+            MarketDepth {
+                asks: Self::group_ordebook_by_fn(&self.asks, limit, ask_group_fn),
+                bids: Self::group_ordebook_by_fn(&self.bids, limit, bid_group_fn),
+            }
         }
     }
+    /*
     fn group_ordebook<K>(orderbook: &BTreeMap<K, OrderRc>, limit: usize) -> Vec<PriceInfo> {
         // TODO rust language server cannot handle this ...
+        // TODO check performance
+
+        Self::group_ordebook_by_fn(orderbook, limit, id_fn)
+        /*
         orderbook
             .values()
             .map(|o| o.borrow_mut())
@@ -557,14 +556,25 @@ impl Market {
                 amount: group.map(|(_, left)| left).sum(),
             })
             .collect()
-    }
-    /*
-    fn group_ordebook_by_key<K>(orderbook: &BTreeMap<K, OrderRc>, limit: usize, key: Box<dyn Fn(&Decimal) -> Decimal>) -> Vec<PriceInfo> {
-        orderbook.values().group_by(
-            |&o| key(o.borrow_mut().price)).into_iter().take(limit)
-            .map(|k, g| PriceInfo { price: k, amount: g.sum::<Decimal>() }).collect()
+            */
     }
     */
+
+    fn group_ordebook_by_fn<K, F>(orderbook: &BTreeMap<K, OrderRc>, limit: usize, f: F) -> Vec<PriceInfo>
+    where
+        F: Fn(&Order) -> Decimal,
+    {
+        orderbook
+            .values()
+            .group_by(|order_rc| -> Decimal { f(&order_rc.borrow_mut()) })
+            .into_iter()
+            .take(limit)
+            .map(|(price, group)| PriceInfo {
+                price,
+                amount: group.map(|order_rc| order_rc.borrow_mut().left).sum(),
+            })
+            .collect::<Vec<PriceInfo>>()
+    }
 }
 
 pub struct MarketStatus {
@@ -618,6 +628,7 @@ mod tests {
     use crate::asset::AssetManager;
     use crate::history::DummyHistoryWriter;
     use crate::message::DummyMessageSender;
+    use rust_decimal_macros::*;
 
     fn get_simple_market_config() -> config::Market {
         config::Market {
@@ -666,11 +677,7 @@ mod tests {
         //let mut market = get_simple_market_with_data();
         let mut balance_manager = get_simple_balance_manager();
         init_balance(&mut balance_manager);
-        let sequencer = Rc::new(RefCell::new(Sequencer {
-            order_id_start: 0,
-            deals_id_start: 0,
-            operlog_id_start: 0,
-        }));
+        let sequencer = Rc::new(RefCell::new(Sequencer::default()));
         let balance_manager_rc = Rc::new(RefCell::new(balance_manager));
         let ask_user_id = 101;
         let mut market = Market::new(

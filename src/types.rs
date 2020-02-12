@@ -1,5 +1,6 @@
 #![macro_use]
 
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 pub type SimpleResult = anyhow::Result<()>;
@@ -17,7 +18,8 @@ macro_rules! simple_err {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[repr(u8)]
 pub enum MarketRole {
     MAKER = 1,
     TAKER = 2,
