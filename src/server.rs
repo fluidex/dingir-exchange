@@ -67,4 +67,9 @@ impl Matchengine for GrpcHandler {
         let stub = unsafe { G_STUB.as_mut().unwrap() };
         Ok(Response::new(stub.order_cancel(true, request.into_inner())?))
     }
+    // This is the only blocking call of the server
+    async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
+        let stub = unsafe { G_STUB.as_mut().unwrap() };
+        Ok(Response::new(stub.debug_reset(request.into_inner())?))
+    }
 }

@@ -14,6 +14,9 @@ service Matchengine {
 
     rpc MarketList(MarketListRequest) returns (MarketListResponse) {}
     rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
+
+    // Used only in development
+    rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
 }
 //
 message BalanceQueryRequest {
@@ -87,29 +90,27 @@ message OrderPutRequest {
     OrderSide order_side = 3;
     OrderType order_type = 4;
     string amount = 5;
-    string price = 6;
+    string price = 6; // should be empty or zero for market order
     string taker_fee = 7;
-    string maker_fee = 8; // not used in market order
-    string category = 9; // source
+    string maker_fee = 8;
 }
 
 message OrderInfo {
     uint64 id = 1;
     string market = 2;
-    string category = 3;
-    OrderType type = 4;
-    OrderSide side = 5;
-    uint32 user_id = 6;
-    double create_time = 7;
-    double update_time = 8;
-    string price = 9;
-    string amount = 10;
-    string taker_fee = 11;
-    string maker_fee = 12;
-    string left = 13;
-    string deal_stock = 14;
-    string deal_money = 15;
-    string deal_fee = 16;
+    OrderSide order_side = 3;
+    OrderType order_type = 4;
+    uint32 user_id = 5;
+    double create_time = 6;
+    double update_time = 7;
+    string price = 8;
+    string amount = 9;
+    string taker_fee = 10;
+    string maker_fee = 11;
+    string left = 12;
+    string finished_base = 13;
+    string finished_quote = 14;
+    string finished_fee = 15;
 }
 
 
@@ -177,11 +178,11 @@ message MarketListRequest {
 message MarketListResponse {
     message MarketInfo {
         string name = 1;
-        string stock = 2; // base
-        string money = 3; // quote
+        string base = 2; // base
+        string quote = 3; // quote
         uint32 fee_precision = 4;
-        uint32 stock_precision = 5;
-        uint32 money_precision = 6;
+        uint32 base_precision = 5;
+        uint32 quote_precision = 6;
         string min_amount = 7;
     }
     repeated MarketInfo markets = 1;
@@ -202,3 +203,9 @@ message MarketSummaryResponse {
     repeated MarketSummary market_summaries = 1;
 }
 
+message DebugResetRequest{
+
+}
+message DebugResetResponse{
+
+}

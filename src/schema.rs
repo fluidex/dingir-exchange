@@ -31,35 +31,34 @@ table! {
         finish_time -> Timestamp,
         user_id -> Unsigned<Integer>,
         market -> Varchar,
-        source -> Varchar,
         t -> Unsigned<Tinyint>,
         side -> Unsigned<Tinyint>,
         price -> Decimal,
         amount -> Decimal,
         taker_fee -> Decimal,
         maker_fee -> Decimal,
-        deal_stock -> Decimal,
-        deal_money -> Decimal,
-        deal_fee -> Decimal,
+        finished_base -> Decimal,
+        finished_quote -> Decimal,
+        finished_fee -> Decimal,
     }
 }
 
 table! {
-    deal_history (id) {
+    trade_history (id) {
         id -> Unsigned<Bigint>,
         time -> Timestamp,
         user_id -> Unsigned<Integer>,
         market -> Varchar,
-        deal_id -> Unsigned<Bigint>,
+        trade_id -> Unsigned<Bigint>,
         order_id -> Unsigned<Bigint>,
-        deal_order_id -> Unsigned<Bigint>,
+        counter_order_id -> Unsigned<Bigint>,
         side -> Unsigned<Tinyint>,
         role -> Unsigned<Tinyint>,
         price -> Decimal,
         amount -> Decimal,
-        deal -> Decimal,
+        quote_amount -> Decimal,
         fee -> Decimal,
-        deal_fee -> Decimal,
+        counter_order_fee -> Decimal,
     }
 }
 
@@ -70,7 +69,7 @@ table! {
         time -> Bigint,
         end_operation_log_id -> Unsigned<Bigint>,
         end_order_id -> Unsigned<Bigint>,
-        end_deal_id -> Unsigned<Bigint>,
+        end_trade_id -> Unsigned<Bigint>,
     }
 }
 
@@ -101,16 +100,16 @@ table! {
         maker_fee -> Decimal,
         left -> Decimal,
         freeze -> Decimal,
-        deal_stock -> Decimal,
-        deal_money -> Decimal,
-        deal_fee -> Decimal,
+        finished_base -> Decimal,
+        finished_quote -> Decimal,
+        finished_fee -> Decimal,
     }
 }
 
 allow_tables_to_appear_in_same_query!(
     balance_history,
     order_history,
-    deal_history,
+    trade_history,
     operation_log,
     balance_slice,
     order_slice,

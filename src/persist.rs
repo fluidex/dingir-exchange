@@ -32,47 +32,6 @@ pub fn get_last_slice(conn: &MysqlConnection) -> Option<SliceHistory> {
 }
 
 pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mut Controller) {
-    // load orders
-    let mut order_id: u64 = 0;
-    loop {
-        // least order_id is 1
-        let orders: Vec<OrderSlice> = schema::order_slice::dsl::order_slice
-            .filter(schema::order_slice::slice_id.eq(slice_id))
-            .filter(schema::order_slice::id.gt(order_id))
-            .order(schema::order_slice::id.asc())
-            .limit(database::QUERY_LIMIT)
-            .load::<OrderSlice>(conn)
-            .unwrap();
-        for order in &orders {
-            let market = controller.markets.get_mut(&order.market).unwrap();
-            let order_rc = Rc::new(RefCell::new(Order {
-                id: order.id,
-                type_0: market::OrderType::try_from(order.t).unwrap(),
-                side: market::OrderSide::try_from(order.side).unwrap(),
-                create_time: order.create_time.timestamp_millis() as f64,
-                update_time: order.update_time.timestamp_millis() as f64,
-                market: market.name,
-                source: "",
-                user: order.user_id,
-                price: decimal_b2r(&order.price),
-                amount: decimal_b2r(&order.amount),
-                taker_fee: decimal_b2r(&order.taker_fee),
-                maker_fee: decimal_b2r(&order.maker_fee),
-                left: decimal_b2r(&order.left),
-                freeze: decimal_b2r(&order.freeze),
-                deal_stock: decimal_b2r(&order.deal_stock),
-                deal_money: decimal_b2r(&order.deal_money),
-                deal_fee: decimal_b2r(&order.deal_fee),
-            }));
-            market.order_put(order_rc);
-        }
-        if let Some(last_order) = orders.last() {
-            order_id = last_order.id;
-        }
-        if orders.len() as i64 != database::QUERY_LIMIT {
-            break;
-        }
-    }
     // load balance
     let mut last_balance_id = 0;
     loop {
@@ -96,6 +55,46 @@ pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mu
             last_balance_id = slice_balance.id;
         }
         if balances.len() as i64 != database::QUERY_LIMIT {
+            break;
+        }
+    }
+    // load orders
+    let mut order_id: u64 = 0;
+    loop {
+        // least order_id is 1
+        let orders: Vec<OrderSlice> = schema::order_slice::dsl::order_slice
+            .filter(schema::order_slice::slice_id.eq(slice_id))
+            .filter(schema::order_slice::id.gt(order_id))
+            .order(schema::order_slice::id.asc())
+            .limit(database::QUERY_LIMIT)
+            .load::<OrderSlice>(conn)
+            .unwrap();
+        for order in &orders {
+            let market = controller.markets.get_mut(&order.market).unwrap();
+            let order_rc = Rc::new(RefCell::new(Order {
+                id: order.id,
+                type_: market::OrderType::try_from(order.t).unwrap(),
+                side: market::OrderSide::try_from(order.side).unwrap(),
+                create_time: order.create_time.timestamp_millis() as f64,
+                update_time: order.update_time.timestamp_millis() as f64,
+                market: market.name,
+                user: order.user_id,
+                price: decimal_b2r(&order.price),
+                amount: decimal_b2r(&order.amount),
+                taker_fee: decimal_b2r(&order.taker_fee),
+                maker_fee: decimal_b2r(&order.maker_fee),
+                left: decimal_b2r(&order.left),
+                freeze: decimal_b2r(&order.freeze),
+                finished_base: decimal_b2r(&order.finished_base),
+                finished_quote: decimal_b2r(&order.finished_quote),
+                finished_fee: decimal_b2r(&order.finished_fee),
+            }));
+            market.insert_order(order_rc);
+        }
+        if let Some(last_order) = orders.last() {
+            order_id = last_order.id;
+        }
+        if orders.len() as i64 != database::QUERY_LIMIT {
             break;
         }
     }
@@ -131,8 +130,8 @@ pub fn init_from_db(conn: &MysqlConnection, controller: &mut Controller) {
         load_slice_from_db(conn, slice.time, controller);
         end_operation_log_id = slice.end_operation_log_id;
         controller.sequencer.borrow_mut().set_order_id(slice.end_order_id);
-        controller.sequencer.borrow_mut().set_deal_id(slice.end_deal_id);
-        log::info!("set order_id and deal_id to {} {}", slice.end_order_id, slice.end_deal_id);
+        controller.sequencer.borrow_mut().set_trade_id(slice.end_trade_id);
+        log::info!("set order_id and trade_id to {} {}", slice.end_order_id, slice.end_trade_id);
     }
     load_operation_log_from_db(conn, end_operation_log_id, controller);
 }
@@ -174,7 +173,7 @@ pub fn dump_orders(conn: &MysqlConnection, slice_id: i64, controller: &Controlle
             let record = OrderSlice {
                 id: order.id,
                 slice_id,
-                t: order.type_0 as u8,
+                t: order.type_ as u8,
                 side: order.side as u8,
                 create_time: timestamp_to_chrono(order.create_time),
                 update_time: timestamp_to_chrono(order.update_time),
@@ -186,9 +185,9 @@ pub fn dump_orders(conn: &MysqlConnection, slice_id: i64, controller: &Controlle
                 maker_fee: decimal_r2b(&order.maker_fee),
                 left: decimal_r2b(&order.left),
                 freeze: decimal_r2b(&order.freeze),
-                deal_stock: decimal_r2b(&order.deal_stock),
-                deal_money: decimal_r2b(&order.deal_money),
-                deal_fee: decimal_r2b(&order.deal_fee),
+                finished_base: decimal_r2b(&order.finished_base),
+                finished_quote: decimal_r2b(&order.finished_quote),
+                finished_fee: decimal_r2b(&order.finished_fee),
             };
             log::debug!("inserting order {:?}", record);
             records.push(record);
@@ -218,7 +217,7 @@ pub fn update_slice_history(conn: &MysqlConnection, slice_id: i64, controller: &
         time: slice_id,
         end_operation_log_id: sequencer.get_operation_log_id(),
         end_order_id: sequencer.get_order_id(),
-        end_deal_id: sequencer.get_deal_id(),
+        end_trade_id: sequencer.get_trade_id(),
     };
     diesel::insert_into(schema::slice_history::table)
         .values(slice_history)
@@ -286,8 +285,7 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
 
     // Now we are in the child process
     if let Err(e) = make_slice() {
-        log::error!("make slice error {}", e);
-        println!("make slice error {}", e);
+        log::error!("make slice error {:?}", e);
         std::process::exit(1);
     }
     log::logger().flush();
@@ -311,7 +309,7 @@ pub fn on_timer() {
 pub fn init_persist_timer() {
     //let duration = std::time::Duration::from_millis(3600 * 1000);
 
-    let duration = std::time::Duration::from_millis(10 * 1000);
+    let duration = std::time::Duration::from_millis(3600 * 1000);
     let mut ticker_dump = tokio::time::interval(duration);
     // use spawn_local here will block the network thread
     tokio::spawn(async move {

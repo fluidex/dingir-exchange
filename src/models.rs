@@ -2,7 +2,7 @@
 #![allow(clippy::single_component_path_imports)]
 
 use crate::schema::operation_log;
-use crate::schema::{balance_history, deal_history, order_history};
+use crate::schema::{balance_history, order_history, trade_history};
 use crate::schema::{balance_slice, order_slice, slice_history};
 //use rust_decimal::Decimal;
 
@@ -32,7 +32,6 @@ pub struct OrderHistory {
     pub finish_time: TimestampDbType,
     pub user_id: u32,
     pub market: String,
-    pub source: String,
     // Type enum: MARKET or LIMIT
     pub t: u8,
     pub side: u8,
@@ -40,27 +39,27 @@ pub struct OrderHistory {
     pub amount: DecimalDbType,
     pub taker_fee: DecimalDbType,
     pub maker_fee: DecimalDbType,
-    pub deal_stock: DecimalDbType,
-    pub deal_money: DecimalDbType,
-    pub deal_fee: DecimalDbType,
+    pub finished_base: DecimalDbType,
+    pub finished_quote: DecimalDbType,
+    pub finished_fee: DecimalDbType,
 }
 
 #[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "deal_history"]
-pub struct DealHistory {
+#[table_name = "trade_history"]
+pub struct TradeHistory {
     pub time: TimestampDbType,
     pub user_id: u32,
     pub market: String,
-    pub deal_id: u64,
+    pub trade_id: u64,
     pub order_id: u64,
-    pub deal_order_id: u64,
+    pub counter_order_id: u64,
     pub side: u8,
     pub role: u8,
     pub price: DecimalDbType,
     pub amount: DecimalDbType,
-    pub deal: DecimalDbType,
+    pub quote_amount: DecimalDbType,
     pub fee: DecimalDbType,
-    pub deal_fee: DecimalDbType,
+    pub counter_order_fee: DecimalDbType,
 }
 
 // Can the following struct be auto generated in diesel?
@@ -115,9 +114,9 @@ pub struct OrderSlice {
     pub maker_fee: DecimalDbType,
     pub left: DecimalDbType,
     pub freeze: DecimalDbType,
-    pub deal_stock: DecimalDbType,
-    pub deal_money: DecimalDbType,
-    pub deal_fee: DecimalDbType,
+    pub finished_base: DecimalDbType,
+    pub finished_quote: DecimalDbType,
+    pub finished_fee: DecimalDbType,
 }
 
 // xx_id here means the last persisted entry id
@@ -128,5 +127,5 @@ pub struct SliceHistory {
     pub time: i64,
     pub end_operation_log_id: u64,
     pub end_order_id: u64,
-    pub end_deal_id: u64,
+    pub end_trade_id: u64,
 }

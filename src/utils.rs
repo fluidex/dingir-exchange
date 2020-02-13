@@ -11,8 +11,9 @@ pub fn current_timestamp() -> f64 {
 }
 
 pub fn timestamp_to_chrono(t: f64) -> chrono::NaiveDateTime {
-    let sec = t as i64;
-    let ns = ((t - sec as f64) * 1e9) as u32;
+    let sec_f = t; // / 1000_f64;
+    let sec = sec_f as i64;
+    let ns = ((sec_f - sec as f64) * 1e9) as u32;
     chrono::NaiveDateTime::from_timestamp(sec, ns)
 }
 

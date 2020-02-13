@@ -28,10 +28,10 @@ assets:
     prec_show: 8
 markets:
   - name: ETH/BTC
-    stock:
+    base:
       name: ETH
       prec: 8
-    money:
+    quote:
       name: BTC
       prec: 8
     min_amount: '0.001'

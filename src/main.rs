@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 //#![allow(unused_imports)]
-//#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::collapsible_if)]
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 

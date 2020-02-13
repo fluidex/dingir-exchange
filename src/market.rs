@@ -2,7 +2,7 @@ use crate::asset::{BalanceManager, BalanceType};
 use crate::history::HistoryWriter;
 use crate::message::{MessageSender, OrderMessage};
 use crate::sequencer::Sequencer;
-use crate::types::{self, Deal, MarketRole, OrderEventType};
+use crate::types::{self, MarketRole, OrderEventType, Trade};
 use crate::utils;
 use crate::{config, message};
 use anyhow::Result;
@@ -49,23 +49,22 @@ impl Ord for MarketKeyBid {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OrderType {
-    LIMIT = 1,
-    MARKET = 2,
+    LIMIT,
+    MARKET,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OrderSide {
-    ASK = 1,
-    BID = 2,
+    ASK,
+    BID,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Order {
     pub id: u64,
     pub market: &'static str,
-    pub source: &'static str,
     #[serde(rename = "type")]
-    pub type_0: OrderType, // enum
+    pub type_: OrderType, // enum
     pub side: OrderSide,
     pub user: u32,
     pub create_time: f64,
@@ -76,19 +75,19 @@ pub struct Order {
     pub maker_fee: Decimal,
     pub left: Decimal,
     pub freeze: Decimal,
-    pub deal_stock: Decimal,
-    pub deal_money: Decimal,
-    pub deal_fee: Decimal,
+    pub finished_base: Decimal,
+    pub finished_quote: Decimal,
+    pub finished_fee: Decimal,
 }
 
 impl Order {
-    pub fn to_ask_key(&self) -> MarketKeyAsk {
+    pub fn get_ask_key(&self) -> MarketKeyAsk {
         MarketKeyAsk {
             order_price: self.price,
             order_id: self.id,
         }
     }
-    pub fn to_bid_key(&self) -> MarketKeyBid {
+    pub fn get_bid_key(&self) -> MarketKeyBid {
         MarketKeyBid {
             order_price: self.price,
             order_id: self.id,
@@ -105,10 +104,10 @@ pub fn is_order_ask(order: &Order) -> bool {
 
 pub struct Market {
     pub name: &'static str,
-    pub stock: String,
-    pub money: String,
-    pub stock_prec: u32,
-    pub money_prec: u32,
+    pub base: String,
+    pub quote: String,
+    pub base_prec: u32,
+    pub quote_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
 
@@ -142,8 +141,8 @@ impl MessageSenderWrapper {
     pub fn push_order_message(&self, message: &OrderMessage) {
         self.inner.borrow_mut().push_order_message(message).unwrap()
     }
-    pub fn push_deal_message(&self, message: &Deal) {
-        self.inner.borrow_mut().push_deal_message(message).unwrap()
+    pub fn push_trade_message(&self, message: &Trade) {
+        self.inner.borrow_mut().push_trade_message(message).unwrap()
     }
 }
 
@@ -168,7 +167,8 @@ impl BalanceManagerWrapper {
         self.inner.borrow_mut().unfreeze(user_id, asset, amount)
     }
 }
-
+// TODO: is it ok to match with oneself's order?
+// TODO: precision
 impl Market {
     pub fn new(
         market_conf: &config::Market,
@@ -177,27 +177,27 @@ impl Market {
         history_writer: Rc<RefCell<dyn HistoryWriter>>,
         message_sender: Rc<RefCell<dyn MessageSender>>,
     ) -> Result<Market> {
-        if !asset_exist(&market_conf.money.name) || !asset_exist(&market_conf.stock.name) {
-            return simple_err!("invalid assert name {} {}", market_conf.money.name, market_conf.stock.name);
+        if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
+            return simple_err!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name);
         }
-        if market_conf.stock.prec + market_conf.money.prec > asset_prec(&market_conf.money.name)
-            || market_conf.stock.prec + market_conf.fee_prec > asset_prec(&market_conf.stock.name)
-            || market_conf.money.prec + market_conf.fee_prec > asset_prec(&market_conf.money.name)
+        if market_conf.base.prec + market_conf.quote.prec > asset_prec(&market_conf.quote.name)
+            || market_conf.base.prec + market_conf.fee_prec > asset_prec(&market_conf.base.name)
+            || market_conf.quote.prec + market_conf.fee_prec > asset_prec(&market_conf.quote.name)
         {
             return simple_err!("invalid precision");
         }
 
         let market = Market {
             name: Box::leak(market_conf.name.clone().into_boxed_str()),
-            stock: market_conf.stock.name.clone(),
-            money: market_conf.money.name.clone(),
-            stock_prec: market_conf.stock.prec,
-            money_prec: market_conf.money.prec,
+            base: market_conf.base.name.clone(),
+            quote: market_conf.quote.name.clone(),
+            base_prec: market_conf.base.prec,
+            quote_prec: market_conf.quote.prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
             sequencer,
-            orders: BTreeMap::new(), //HashMap::with_capacity(MAP_INIT_CAPACITY),
-            users: BTreeMap::new(),  //HashMap::with_capacity(MAP_INIT_CAPACITY),
+            orders: BTreeMap::new(),
+            users: BTreeMap::new(),
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
             balance_manager: BalanceManagerWrapper { inner: balance_manager },
@@ -206,8 +206,15 @@ impl Market {
         };
         Ok(market)
     }
+    pub fn reset(&mut self) {
+        self.bids.clear();
+        self.asks.clear();
+        self.users.clear();
+        self.orders.clear();
+    }
     pub fn freeze_balance(&self, order: &Order) {
-        let asset = if is_order_ask(order) { &self.stock } else { &self.money };
+        let asset = if is_order_ask(order) { &self.base } else { &self.quote };
+
         self.balance_manager.balance_freeze(order.user, asset, &order.freeze);
     }
     pub fn unfreeze_balance(&self, order: &Order) {
@@ -215,17 +222,17 @@ impl Market {
         if order.left.is_zero() {
             return;
         }
-        let asset = if is_order_ask(&order) { &self.stock } else { &self.money };
+        let asset = if is_order_ask(&order) { &self.base } else { &self.quote };
         self.balance_manager.balance_unfreeze(order.user, asset, &order.freeze);
     }
-    pub fn order_put(&mut self, order_rc: OrderRc) {
+    pub fn insert_order(&mut self, order_rc: OrderRc) -> Order {
         let mut order = order_rc.borrow_mut();
         if order.side == OrderSide::ASK {
             order.freeze = order.left;
         } else {
             order.freeze = order.left * order.price;
         }
-        debug_assert_eq!(order.type_0, OrderType::LIMIT);
+        debug_assert_eq!(order.type_, OrderType::LIMIT);
         debug_assert!(!self.orders.contains_key(&order.id));
         //println!("order insert {}", &order.id);
         self.orders.insert(order.id.clone(), order_rc.clone());
@@ -233,24 +240,24 @@ impl Market {
         debug_assert!(!user_map.contains_key(&order.id));
         user_map.insert(order.id.clone(), order_rc.clone());
         if order.side == OrderSide::ASK {
-            let key = order.to_ask_key();
+            let key = order.get_ask_key();
             debug_assert!(!self.asks.contains_key(&key));
             self.asks.insert(key, order_rc.clone());
         } else {
-            let key = order.to_bid_key();
+            let key = order.get_bid_key();
             debug_assert!(!self.bids.contains_key(&key));
             self.bids.insert(key, order_rc.clone());
         }
-        self.freeze_balance(&order);
+        *order
     }
 
     fn order_finish(&mut self, real: bool, order: &Order) {
         if order.side == OrderSide::ASK {
-            let key = &order.to_ask_key();
+            let key = &order.get_ask_key();
             debug_assert!(self.asks.contains_key(key));
             self.asks.remove(key);
         } else {
-            let key = &order.to_bid_key();
+            let key = &order.get_bid_key();
             debug_assert!(self.bids.contains_key(key));
             self.bids.remove(key);
         }
@@ -264,71 +271,93 @@ impl Market {
 
         if real {
             // TODO need this if??
-            if order.deal_stock.is_sign_positive() {
+            if order.finished_base.is_sign_positive() {
                 self.history_writer.borrow_mut().append_order_history(&order);
             }
             let order_message = OrderMessage {
                 event: OrderEventType::FINISH,
                 order: *order,
-                stock: self.stock.clone(),
-                money: self.money.clone(),
+                base: self.base.clone(),
+                quote: self.quote.clone(),
             };
             self.message_sender.push_order_message(&order_message);
         }
     }
 
-    pub fn execute_limit_order(&mut self, real: bool, taker: OrderRc) {
+    // the last parameter `quote_limit`, is only used for market bid order,
+    // it indicates the `quote` balance of the user,
+    // so the sum of all the trades' quote amount cannot exceed this value
+    pub fn execute_order(&mut self, real: bool, taker: OrderRc, quote_limit: &Decimal) {
         let taker_is_ask = taker.borrow_mut().side == OrderSide::ASK;
-        let _taker_is_bid = !taker_is_ask;
+        let taker_is_bid = !taker_is_ask;
         let maker_is_bid = taker_is_ask;
         let maker_is_ask = !maker_is_bid;
+        let is_limit_order = taker.borrow_mut().type_ == OrderType::LIMIT;
+        let is_market_order = !is_limit_order;
+        //let mut quote_available = *quote_limit;
+        let mut quote_sum = Decimal::zero();
 
         let mut finished_orders = Vec::new();
 
-        let iter: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
+        let counter_orders: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
             Box::new(self.bids.values_mut())
         } else {
             Box::new(self.asks.values_mut())
         };
-        for maker in iter {
-            if taker.borrow_mut().left.is_zero() {
+        for maker in counter_orders {
+            let taker_mut = taker.borrow_mut();
+            let maker_mut = maker.borrow_mut();
+            if taker_mut.left.is_zero() {
                 break;
             }
             let (ask_fee_rate, bid_fee_rate) = if taker_is_ask {
-                (taker.borrow_mut().taker_fee, maker.borrow_mut().maker_fee)
+                (taker_mut.taker_fee, maker_mut.maker_fee)
             } else {
-                (maker.borrow_mut().maker_fee, taker.borrow_mut().taker_fee)
+                (maker_mut.maker_fee, taker_mut.taker_fee)
             };
-            let taker_mut = taker.borrow_mut();
-            let maker_mut = maker.borrow_mut();
             let price = maker_mut.price;
             let (mut ask_order, mut bid_order) = if taker_is_ask {
                 (taker_mut, maker_mut)
             } else {
                 (maker_mut, taker_mut)
             };
-            if ask_order.price.gt(&bid_order.price) {
+            if is_limit_order && ask_order.price.gt(&bid_order.price) {
                 break;
             }
-            let amount = min(ask_order.left, bid_order.left);
-            let deal = price * amount;
-            let ask_fee = deal * ask_fee_rate;
-            let bid_fee = amount * bid_fee_rate;
+            let traded_base_amount = min(ask_order.left, bid_order.left);
+            let traded_quote_amount = price * traded_base_amount;
+
+            quote_sum += traded_quote_amount;
+            if taker_is_bid && is_market_order {
+                if quote_sum.gt(quote_limit) {
+                    // Now user has not enough balance, stop here.
+                    // Notice: another approach here is to divide left quote by price to get a base amount
+                    // to be traded, then all `quote_limit` will be consumed.
+                    // But division is prone to bugs in financial decimal calculation,
+                    // so we will not adapt tis method.
+                    break;
+                }
+            }
+
+            let ask_fee = traded_quote_amount * ask_fee_rate;
+            let bid_fee = traded_base_amount * bid_fee_rate;
+
             let timestamp = utils::current_timestamp();
             ask_order.update_time = timestamp;
             bid_order.update_time = timestamp;
 
-            let deal_id = self.sequencer.borrow_mut().next_deal_id();
             if real {
-                let deal = types::Deal {
-                    id: deal_id,
+                // emit the trade
+                let trade_id = self.sequencer.borrow_mut().next_trade_id();
+                let trade = types::Trade {
+                    id: trade_id,
                     timestamp: utils::current_timestamp(),
                     market: self.name.to_string(),
-                    stock: self.stock.clone(),
-                    money: self.money.clone(),
+                    base: self.base.clone(),
+                    quote: self.quote.clone(),
                     price,
-                    amount,
-                    deal,
+                    amount: traded_base_amount,
+                    quote_amount: traded_quote_amount,
                     ask_user_id: ask_order.user,
                     ask_order_id: ask_order.id,
                     ask_role: if taker_is_ask { MarketRole::TAKER } else { MarketRole::MAKER },
@@ -338,27 +367,28 @@ impl Market {
                     bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
                     bid_fee,
                 };
-                self.history_writer.borrow_mut().append_deal_history(&deal);
-                self.message_sender.push_deal_message(&deal);
+                self.history_writer.borrow_mut().append_trade_history(&trade);
+                self.message_sender.push_trade_message(&trade);
             }
-            ask_order.left -= amount;
-            bid_order.left -= amount;
-            ask_order.deal_stock += amount;
-            bid_order.deal_stock += amount;
-            ask_order.deal_money += deal;
-            bid_order.deal_money += deal;
-            ask_order.deal_fee += ask_fee;
-            bid_order.deal_fee += bid_fee;
+            ask_order.left -= traded_base_amount;
+            bid_order.left -= traded_base_amount;
+            ask_order.finished_base += traded_base_amount;
+            bid_order.finished_base += traded_base_amount;
+            ask_order.finished_quote += traded_quote_amount;
+            bid_order.finished_quote += traded_quote_amount;
+            ask_order.finished_fee += ask_fee;
+            bid_order.finished_fee += bid_fee;
 
+            // TODO: change balance should emit a balance update history/event
             // handle maker balance
             let _balance_type = if maker_is_bid {
                 BalanceType::FREEZE
             } else {
                 BalanceType::AVAILABLE
             };
-            // handle stock
+            // handle base
             self.balance_manager
-                .balance_add(bid_order.user, BalanceType::AVAILABLE, &self.stock, &amount);
+                .balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
             self.balance_manager.balance_sub(
                 ask_order.user,
                 if maker_is_ask {
@@ -366,12 +396,12 @@ impl Market {
                 } else {
                     BalanceType::AVAILABLE
                 },
-                &self.stock,
-                &amount,
+                &self.base,
+                &traded_base_amount,
             );
-            // handle money
+            // handle quote
             self.balance_manager
-                .balance_add(ask_order.user, BalanceType::AVAILABLE, &self.money, &deal);
+                .balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
             self.balance_manager.balance_sub(
                 bid_order.user,
                 if maker_is_bid {
@@ -379,17 +409,17 @@ impl Market {
                 } else {
                     BalanceType::AVAILABLE
                 },
-                &self.money,
-                &deal,
+                &self.quote,
+                &traded_quote_amount,
             );
 
             if ask_fee.is_sign_positive() {
                 self.balance_manager
-                    .balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.money, &ask_fee);
+                    .balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
             }
             if bid_fee.is_sign_positive() {
                 self.balance_manager
-                    .balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.stock, &bid_fee);
+                    .balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
             }
 
             let (mut _taker_mut, mut maker_mut) = if taker_is_ask {
@@ -397,7 +427,7 @@ impl Market {
             } else {
                 (bid_order, ask_order)
             };
-            maker_mut.freeze -= if maker_is_bid { deal } else { amount };
+            maker_mut.freeze -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
 
             let maker_finished = maker_mut.left.is_zero();
             if maker_finished {
@@ -409,8 +439,8 @@ impl Market {
                 let order_message = message::OrderMessage {
                     event: OrderEventType::UPDATE,
                     order: *maker_mut,
-                    stock: self.stock.clone(),
-                    money: self.money.clone(),
+                    base: self.base.clone(),
+                    quote: self.quote.clone(),
                 };
                 self.message_sender.push_order_message(&order_message);
             }
@@ -421,11 +451,26 @@ impl Market {
         }
     }
 
-    pub fn market_put_limit_order(&mut self, real: bool, order_input: &LimitOrderInput) -> Result<Order> {
+    pub fn put_order(&mut self, real: bool, order_input: &OrderInput) -> Result<Order> {
+        if order_input.amount.lt(&self.min_amount) {
+            return simple_err!("invalid amount");
+        }
+        if order_input.type_ == OrderType::MARKET {
+            if !order_input.price.is_zero() {
+                return simple_err!("market order should not have a price");
+            }
+            if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
+                return simple_err!("no counter orders");
+            }
+        } else {
+            if order_input.price.is_zero() {
+                return simple_err!("invalid price for limit order");
+            }
+        }
         if order_input.side == OrderSide::ASK {
             if self
                 .balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.stock)
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
                 .lt(&order_input.amount)
             {
                 return simple_err!("balance not enough");
@@ -433,24 +478,45 @@ impl Market {
         } else {
             let balance = self
                 .balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.money);
-            if balance.lt(&(order_input.amount * order_input.price)) {
-                return simple_err!("balance not enough");
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+
+            if order_input.type_ == OrderType::LIMIT {
+                if balance.lt(&(order_input.amount * order_input.price)) {
+                    return simple_err!(
+                        "balance not enough: balance({}) < amount({}) * price({})",
+                        &balance,
+                        &order_input.amount,
+                        &order_input.price
+                    );
+                }
+            } else {
+                // We have already checked that counter order book is not empty,
+                // so `unwrap` here is safe.
+                // Here we only make a minimum balance check against the top of the counter order book.
+                // After the check, balance may still be not enough, then the left part of the order
+                // will be marked as `canceled(finished)`.
+                let top_counter_order_price = self.asks.values().next().unwrap().borrow_mut().price;
+                if balance.lt(&(order_input.amount * top_counter_order_price)) {
+                    return simple_err!("balance not enough");
+                }
             }
         }
-        if order_input.amount.lt(&self.min_amount) {
-            return simple_err!("invalid amount");
-        }
+        let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
+            self.balance_manager
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote)
+        } else {
+            // not used
+            Decimal::zero()
+        };
 
         let t = utils::current_timestamp();
         let order_rc = Rc::new(RefCell::new(Order {
             id: self.sequencer.borrow_mut().next_order_id(),
-            type_0: OrderType::LIMIT,
+            type_: order_input.type_,
             side: order_input.side,
             create_time: t,
             update_time: t,
             market: &self.name,
-            source: "",
             user: order_input.user_id,
             price: order_input.price,
             amount: order_input.amount,
@@ -458,34 +524,35 @@ impl Market {
             maker_fee: order_input.maker_fee,
             left: order_input.amount,
             freeze: Decimal::zero(),
-            deal_stock: Decimal::zero(),
-            deal_money: Decimal::zero(),
-            deal_fee: Decimal::zero(),
+            finished_base: Decimal::zero(),
+            finished_quote: Decimal::zero(),
+            finished_fee: Decimal::zero(),
         }));
-        self.execute_limit_order(real, order_rc.clone());
-        let order = *order_rc.borrow_mut();
-        if order.left.is_zero() {
+        self.execute_order(real, order_rc.clone(), &quote_limit);
+        let mut order = *order_rc.borrow_mut();
+        if order.type_ == OrderType::LIMIT && !order.left.is_zero() {
+            if real {
+                let order_message = OrderMessage {
+                    event: OrderEventType::PUT,
+                    order,
+                    base: self.base.clone(),
+                    quote: self.quote.clone(),
+                };
+                self.message_sender.push_order_message(&order_message);
+            }
+            order = self.insert_order(order_rc);
+            self.freeze_balance(&order);
+        } else {
             if real {
                 self.history_writer.borrow_mut().append_order_history(&order);
                 let order_message = OrderMessage {
                     event: OrderEventType::FINISH,
                     order,
-                    stock: self.stock.clone(),
-                    money: self.money.clone(),
+                    base: self.base.clone(),
+                    quote: self.quote.clone(),
                 };
                 self.message_sender.push_order_message(&order_message);
             }
-        } else {
-            if real {
-                let order_message = OrderMessage {
-                    event: OrderEventType::PUT,
-                    order,
-                    stock: self.stock.clone(),
-                    money: self.money.clone(),
-                };
-                self.message_sender.push_order_message(&order_message);
-            }
-            self.order_put(order_rc);
         }
         Ok(order)
     }
@@ -537,28 +604,6 @@ impl Market {
             }
         }
     }
-    /*
-    fn group_ordebook<K>(orderbook: &BTreeMap<K, OrderRc>, limit: usize) -> Vec<PriceInfo> {
-        // TODO rust language server cannot handle this ...
-        // TODO check performance
-
-        Self::group_ordebook_by_fn(orderbook, limit, id_fn)
-        /*
-        orderbook
-            .values()
-            .map(|o| o.borrow_mut())
-            .map(|o| (o.price, o.left))
-            .group_by(|(price, _)| *price)
-            .into_iter()
-            .take(limit)
-            .map(|(price, group)| PriceInfo {
-                price,
-                amount: group.map(|(_, left)| left).sum(),
-            })
-            .collect()
-            */
-    }
-    */
 
     fn group_ordebook_by_fn<K, F>(orderbook: &BTreeMap<K, OrderRc>, limit: usize, f: F) -> Vec<PriceInfo>
     where
@@ -594,14 +639,14 @@ pub struct MarketDepth {
     pub bids: Vec<PriceInfo>,
 }
 
-pub struct LimitOrderInput {
+pub struct OrderInput {
     pub user_id: u32,
     pub side: OrderSide,
+    pub type_: OrderType,
     pub amount: Decimal,
     pub price: Decimal,
     pub taker_fee: Decimal, // FIXME fee should be determined inside engine rather than take from input
     pub maker_fee: Decimal,
-    pub source: String,
     pub market: String,
 }
 
@@ -633,8 +678,8 @@ mod tests {
     fn get_simple_market_config() -> config::Market {
         config::Market {
             name: String::from("eth/btc"),
-            stock: config::MarketUnit { name: eth(), prec: 6 },
-            money: config::MarketUnit { name: btc(), prec: 4 },
+            base: config::MarketUnit { name: eth(), prec: 6 },
+            quote: config::MarketUnit { name: btc(), prec: 4 },
             fee_prec: 3,
             min_amount: dec!(0.01),
         }
@@ -688,46 +733,46 @@ mod tests {
             Rc::new(RefCell::new(DummyMessageSender)),
         )
         .unwrap();
-        let ask_order_input = LimitOrderInput {
+        let ask_order_input = OrderInput {
             user_id: ask_user_id,
             side: OrderSide::ASK,
+            type_: OrderType::LIMIT,
             amount: dec!(20.0),
             price: dec!(0.1),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
-            source: String::from(""),
             market: market.name.to_string(),
         };
-        let ask_order = market.market_put_limit_order(false, &ask_order_input).unwrap();
+        let ask_order = market.put_order(false, &ask_order_input).unwrap();
         assert_eq!(ask_order.id, 1);
         assert_eq!(ask_order.left, dec!(20.0));
 
         let bid_user_id = 102;
-        let bid_order_input = LimitOrderInput {
+        let bid_order_input = OrderInput {
             user_id: bid_user_id,
             side: OrderSide::BID,
+            type_: OrderType::MARKET,
             amount: dec!(10.0),
-            price: dec!(0.11),
+            price: dec!(0),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
-            source: String::from(""),
             market: market.name.to_string(),
         };
-        let bid_order = market.market_put_limit_order(false, &bid_order_input).unwrap();
-        // deal: price: 0.10 amount: 10
+        let bid_order = market.put_order(false, &bid_order_input).unwrap();
+        // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
         assert_eq!(bid_order.left, dec!(0));
-        assert_eq!(bid_order.deal_money, dec!(1));
-        assert_eq!(bid_order.deal_stock, dec!(10));
-        assert_eq!(bid_order.deal_fee, dec!(0.01));
+        assert_eq!(bid_order.finished_quote, dec!(1));
+        assert_eq!(bid_order.finished_base, dec!(10));
+        assert_eq!(bid_order.finished_fee, dec!(0.01));
 
         //market.print();
 
         let ask_order = market.get(ask_order.id).unwrap();
         assert_eq!(ask_order.left, dec!(10));
-        assert_eq!(ask_order.deal_money, dec!(1));
-        assert_eq!(ask_order.deal_stock, dec!(10));
-        assert_eq!(ask_order.deal_fee, dec!(0.001));
+        assert_eq!(ask_order.finished_quote, dec!(1));
+        assert_eq!(ask_order.finished_base, dec!(10));
+        assert_eq!(ask_order.finished_fee, dec!(0.001));
 
         // original balance: btc 300, eth 1000
         let balance_manager = balance_manager_rc.borrow_mut();

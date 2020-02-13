@@ -11,6 +11,7 @@ use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
 use crate::models;
+use crate::schema;
 use crate::types::SimpleResult;
 
 use crate::dto::*;
@@ -23,6 +24,7 @@ use crate::history::DatabaseHistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
+use diesel::{Connection, MysqlConnection, RunQueryDsl};
 use serde::Serialize;
 use std::str::FromStr;
 
@@ -39,6 +41,7 @@ pub struct Controller {
 const ORDER_LIST_MAX_LEN: usize = 100;
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
+const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
@@ -87,7 +90,7 @@ impl Controller {
         }
     }
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
-        let reply = AssetListResponse {
+        let result = AssetListResponse {
             asset_lists: self
                 .settings
                 .assets
@@ -98,7 +101,7 @@ impl Controller {
                 })
                 .collect(),
         };
-        Ok(reply)
+        Ok(result)
     }
     pub fn balance_query(&self, req: BalanceQueryRequest) -> Result<BalanceQueryResponse, Status> {
         let all_asset_param_valid = req
@@ -210,11 +213,11 @@ impl Controller {
             .iter()
             .map(|market| market_list_response::MarketInfo {
                 name: market.name.clone(),
-                stock: market.stock.name.clone(),
-                money: market.money.name.clone(),
+                base: market.base.name.clone(),
+                quote: market.quote.name.clone(),
                 fee_precision: market.fee_prec,
-                stock_precision: market.stock.prec,
-                money_precision: market.money.prec,
+                base_precision: market.base.prec,
+                quote_precision: market.quote.prec,
                 min_amount: market.min_amount.to_string(),
             })
             .collect();
@@ -279,18 +282,17 @@ impl Controller {
     }
 
     pub fn order_put(&mut self, real: bool, req: OrderPutRequest) -> Result<OrderInfo, Status> {
-        if req.order_type == OrderType::Market as i32 {
-            return Err(Status::unimplemented("market order"));
-        }
-        // TODO is there a better method
-        let order_input = order_input_from_proto(req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
+        let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
         let order = self
             .markets
             .get_mut(&order_input.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?
-            .market_put_limit_order(real, &order_input)
-            .map_err(|e| Status::internal(format!("{:?}", e)))?;
+            .put_order(real, &order_input)
+            .map_err(|e| Status::unknown(format!("{}", e)))?;
+        if real {
+            self.append_operation_log(OPERATION_ORDER_PUT, &req);
+        }
         Ok(order_to_proto(&order))
     }
 
@@ -312,6 +314,30 @@ impl Controller {
         Ok(order_to_proto(&order))
     }
 
+    pub fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
+        (|| -> anyhow::Result<()> {
+            self.sequencer.borrow_mut().reset();
+            for market in self.markets.values_mut() {
+                market.reset();
+            }
+            //self.log_handler.reset();
+            self.update_controller.borrow_mut().reset();
+            self.balance_manager.borrow_mut().reset();
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let connection = MysqlConnection::establish(&self.settings.db_log)?;
+            diesel::delete(schema::order_slice::table).execute(&connection)?;
+            diesel::delete(schema::balance_slice::table).execute(&connection)?;
+            diesel::delete(schema::slice_history::table).execute(&connection)?;
+            diesel::delete(schema::operation_log::table).execute(&connection)?;
+            diesel::delete(schema::order_history::table).execute(&connection)?;
+            diesel::delete(schema::trade_history::table).execute(&connection)?;
+            diesel::delete(schema::balance_history::table).execute(&connection)?;
+            Ok(())
+        })()
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        Ok(DebugResetResponse {})
+    }
+
     // reload 1000 in batch and replay
     pub fn replay(&mut self, method: &str, params: &str) -> SimpleResult {
         match method {
@@ -320,6 +346,9 @@ impl Controller {
             }
             OPERATION_ORDER_CANCEL => {
                 self.order_cancel(false, serde_json::from_str(params)?)?;
+            }
+            OPERATION_ORDER_PUT => {
+                self.order_put(false, serde_json::from_str(params)?)?;
             }
             _ => return simple_err!("invalid operation {}", method),
         }

@@ -26,15 +26,15 @@ pub enum MarketRole {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Deal {
+pub struct Trade {
     pub id: u64,
     pub timestamp: f64, // unix epoch timestamp,
     pub market: String,
-    pub stock: String,
-    pub money: String,
+    pub base: String,
+    pub quote: String,
     pub price: rust_decimal::Decimal,
     pub amount: rust_decimal::Decimal,
-    pub deal: rust_decimal::Decimal,
+    pub quote_amount: rust_decimal::Decimal,
 
     pub ask_user_id: u32,
     pub ask_order_id: u64,

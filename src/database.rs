@@ -194,6 +194,7 @@ where
             pending_count: self.sender.len(),
         }
     }
+    pub fn reset(&mut self) {}
 }
 
 pub fn check_sql_conn(conn_str: &str) -> SimpleResult {

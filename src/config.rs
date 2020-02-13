@@ -2,6 +2,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+// TODO: remove default?
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MysqlCfg {
@@ -45,8 +47,8 @@ pub struct MarketUnit {
 #[serde(default)]
 pub struct Market {
     pub name: String,
-    pub stock: MarketUnit,
-    pub money: MarketUnit,
+    pub base: MarketUnit,
+    pub quote: MarketUnit,
     pub fee_prec: u32,
     pub min_amount: Decimal,
 }
@@ -66,8 +68,8 @@ impl Default for Market {
             name: "".to_string(),
             fee_prec: 4,
             min_amount: Decimal::from_str("0.01").unwrap(),
-            stock: Default::default(),
-            money: Default::default(),
+            base: Default::default(),
+            quote: Default::default(),
         }
     }
 }

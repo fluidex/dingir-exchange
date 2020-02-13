@@ -95,6 +95,9 @@ impl BalanceManager {
             balances: HashMap::new(),
         })
     }
+    pub fn reset(&mut self) {
+        self.balances.clear()
+    }
     pub fn get(&self, user_id: u32, balance_type: BalanceType, asset: &str) -> Decimal {
         self.get_by_key(&BalanceMapKey {
             user_id,
@@ -247,6 +250,9 @@ impl BalanceUpdateController {
             message_sender,
             history_writer,
         }
+    }
+    pub fn reset(&mut self) {
+        self.cache.clear()
     }
     pub fn on_timer(&mut self) {
         self.cache.clear()

@@ -23,9 +23,9 @@ CREATE TABLE `order_slice` (
     `maker_fee`     DECIMAL(30,4) NOT NULL,
     `left`          DECIMAL(30,8) NOT NULL,
     `freeze`        DECIMAL(30,8) NOT NULL,
-    `deal_stock`    DECIMAL(30,8) NOT NULL,
-    `deal_money`    DECIMAL(30,16) NOT NULL,
-    `deal_fee`      DECIMAL(30,12) NOT NULL,
+    `finished_base`    DECIMAL(30,8) NOT NULL,
+    `finished_quote`    DECIMAL(30,16) NOT NULL,
+    `finished_fee`      DECIMAL(30,12) NOT NULL,
      PRIMARY KEY(slice_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -34,7 +34,7 @@ CREATE TABLE `slice_history` (
     `time`          BIGINT NOT NULL,
     `end_operation_log_id`   BIGINT UNSIGNED NOT NULL,
     `end_order_id`  BIGINT UNSIGNED NOT NULL,
-    `end_deal_id`  BIGINT UNSIGNED NOT NULL
+    `end_trade_id`  BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `operation_log` (

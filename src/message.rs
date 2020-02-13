@@ -1,5 +1,5 @@
 use crate::market::Order;
-use crate::types::{Deal, OrderEventType, SimpleResult};
+use crate::types::{OrderEventType, SimpleResult, Trade};
 
 use anyhow::Result;
 use rdkafka::client::ClientContext;
@@ -25,7 +25,7 @@ impl ProducerContext for SimpleProducerContext {
     }
 }
 pub(crate) const ORDERS_TOPIC: &str = "orders";
-pub(crate) const DEALS_TOPIC: &str = "deals";
+pub(crate) const DEALS_TOPIC: &str = "trades";
 pub(crate) const BALANCES_TOPIC: &str = "balances";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,20 +41,20 @@ pub struct BalanceMessage {
 pub struct OrderMessage {
     pub event: OrderEventType,
     pub order: Order,
-    pub stock: String,
-    pub money: String,
+    pub base: String,
+    pub quote: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct MessageSenderStatus {
-    deals_len: usize,
+    trades_len: usize,
     orders_len: usize,
     balances_len: usize,
 }
 
 pub trait MessageSender {
     fn push_order_message(&mut self, order: &OrderMessage) -> SimpleResult;
-    fn push_deal_message(&mut self, deal: &Deal) -> SimpleResult;
+    fn push_trade_message(&mut self, trade: &Trade) -> SimpleResult;
     fn push_balance_message(&mut self, balance: &BalanceMessage) -> SimpleResult;
 }
 
@@ -63,7 +63,7 @@ impl MessageSender for DummyMessageSender {
     fn push_order_message(&mut self, _order: &OrderMessage) -> SimpleResult {
         Ok(())
     }
-    fn push_deal_message(&mut self, _deal: &Deal) -> SimpleResult {
+    fn push_trade_message(&mut self, _trade: &Trade) -> SimpleResult {
         Ok(())
     }
     fn push_balance_message(&mut self, _balance: &BalanceMessage) -> SimpleResult {
@@ -74,7 +74,7 @@ impl MessageSender for DummyMessageSender {
 pub struct KafkaMessageSender {
     producer: Arc<BaseProducer<SimpleProducerContext>>,
     orders_list: LinkedList<String>,
-    deals_list: LinkedList<String>,
+    trades_list: LinkedList<String>,
     balances_list: LinkedList<String>,
 }
 impl KafkaMessageSender {
@@ -87,7 +87,7 @@ impl KafkaMessageSender {
 
         Ok(KafkaMessageSender {
             producer: arc,
-            deals_list: LinkedList::new(),
+            trades_list: LinkedList::new(),
             orders_list: LinkedList::new(),
             balances_list: LinkedList::new(),
         })
@@ -96,7 +96,7 @@ impl KafkaMessageSender {
         println!("KAFA: push {} message: {}", topic_name, message);
         let list: &mut LinkedList<String> = match topic_name {
             BALANCES_TOPIC => &mut self.balances_list,
-            DEALS_TOPIC => &mut self.deals_list,
+            DEALS_TOPIC => &mut self.trades_list,
             ORDERS_TOPIC => &mut self.orders_list,
             _ => unreachable!(),
         };
@@ -129,7 +129,7 @@ impl KafkaMessageSender {
     fn flush_list(&mut self, topic_name: &str) {
         let list: &mut LinkedList<String> = match topic_name {
             BALANCES_TOPIC => &mut self.balances_list,
-            DEALS_TOPIC => &mut self.deals_list,
+            DEALS_TOPIC => &mut self.trades_list,
             ORDERS_TOPIC => &mut self.orders_list,
             _ => unreachable!(),
         };
@@ -167,12 +167,12 @@ impl KafkaMessageSender {
     }
 
     pub fn is_block(&self) -> bool {
-        self.deals_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100
+        self.trades_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100
     }
 
     pub fn status(&self) -> MessageSenderStatus {
         MessageSenderStatus {
-            deals_len: self.deals_list.len(),
+            trades_len: self.trades_list.len(),
             orders_len: self.orders_list.len(),
             balances_len: self.balances_list.len(),
         }
@@ -184,8 +184,8 @@ impl MessageSender for KafkaMessageSender {
         let message = serde_json::to_string(&order)?;
         self.push_message(&message, ORDERS_TOPIC)
     }
-    fn push_deal_message(&mut self, deal: &Deal) -> SimpleResult {
-        let message = serde_json::to_string(&deal)?;
+    fn push_trade_message(&mut self, trade: &Trade) -> SimpleResult {
+        let message = serde_json::to_string(&trade)?;
         self.push_message(&message, DEALS_TOPIC)
     }
     fn push_balance_message(&mut self, balance: &BalanceMessage) -> SimpleResult {

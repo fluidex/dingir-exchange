@@ -14,13 +14,12 @@ pub fn order_to_proto(o: &market::Order) -> OrderInfo {
     OrderInfo {
         id: o.id,
         market: String::from(o.market),
-        category: String::from(o.source),
-        r#type: if o.type_0 == market::OrderType::LIMIT {
+        order_type: if o.type_ == market::OrderType::LIMIT {
             OrderType::Limit as i32
         } else {
             OrderType::Market as i32
         },
-        side: if o.side == market::OrderSide::ASK {
+        order_side: if o.side == market::OrderSide::ASK {
             OrderSide::Ask as i32
         } else {
             OrderSide::Bid as i32
@@ -33,19 +32,24 @@ pub fn order_to_proto(o: &market::Order) -> OrderInfo {
         taker_fee: o.taker_fee.to_string(),
         maker_fee: o.maker_fee.to_string(),
         left: o.left.to_string(),
-        deal_stock: o.deal_stock.to_string(),
-        deal_money: o.deal_money.to_string(),
-        deal_fee: o.deal_fee.to_string(),
+        finished_base: o.finished_base.to_string(),
+        finished_quote: o.finished_quote.to_string(),
+        finished_fee: o.finished_fee.to_string(),
     }
 }
 
-pub fn order_input_from_proto(req: OrderPutRequest) -> Result<market::LimitOrderInput, rust_decimal::Error> {
-    Ok(market::LimitOrderInput {
+pub fn order_input_from_proto(req: &OrderPutRequest) -> Result<market::OrderInput, rust_decimal::Error> {
+    Ok(market::OrderInput {
         user_id: req.user_id,
         side: if req.order_side == OrderSide::Ask as i32 {
             market::OrderSide::ASK
         } else {
             market::OrderSide::BID
+        },
+        type_: if req.order_type == OrderType::Limit as i32 {
+            market::OrderType::LIMIT
+        } else {
+            market::OrderType::MARKET
         },
         amount: Decimal::from_str(req.amount.as_str())?,
         price: Decimal::from_str(req.price.as_str())?,
@@ -59,7 +63,6 @@ pub fn order_input_from_proto(req: OrderPutRequest) -> Result<market::LimitOrder
         } else {
             Decimal::from_str(req.maker_fee.as_str())?
         },
-        source: req.category,
-        market: req.market,
+        market: req.market.clone(),
     })
 }

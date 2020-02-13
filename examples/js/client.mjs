@@ -1,10 +1,9 @@
-const caller = require("grpc-caller");
-const grpc = require("grpc");
+import caller from "grpc-caller";
 const file = "../../proto/exchange/matchengine.proto";
 const load = { keepCase: "true", defaults: "true" };
 const client = caller("0.0.0.0:50051", { file, load }, "Matchengine");
 
-async function balance_query(user_id) {
+export async function balanceQuery(user_id) {
   const balances = (await client.BalanceQuery({ user_id: user_id })).balances;
   let result = {};
   for (const entry of balances) {
@@ -13,7 +12,7 @@ async function balance_query(user_id) {
   return result;
 }
 
-async function balance_update(
+export async function balanceUpdate(
   user_id,
   asset,
   business,
@@ -31,55 +30,48 @@ async function balance_update(
   });
 }
 
-async function order_put_limit(
+export async function orderPut(
   user_id,
   market,
   order_side,
+  order_type,
   amount,
   price,
   taker_fee,
-  maker_fee,
-  category
+  maker_fee
 ) {
   return await client.OrderPut({
     user_id,
     market,
     order_side,
+    order_type,
     amount,
     price,
     taker_fee,
-    maker_fee,
-    category
+    maker_fee
   });
 }
 
-async function asset_list() {
+export async function assetList() {
   return (await client.AssetList({})).asset_lists;
 }
 
-async function order_pending_detail(market, order_id) {
+export async function orderDetail(market, order_id) {
   return await client.OrderDetail({ market, order_id });
 }
 
-async function market_summary(market) {
+export async function marketSummary(market) {
   return (await client.MarketSummary({ market: [market] })).market_summaries;
 }
 
-async function order_cancel(user_id, market, order_id) {
+export async function orderCancel(user_id, market, order_id) {
   return await client.OrderCancel({ user_id, market, order_id });
 }
 
-async function order_depth(market, limit, interval) {
+export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
 
-module.exports = {
-  balance_query,
-  order_put_limit,
-  balance_update,
-  asset_list,
-  order_pending_detail,
-  market_summary,
-  order_cancel,
-  order_depth
-};
+export async function debugReset() {
+  return await client.DebugReset({});
+}
