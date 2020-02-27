@@ -46,12 +46,12 @@ impl HistoryWriter for DatabaseHistoryWriter {
     }
     fn append_order_history(&mut self, order: &market::Order) {
         let data = models::OrderHistory {
-            id: order.id,
+            id: order.id as i64,
             create_time: utils::timestamp_to_chrono(order.create_time),
             finish_time: utils::timestamp_to_chrono(order.update_time),
-            user_id: order.user,
+            user_id: order.user as i32,
             market: order.market.to_string(),
-            t: order.type_ as u8,
+            t: order.type_ as i16,
             side: 0,
             price: utils::decimal_r2b(&order.price),
             amount: utils::decimal_r2b(&order.amount),
@@ -67,13 +67,13 @@ impl HistoryWriter for DatabaseHistoryWriter {
     fn append_trade_history(&mut self, trade: &Trade) {
         let ask_trade = models::TradeHistory {
             time: utils::timestamp_to_chrono(trade.timestamp),
-            user_id: trade.ask_user_id,
+            user_id: trade.ask_user_id as i32,
             market: trade.market.clone(),
-            trade_id: trade.id,
-            order_id: trade.ask_order_id,
-            counter_order_id: trade.bid_order_id, // counter order
-            side: market::OrderSide::ASK as u8,
-            role: trade.ask_role as u8,
+            trade_id: trade.id as i64,
+            order_id: trade.ask_order_id as i64,
+            counter_order_id: trade.bid_order_id as i64, // counter order
+            side: market::OrderSide::ASK as i16,
+            role: trade.ask_role as i16,
             price: utils::decimal_r2b(&trade.price),
             amount: utils::decimal_r2b(&trade.amount),
             quote_amount: utils::decimal_r2b(&trade.quote_amount),
@@ -82,13 +82,13 @@ impl HistoryWriter for DatabaseHistoryWriter {
         };
         let bid_trade = models::TradeHistory {
             time: utils::timestamp_to_chrono(trade.timestamp),
-            user_id: trade.bid_user_id,
+            user_id: trade.bid_user_id as i32,
             market: trade.market.clone(),
-            trade_id: trade.id,
-            order_id: trade.bid_order_id,
-            counter_order_id: trade.ask_order_id, // counter order
-            side: market::OrderSide::BID as u8,
-            role: trade.bid_role as u8,
+            trade_id: trade.id as i64,
+            order_id: trade.bid_order_id as i64,
+            counter_order_id: trade.ask_order_id as i64, // counter order
+            side: market::OrderSide::BID as i16,
+            role: trade.bid_role as i16,
             price: utils::decimal_r2b(&trade.price),
             amount: utils::decimal_r2b(&trade.amount),
             quote_amount: utils::decimal_r2b(&trade.quote_amount),

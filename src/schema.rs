@@ -2,107 +2,103 @@
 #![allow(clippy::single_component_path_imports)]
 
 table! {
-    operation_log(id) {
-        id -> Unsigned<Bigint>,
+    operation_log (id) {
+        id -> Int8,
         time -> Timestamp,
         method -> Text,
         params -> Text,
     }
 }
-
-// history
 table! {
     balance_history (id) {
-        id -> Unsigned<Bigint>,
+        id -> Int8,
         time -> Timestamp,
-        user_id -> Unsigned<Integer>,
+        user_id -> Int4,
         asset -> Varchar,
         business -> Varchar,
-        change -> Decimal,
-        balance -> Decimal,
+        change -> Numeric,
+        balance -> Numeric,
         detail -> Text,
     }
 }
-
 table! {
     order_history (id) {
-        id -> Unsigned<Bigint>,
+        id -> Int8,
         create_time -> Timestamp,
         finish_time -> Timestamp,
-        user_id -> Unsigned<Integer>,
+        user_id -> Int4,
         market -> Varchar,
-        t -> Unsigned<Tinyint>,
-        side -> Unsigned<Tinyint>,
-        price -> Decimal,
-        amount -> Decimal,
-        taker_fee -> Decimal,
-        maker_fee -> Decimal,
-        finished_base -> Decimal,
-        finished_quote -> Decimal,
-        finished_fee -> Decimal,
+        t -> Int2,
+        side -> Int2,
+        price -> Numeric,
+        amount -> Numeric,
+        taker_fee -> Numeric,
+        maker_fee -> Numeric,
+        finished_base -> Numeric,
+        finished_quote -> Numeric,
+        finished_fee -> Numeric,
     }
 }
 
 table! {
     trade_history (id) {
-        id -> Unsigned<Bigint>,
+        id -> Int8,
         time -> Timestamp,
-        user_id -> Unsigned<Integer>,
+        user_id -> Int4,
         market -> Varchar,
-        trade_id -> Unsigned<Bigint>,
-        order_id -> Unsigned<Bigint>,
-        counter_order_id -> Unsigned<Bigint>,
-        side -> Unsigned<Tinyint>,
-        role -> Unsigned<Tinyint>,
-        price -> Decimal,
-        amount -> Decimal,
-        quote_amount -> Decimal,
-        fee -> Decimal,
-        counter_order_fee -> Decimal,
+        trade_id -> Int8,
+        order_id -> Int8,
+        counter_order_id -> Int8,
+        side -> Int2,
+        role -> Int2,
+        price -> Numeric,
+        amount -> Numeric,
+        quote_amount -> Numeric,
+        fee -> Numeric,
+        counter_order_fee -> Numeric,
     }
 }
 
-// slice
 table! {
     slice_history (id) {
-        id -> Unsigned<Integer>,
-        time -> Bigint,
-        end_operation_log_id -> Unsigned<Bigint>,
-        end_order_id -> Unsigned<Bigint>,
-        end_trade_id -> Unsigned<Bigint>,
+        id -> Int4,
+        time -> Int8,
+        end_operation_log_id -> Int8,
+        end_order_id -> Int8,
+        end_trade_id -> Int8,
     }
 }
 
 table! {
     balance_slice (id) {
-        id -> Unsigned<Integer>,
-        slice_id -> Bigint,
-        user_id -> Unsigned<Integer>,
+        id -> Int4,
+        slice_id -> Int8,
+        user_id -> Int4,
         asset -> Varchar,
-        t -> Unsigned<Tinyint>,
-        balance -> Decimal,
+        t -> Int2,
+        balance -> Numeric,
     }
 }
 
 table! {
     order_slice (slice_id, id) {
-        id -> Unsigned<Bigint>,
-        slice_id -> Bigint,
-        t -> Unsigned<Tinyint>,
-        side -> Unsigned<Tinyint>,
+        id -> Int8,
+        slice_id -> Int8,
+        t -> Int2,
+        side -> Int2,
         create_time -> Timestamp,
         update_time -> Timestamp,
-        user_id -> Unsigned<Integer>,
+        user_id -> Int4,
         market -> Varchar,
-        price -> Decimal,
-        amount -> Decimal,
-        taker_fee -> Decimal,
-        maker_fee -> Decimal,
-        left -> Decimal,
-        freeze -> Decimal,
-        finished_base -> Decimal,
-        finished_quote -> Decimal,
-        finished_fee -> Decimal,
+        price -> Numeric,
+        amount -> Numeric,
+        taker_fee -> Numeric,
+        maker_fee -> Numeric,
+        remain -> Numeric,
+        frozen -> Numeric,
+        finished_base -> Numeric,
+        finished_quote -> Numeric,
+        finished_fee -> Numeric,
     }
 }
 

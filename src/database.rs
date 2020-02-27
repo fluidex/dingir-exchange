@@ -4,8 +4,10 @@ use std::time::{Duration, Instant};
 
 use diesel::associations::HasTable;
 use diesel::insertable::InsertValues;
-use diesel::mysql::{Mysql, MysqlConnection};
+
+use diesel::connection::Connection;
 use diesel::prelude::*;
+
 use diesel::query_builder::{QueryFragment, UndecoratedInsertRecord, ValuesClause};
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error::DatabaseError;
@@ -17,6 +19,9 @@ use crossbeam_channel::RecvTimeoutError;
 use crate::models;
 use crate::types;
 use crate::types::SimpleResult;
+
+use types::ConnectionType;
+use types::DbType;
 
 pub const QUERY_LIMIT: i64 = 1000;
 pub const INSERT_LIMIT: i64 = 1000;
@@ -57,12 +62,12 @@ where
     TableTarget: 'static,
     TableTarget: diesel::Table,
     TableTarget: std::marker::Send + std::fmt::Debug,
-    <TableTarget as QuerySource>::FromClause: QueryFragment<Mysql>,
+    <TableTarget as QuerySource>::FromClause: QueryFragment<DbType>,
     U: 'static,
     U: std::marker::Send + std::fmt::Debug + std::clone::Clone,
     U: Insertable<TableTarget, Values = ValuesClause<Inner, TableTarget>>,
     U: UndecoratedInsertRecord<<TableType as HasTable>::Table>,
-    Inner: QueryFragment<Mysql> + InsertValues<TableTarget, Mysql>,
+    Inner: QueryFragment<DbType> + InsertValues<TableTarget, DbType>,
 {
     pub fn new(config: &DatabaseWriterConfig) -> Result<DatabaseWriter<TableType, U>> {
         // FIXME reconnect? escape?
@@ -92,7 +97,7 @@ where
     }
 
     pub fn run(config: ThreadConfig<U>) {
-        let conn: MysqlConnection = MysqlConnection::establish(config.conn_str.as_ref()).unwrap();
+        let conn: ConnectionType = ConnectionType::establish(config.conn_str.as_ref()).unwrap();
         let mut running = true;
         while running {
             let mut entries: Vec<U> = Vec::new();
@@ -129,7 +134,7 @@ where
         drop(conn);
     }
 
-    pub fn insert(entries: Vec<U>, conn: &MysqlConnection) {
+    pub fn insert(entries: Vec<U>, conn: &ConnectionType) {
         // TODO
         let table_name = TableType::table();
         println!("Insert into {:?}: {} values", table_name, entries.len());
@@ -198,7 +203,7 @@ where
 }
 
 pub fn check_sql_conn(conn_str: &str) -> SimpleResult {
-    match MysqlConnection::establish(conn_str) {
+    match ConnectionType::establish(conn_str) {
         Ok(_) => Ok(()),
         Err(e) => simple_err!("invalid conn {} {}", conn_str, e),
     }

@@ -72,4 +72,8 @@ impl Matchengine for GrpcHandler {
         let stub = unsafe { G_STUB.as_mut().unwrap() };
         Ok(Response::new(stub.debug_reset(request.into_inner())?))
     }
+    async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
+        let stub = unsafe { G_STUB.as_mut().unwrap() };
+        Ok(Response::new(stub.debug_reload(request.into_inner())?))
+    }
 }

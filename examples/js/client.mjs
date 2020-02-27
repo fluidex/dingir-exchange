@@ -75,3 +75,8 @@ export async function orderDepth(market, limit, interval) {
 export async function debugReset() {
   return await client.DebugReset({});
 }
+
+
+export async function debugReload() {
+  return await client.DebugReload({});
+}

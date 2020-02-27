@@ -19,7 +19,7 @@ macro_rules! simple_err {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(u8)]
+#[repr(i16)]
 pub enum MarketRole {
     MAKER = 1,
     TAKER = 2,
@@ -53,3 +53,8 @@ pub enum OrderEventType {
     UPDATE = 2,
     FINISH = 3,
 }
+
+//pub type DbType = diesel::mysql::Mysql;
+//pub type ConnectionType = diesel::mysql::MysqlConnection;
+pub type DbType = diesel::pg::Pg;
+pub type ConnectionType = diesel::pg::PgConnection;

@@ -47,13 +47,13 @@ impl Ord for MarketKeyBid {
 
 // TODO: store as string or int?
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(u8)]
+#[repr(i16)]
 pub enum OrderType {
     LIMIT,
     MARKET,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(u8)]
+#[repr(i16)]
 pub enum OrderSide {
     ASK,
     BID,
@@ -73,8 +73,8 @@ pub struct Order {
     pub amount: Decimal,
     pub taker_fee: Decimal,
     pub maker_fee: Decimal,
-    pub left: Decimal,
-    pub freeze: Decimal,
+    pub remain: Decimal,
+    pub frozen: Decimal,
     pub finished_base: Decimal,
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
@@ -160,11 +160,11 @@ impl BalanceManagerWrapper {
     pub fn balance_sub(&self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) {
         self.inner.borrow_mut().sub(user_id, balance_type, asset, amount);
     }
-    pub fn balance_freeze(&self, user_id: u32, asset: &str, amount: &Decimal) {
-        self.inner.borrow_mut().freeze(user_id, asset, amount)
+    pub fn balance_frozen(&self, user_id: u32, asset: &str, amount: &Decimal) {
+        self.inner.borrow_mut().frozen(user_id, asset, amount)
     }
-    pub fn balance_unfreeze(&self, user_id: u32, asset: &str, amount: &Decimal) {
-        self.inner.borrow_mut().unfreeze(user_id, asset, amount)
+    pub fn balance_unfrozen(&self, user_id: u32, asset: &str, amount: &Decimal) {
+        self.inner.borrow_mut().unfrozen(user_id, asset, amount)
     }
 }
 // TODO: is it ok to match with oneself's order?
@@ -212,25 +212,25 @@ impl Market {
         self.users.clear();
         self.orders.clear();
     }
-    pub fn freeze_balance(&self, order: &Order) {
+    pub fn frozen_balance(&self, order: &Order) {
         let asset = if is_order_ask(order) { &self.base } else { &self.quote };
 
-        self.balance_manager.balance_freeze(order.user, asset, &order.freeze);
+        self.balance_manager.balance_frozen(order.user, asset, &order.frozen);
     }
-    pub fn unfreeze_balance(&self, order: &Order) {
-        debug_assert!(order.left.is_sign_positive());
-        if order.left.is_zero() {
+    pub fn unfrozen_balance(&self, order: &Order) {
+        debug_assert!(order.remain.is_sign_positive());
+        if order.remain.is_zero() {
             return;
         }
         let asset = if is_order_ask(&order) { &self.base } else { &self.quote };
-        self.balance_manager.balance_unfreeze(order.user, asset, &order.freeze);
+        self.balance_manager.balance_unfrozen(order.user, asset, &order.frozen);
     }
     pub fn insert_order(&mut self, order_rc: OrderRc) -> Order {
         let mut order = order_rc.borrow_mut();
         if order.side == OrderSide::ASK {
-            order.freeze = order.left;
+            order.frozen = order.remain;
         } else {
-            order.freeze = order.left * order.price;
+            order.frozen = order.remain * order.price;
         }
         debug_assert_eq!(order.type_, OrderType::LIMIT);
         debug_assert!(!self.orders.contains_key(&order.id));
@@ -261,7 +261,7 @@ impl Market {
             debug_assert!(self.bids.contains_key(key));
             self.bids.remove(key);
         }
-        self.unfreeze_balance(&order);
+        self.unfrozen_balance(&order);
         debug_assert!(self.orders.contains_key(&order.id));
         //println!("order finish {}", &order.id);
         self.orders.remove(&order.id);
@@ -307,7 +307,7 @@ impl Market {
         for maker in counter_orders {
             let taker_mut = taker.borrow_mut();
             let maker_mut = maker.borrow_mut();
-            if taker_mut.left.is_zero() {
+            if taker_mut.remain.is_zero() {
                 break;
             }
             let (ask_fee_rate, bid_fee_rate) = if taker_is_ask {
@@ -324,14 +324,14 @@ impl Market {
             if is_limit_order && ask_order.price.gt(&bid_order.price) {
                 break;
             }
-            let traded_base_amount = min(ask_order.left, bid_order.left);
+            let traded_base_amount = min(ask_order.remain, bid_order.remain);
             let traded_quote_amount = price * traded_base_amount;
 
             quote_sum += traded_quote_amount;
             if taker_is_bid && is_market_order {
                 if quote_sum.gt(quote_limit) {
                     // Now user has not enough balance, stop here.
-                    // Notice: another approach here is to divide left quote by price to get a base amount
+                    // Notice: another approach here is to divide remain quote by price to get a base amount
                     // to be traded, then all `quote_limit` will be consumed.
                     // But division is prone to bugs in financial decimal calculation,
                     // so we will not adapt tis method.
@@ -370,8 +370,8 @@ impl Market {
                 self.history_writer.borrow_mut().append_trade_history(&trade);
                 self.message_sender.push_trade_message(&trade);
             }
-            ask_order.left -= traded_base_amount;
-            bid_order.left -= traded_base_amount;
+            ask_order.remain -= traded_base_amount;
+            bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
             bid_order.finished_base += traded_base_amount;
             ask_order.finished_quote += traded_quote_amount;
@@ -427,9 +427,9 @@ impl Market {
             } else {
                 (bid_order, ask_order)
             };
-            maker_mut.freeze -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
+            maker_mut.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
 
-            let maker_finished = maker_mut.left.is_zero();
+            let maker_finished = maker_mut.remain.is_zero();
             if maker_finished {
                 finished_orders.push(maker_mut.clone());
             }
@@ -493,7 +493,7 @@ impl Market {
                 // We have already checked that counter order book is not empty,
                 // so `unwrap` here is safe.
                 // Here we only make a minimum balance check against the top of the counter order book.
-                // After the check, balance may still be not enough, then the left part of the order
+                // After the check, balance may still be not enough, then the remain part of the order
                 // will be marked as `canceled(finished)`.
                 let top_counter_order_price = self.asks.values().next().unwrap().borrow_mut().price;
                 if balance.lt(&(order_input.amount * top_counter_order_price)) {
@@ -522,15 +522,15 @@ impl Market {
             amount: order_input.amount,
             taker_fee: order_input.taker_fee,
             maker_fee: order_input.maker_fee,
-            left: order_input.amount,
-            freeze: Decimal::zero(),
+            remain: order_input.amount,
+            frozen: Decimal::zero(),
             finished_base: Decimal::zero(),
             finished_quote: Decimal::zero(),
             finished_fee: Decimal::zero(),
         }));
         self.execute_order(real, order_rc.clone(), &quote_limit);
         let mut order = *order_rc.borrow_mut();
-        if order.type_ == OrderType::LIMIT && !order.left.is_zero() {
+        if order.type_ == OrderType::LIMIT && !order.remain.is_zero() {
             if real {
                 let order_message = OrderMessage {
                     event: OrderEventType::PUT,
@@ -541,7 +541,7 @@ impl Market {
                 self.message_sender.push_order_message(&order_message);
             }
             order = self.insert_order(order_rc);
-            self.freeze_balance(&order);
+            self.frozen_balance(&order);
         } else {
             if real {
                 self.history_writer.borrow_mut().append_order_history(&order);
@@ -583,9 +583,9 @@ impl Market {
         MarketStatus {
             name: self.name.to_string(),
             ask_count: self.asks.len(),
-            ask_amount: self.asks.values().map(|item| item.borrow_mut().left).sum(),
+            ask_amount: self.asks.values().map(|item| item.borrow_mut().remain).sum(),
             bid_count: self.bids.len(),
-            bid_amount: self.bids.values().map(|item| item.borrow_mut().left).sum(),
+            bid_amount: self.bids.values().map(|item| item.borrow_mut().remain).sum(),
         }
     }
     pub fn depth(&self, limit: usize, interval: &Decimal) -> MarketDepth {
@@ -616,7 +616,7 @@ impl Market {
             .take(limit)
             .map(|(price, group)| PriceInfo {
                 price,
-                amount: group.map(|order_rc| order_rc.borrow_mut().left).sum(),
+                amount: group.map(|order_rc| order_rc.borrow_mut().remain).sum(),
             })
             .collect::<Vec<PriceInfo>>()
     }
@@ -745,7 +745,7 @@ mod tests {
         };
         let ask_order = market.put_order(false, &ask_order_input).unwrap();
         assert_eq!(ask_order.id, 1);
-        assert_eq!(ask_order.left, dec!(20.0));
+        assert_eq!(ask_order.remain, dec!(20.0));
 
         let bid_user_id = 102;
         let bid_order_input = OrderInput {
@@ -761,7 +761,7 @@ mod tests {
         let bid_order = market.put_order(false, &bid_order_input).unwrap();
         // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
-        assert_eq!(bid_order.left, dec!(0));
+        assert_eq!(bid_order.remain, dec!(0));
         assert_eq!(bid_order.finished_quote, dec!(1));
         assert_eq!(bid_order.finished_base, dec!(10));
         assert_eq!(bid_order.finished_fee, dec!(0.01));
@@ -769,7 +769,7 @@ mod tests {
         //market.print();
 
         let ask_order = market.get(ask_order.id).unwrap();
-        assert_eq!(ask_order.left, dec!(10));
+        assert_eq!(ask_order.remain, dec!(10));
         assert_eq!(ask_order.finished_quote, dec!(1));
         assert_eq!(ask_order.finished_base, dec!(10));
         assert_eq!(ask_order.finished_fee, dec!(0.001));

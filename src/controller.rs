@@ -12,7 +12,7 @@ use tonic::{self, Status};
 //use rust_decimal::Decimal;
 use crate::models;
 use crate::schema;
-use crate::types::SimpleResult;
+use crate::types::{ConnectionType, SimpleResult};
 
 use crate::dto::*;
 
@@ -24,7 +24,7 @@ use crate::history::DatabaseHistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use diesel::{Connection, MysqlConnection, RunQueryDsl};
+use diesel::{Connection, RunQueryDsl};
 use serde::Serialize;
 use std::str::FromStr;
 
@@ -124,13 +124,13 @@ impl Controller {
                 let available = balance_manager
                     .get_with_round(user_id, BalanceType::AVAILABLE, &asset_name)
                     .to_string();
-                let freeze = balance_manager
+                let frozen = balance_manager
                     .get_with_round(user_id, BalanceType::FREEZE, &asset_name)
                     .to_string();
                 balance_query_response::AssetBalance {
                     asset_name,
                     available,
-                    freeze,
+                    frozen,
                 }
             })
             .collect();
@@ -314,28 +314,50 @@ impl Controller {
         Ok(order_to_proto(&order))
     }
 
+    fn reset_state(&mut self) {
+        self.sequencer.borrow_mut().reset();
+        for market in self.markets.values_mut() {
+            market.reset();
+        }
+        //self.log_handler.reset();
+        self.update_controller.borrow_mut().reset();
+        self.balance_manager.borrow_mut().reset();
+        //Ok(())
+    }
+
+    fn truncate_database(&self) -> anyhow::Result<()> {
+        let connection = ConnectionType::establish(&self.settings.db_log)?;
+        diesel::delete(schema::order_slice::table).execute(&connection)?;
+        diesel::delete(schema::balance_slice::table).execute(&connection)?;
+        diesel::delete(schema::slice_history::table).execute(&connection)?;
+        diesel::delete(schema::operation_log::table).execute(&connection)?;
+        diesel::delete(schema::order_history::table).execute(&connection)?;
+        diesel::delete(schema::trade_history::table).execute(&connection)?;
+        diesel::delete(schema::balance_history::table).execute(&connection)?;
+        Ok(())
+    }
+
     pub fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
         (|| -> anyhow::Result<()> {
-            self.sequencer.borrow_mut().reset();
-            for market in self.markets.values_mut() {
-                market.reset();
-            }
-            //self.log_handler.reset();
-            self.update_controller.borrow_mut().reset();
-            self.balance_manager.borrow_mut().reset();
+            self.reset_state();
             std::thread::sleep(std::time::Duration::from_secs(1));
-            let connection = MysqlConnection::establish(&self.settings.db_log)?;
-            diesel::delete(schema::order_slice::table).execute(&connection)?;
-            diesel::delete(schema::balance_slice::table).execute(&connection)?;
-            diesel::delete(schema::slice_history::table).execute(&connection)?;
-            diesel::delete(schema::operation_log::table).execute(&connection)?;
-            diesel::delete(schema::order_history::table).execute(&connection)?;
-            diesel::delete(schema::trade_history::table).execute(&connection)?;
-            diesel::delete(schema::balance_history::table).execute(&connection)?;
+            self.truncate_database()?;
             Ok(())
         })()
         .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugResetResponse {})
+    }
+
+    pub fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
+        (|| -> anyhow::Result<()> {
+            self.reset_state();
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let connection = ConnectionType::establish(&self.settings.db_log)?;
+            crate::persist::init_from_db(&connection, self)?;
+            Ok(())
+        })()
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        Ok(DebugReloadResponse {})
     }
 
     // reload 1000 in batch and replay
@@ -360,7 +382,7 @@ impl Controller {
     {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
-            id: self.sequencer.borrow_mut().next_operation_log_id(),
+            id: self.sequencer.borrow_mut().next_operation_log_id() as i64,
             time: utils::current_native_date_time(),
             method: method.to_owned(),
             params,

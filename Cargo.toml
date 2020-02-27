@@ -9,28 +9,28 @@ log = "0.4.8"
 env_logger = "0.7.1"
 config_rs = { package = "config", version = "0.10.1" }
 serde = { version = "1.0.104", features = ["derive"] }
-serde_json = "1.0.46"
+serde_json = "1.0.48"
 prost = "0.6.1"
 prost-types = "0.6.1"
 bytes = "0.5.4"
 
-futures-core = { version = "0.3.2", default-features = false }
-futures-channel = "0.3.2"
-futures-util = { version = "0.3.2", default-features = false }
+futures-core = { version = "0.3.4", default-features = false }
+futures-channel = "0.3.4"
+futures-util = { version = "0.3.4", default-features = false }
 
 tokio = { version = "0.2.11", features = ["full"] }
 thread-id = "3.3.0"
-futures = "0.3.2"
+futures = "0.3.4"
 hyper = "0.13.2"
-crossbeam-channel = "0.4.0"
+crossbeam-channel = "0.4.2"
 rdkafka = "0.23.1"
-nix = "0.16.1"
+nix = "0.17.0"
 anyhow = "1.0.26"
-diesel = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc", features = ["mysql", "numeric", "unstable", "chrono", "serde_json", "bigdecimal"] }
+diesel = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc", features = ["mysql", "numeric", "unstable", "chrono", "postgres", "serde_json", "bigdecimal"] }
 diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc" }
 chrono = "0.4.10"
-rust_decimal = "1.2.0"
-rust_decimal_macros = "1.2.0"
+rust_decimal = "1.2.1"
+rust_decimal_macros = "1.2.1"
 
 tonic = "0.1.1"
 ttl_cache = "0.5.1"

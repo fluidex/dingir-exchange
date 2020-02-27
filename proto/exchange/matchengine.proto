@@ -17,6 +17,7 @@ service Matchengine {
 
     // Used only in development
     rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
+    rpc DebugReload(DebugReloadRequest) returns (DebugReloadResponse) {}
 }
 //
 message BalanceQueryRequest {
@@ -28,7 +29,7 @@ message BalanceQueryResponse {
     message AssetBalance {
         string asset_name = 1;
         string available = 2;
-        string freeze = 3;
+        string frozen = 3;
     }
     repeated AssetBalance balances = 1;
 }
@@ -68,8 +69,8 @@ message AssetSummaryResponse {
         string total_balance = 2;
         int32 available_count = 3;
         string available_balance = 4;
-        int32 freeze_count = 5;
-        string freeze_balance = 6;
+        int32 frozen_count = 5;
+        string frozen_balance = 6;
     }
     repeated AssetSummaryInfo asset_summaries = 1;
 }
@@ -107,7 +108,7 @@ message OrderInfo {
     string amount = 9;
     string taker_fee = 10;
     string maker_fee = 11;
-    string left = 12;
+    string remain = 12;
     string finished_base = 13;
     string finished_quote = 14;
     string finished_fee = 15;
@@ -207,5 +208,13 @@ message DebugResetRequest{
 
 }
 message DebugResetResponse{
+
+}
+
+
+message DebugReloadRequest{
+
+}
+message DebugReloadResponse{
 
 }

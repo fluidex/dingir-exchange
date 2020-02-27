@@ -7,7 +7,8 @@ import {
   marketSummary,
   orderCancel,
   orderDepth,
-  debugReset
+  debugReset,
+  debugReload
 } from "./client.mjs";
 
 import Decimal from "decimal.js";
@@ -36,17 +37,17 @@ function floatEqual(result, gt) {
 async function ensureAssetValid() {
   const balance2 = await balanceQuery(userId);
   floatEqual(balance2.BTC.available, "100");
-  floatEqual(balance2.BTC.freeze, "0");
+  floatEqual(balance2.BTC.frozen, "0");
   floatEqual(balance2.ETH.available, "50");
-  floatEqual(balance2.ETH.freeze, "0");
+  floatEqual(balance2.ETH.frozen, "0");
 }
 
 async function ensureAssetZero() {
   const balance1 = await balanceQuery(userId);
   floatEqual(balance1.BTC.available, "0");
-  floatEqual(balance1.BTC.freeze, "0");
+  floatEqual(balance1.BTC.frozen, "0");
   floatEqual(balance1.ETH.available, "0");
-  floatEqual(balance1.ETH.freeze, "0");
+  floatEqual(balance1.ETH.frozen, "0");
 }
 
 async function setupAsset() {
@@ -73,7 +74,7 @@ async function orderTest() {
   console.log(order);
   const balance3 = await balanceQuery(userId);
   floatEqual(balance3.BTC.available, "89");
-  floatEqual(balance3.BTC.freeze, "11");
+  floatEqual(balance3.BTC.frozen, "11");
 
   const orderPending = await orderDetail(market, order.id);
   assert.deepEqual(orderPending, order);
@@ -88,7 +89,7 @@ async function orderTest() {
   await orderCancel(userId, market, 1);
   const balance4 = await balanceQuery(userId);
   floatEqual(balance4.BTC.available, "100");
-  floatEqual(balance4.BTC.freeze, "0");
+  floatEqual(balance4.BTC.frozen, "0");
 
   console.log("orderTest passed");
 }
@@ -125,11 +126,12 @@ async function tradeTest() {
   await testStatusAfterTrade(askOrder.id, bidOrder.id);
 
   console.log("tradeTest passed!");
+  return [askOrder.id, bidOrder.id];
 }
 
 async function testStatusAfterTrade(askOrderId, bidOrderId) {
   const bidOrderPending = await orderDetail(market, bidOrderId);
-  floatEqual(bidOrderPending.left, "6");
+  floatEqual(bidOrderPending.remain, "6");
 
   // Now, the `askOrder` will be matched and traded
   // So it will not be kept by the match engine
@@ -148,9 +150,9 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   const balance1 = await balanceQuery(userId);
   floatEqual(balance1.BTC.available, "93.4");
-  floatEqual(balance1.BTC.freeze, "6.6");
+  floatEqual(balance1.BTC.frozen, "6.6");
   floatEqual(balance1.ETH.available, "50");
-  floatEqual(balance1.ETH.freeze, "0");
+  floatEqual(balance1.ETH.frozen, "0");
 }
 
 async function simpleTest() {
@@ -158,7 +160,7 @@ async function simpleTest() {
   await setupAsset();
   await ensureAssetValid();
   await orderTest();
-  await tradeTest();
+  return await tradeTest();
 }
 
 async function naiveExample() {
@@ -171,7 +173,9 @@ async function naiveExample() {
 async function main() {
   try {
     await debugReset();
-    await simpleTest();
+    const [askOrderId, bidOrderId] = await simpleTest();
+    await debugReload();
+    await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
     console.error("Catched error:", error);
   }

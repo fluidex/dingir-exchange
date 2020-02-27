@@ -11,7 +11,7 @@ use crate::utils::{decimal_b2r, decimal_r2b, timestamp_to_chrono};
 //use cre
 
 use diesel::dsl::count_star;
-use diesel::mysql::MysqlConnection;
+//use diesel::mysql::ConnectionType;
 use diesel::prelude::*;
 
 use std::cell::RefCell;
@@ -22,7 +22,9 @@ use std::convert::TryFrom;
 //use core::panicking::panic;
 use std::panic;
 
-pub fn get_last_slice(conn: &MysqlConnection) -> Option<SliceHistory> {
+use crate::types::ConnectionType;
+
+pub fn get_last_slice(conn: &ConnectionType) -> Option<SliceHistory> {
     let slices: Vec<SliceHistory> = schema::slice_history::dsl::slice_history
         .order(schema::slice_history::id.desc())
         .limit(1)
@@ -31,7 +33,7 @@ pub fn get_last_slice(conn: &MysqlConnection) -> Option<SliceHistory> {
     slices.get(0).cloned()
 }
 
-pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mut Controller) {
+pub fn load_slice_from_db(conn: &ConnectionType, slice_id: i64, controller: &mut Controller) {
     // load balance
     let mut last_balance_id = 0;
     loop {
@@ -49,7 +51,7 @@ pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mu
             controller
                 .balance_manager
                 .borrow_mut()
-                .set(balance.user_id, balance_type, &balance.asset, &amount);
+                .set(balance.user_id as u32, balance_type, &balance.asset, &amount);
         }
         if let Some(slice_balance) = balances.last() {
             last_balance_id = slice_balance.id;
@@ -59,7 +61,7 @@ pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mu
         }
     }
     // load orders
-    let mut order_id: u64 = 0;
+    let mut order_id: i64 = 0;
     loop {
         // least order_id is 1
         let orders: Vec<OrderSlice> = schema::order_slice::dsl::order_slice
@@ -72,19 +74,19 @@ pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mu
         for order in &orders {
             let market = controller.markets.get_mut(&order.market).unwrap();
             let order_rc = Rc::new(RefCell::new(Order {
-                id: order.id,
+                id: order.id as u64,
                 type_: market::OrderType::try_from(order.t).unwrap(),
                 side: market::OrderSide::try_from(order.side).unwrap(),
                 create_time: order.create_time.timestamp_millis() as f64,
                 update_time: order.update_time.timestamp_millis() as f64,
                 market: market.name,
-                user: order.user_id,
+                user: order.user_id as u32,
                 price: decimal_b2r(&order.price),
                 amount: decimal_b2r(&order.amount),
                 taker_fee: decimal_b2r(&order.taker_fee),
                 maker_fee: decimal_b2r(&order.maker_fee),
-                left: decimal_b2r(&order.left),
-                freeze: decimal_b2r(&order.freeze),
+                remain: decimal_b2r(&order.remain),
+                frozen: decimal_b2r(&order.frozen),
                 finished_base: decimal_b2r(&order.finished_base),
                 finished_quote: decimal_b2r(&order.finished_quote),
                 finished_fee: decimal_b2r(&order.finished_fee),
@@ -100,9 +102,9 @@ pub fn load_slice_from_db(conn: &MysqlConnection, slice_id: i64, controller: &mu
     }
 }
 
-pub fn load_operation_log_from_db(conn: &MysqlConnection, operation_log_start_id: u64, controller: &mut Controller) {
+pub fn load_operation_log_from_db(conn: &ConnectionType, operation_log_start_id: u64, controller: &mut Controller) {
     // LOAD operation_log
-    let mut operation_log_start_id: u64 = operation_log_start_id; // exclusive
+    let mut operation_log_start_id = operation_log_start_id as i64; // exclusive
     loop {
         let operation_logs: Vec<OperationLog> = schema::operation_log::dsl::operation_log
             .filter(schema::operation_log::id.gt(operation_log_start_id))
@@ -119,32 +121,36 @@ pub fn load_operation_log_from_db(conn: &MysqlConnection, operation_log_start_id
             controller.replay(&log.method, &log.params).unwrap();
         }
     }
-    controller.sequencer.borrow_mut().set_operation_log_id(operation_log_start_id);
+    controller
+        .sequencer
+        .borrow_mut()
+        .set_operation_log_id(operation_log_start_id as u64);
     log::info!("set operation_log_id to {}", operation_log_start_id);
 }
 
-pub fn init_from_db(conn: &MysqlConnection, controller: &mut Controller) {
+pub fn init_from_db(conn: &ConnectionType, controller: &mut Controller) -> anyhow::Result<()> {
     let last_slice = get_last_slice(conn);
     let mut end_operation_log_id = 0;
     if let Some(slice) = last_slice {
         load_slice_from_db(conn, slice.time, controller);
         end_operation_log_id = slice.end_operation_log_id;
-        controller.sequencer.borrow_mut().set_order_id(slice.end_order_id);
-        controller.sequencer.borrow_mut().set_trade_id(slice.end_trade_id);
+        controller.sequencer.borrow_mut().set_order_id(slice.end_order_id as u64);
+        controller.sequencer.borrow_mut().set_trade_id(slice.end_trade_id as u64);
         log::info!("set order_id and trade_id to {} {}", slice.end_order_id, slice.end_trade_id);
     }
-    load_operation_log_from_db(conn, end_operation_log_id, controller);
+    load_operation_log_from_db(conn, end_operation_log_id as u64, controller);
+    Ok(())
 }
 
-pub fn dump_balance(conn: &MysqlConnection, slice_id: i64, balance_manager: &BalanceManager) -> SimpleResult {
+pub fn dump_balance(conn: &ConnectionType, slice_id: i64, balance_manager: &BalanceManager) -> SimpleResult {
     let mut records = Vec::new();
     let mut insert_count: usize = 0;
     for (k, v) in &balance_manager.balances {
         let record = NewBalanceSlice {
             slice_id,
-            user_id: k.user_id,
+            user_id: k.user_id as i32,
             asset: k.asset.clone(),
-            t: k.balance_type as u8,
+            t: k.balance_type as i16,
             balance: decimal_r2b(v),
         };
         records.push(record);
@@ -164,27 +170,27 @@ pub fn dump_balance(conn: &MysqlConnection, slice_id: i64, balance_manager: &Bal
     Ok(())
 }
 
-pub fn dump_orders(conn: &MysqlConnection, slice_id: i64, controller: &Controller) -> SimpleResult {
+pub fn dump_orders(conn: &ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
     let mut count: usize = 0;
     let mut records = Vec::new();
     for market in controller.markets.values() {
         for order_rc in market.orders.values() {
             let order = *order_rc.borrow_mut();
             let record = OrderSlice {
-                id: order.id,
+                id: order.id as i64,
                 slice_id,
-                t: order.type_ as u8,
-                side: order.side as u8,
+                t: order.type_ as i16,
+                side: order.side as i16,
                 create_time: timestamp_to_chrono(order.create_time),
                 update_time: timestamp_to_chrono(order.update_time),
-                user_id: order.user,
+                user_id: order.user as i32,
                 market: order.market.to_string(),
                 price: decimal_r2b(&order.price),
                 amount: decimal_r2b(&order.amount),
                 taker_fee: decimal_r2b(&order.taker_fee),
                 maker_fee: decimal_r2b(&order.maker_fee),
-                left: decimal_r2b(&order.left),
-                freeze: decimal_r2b(&order.freeze),
+                remain: decimal_r2b(&order.remain),
+                frozen: decimal_r2b(&order.frozen),
                 finished_base: decimal_r2b(&order.finished_base),
                 finished_quote: decimal_r2b(&order.finished_quote),
                 finished_fee: decimal_r2b(&order.finished_fee),
@@ -210,14 +216,14 @@ pub fn dump_orders(conn: &MysqlConnection, slice_id: i64, controller: &Controlle
     Ok(())
 }
 
-pub fn update_slice_history(conn: &MysqlConnection, slice_id: i64, controller: &Controller) -> SimpleResult {
+pub fn update_slice_history(conn: &ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
     let sequencer = controller.sequencer.borrow_mut();
     let slice_history = SliceHistory {
         id: 0,
         time: slice_id,
-        end_operation_log_id: sequencer.get_operation_log_id(),
-        end_order_id: sequencer.get_order_id(),
-        end_trade_id: sequencer.get_trade_id(),
+        end_operation_log_id: sequencer.get_operation_log_id() as i64,
+        end_order_id: sequencer.get_order_id() as i64,
+        end_trade_id: sequencer.get_trade_id() as i64,
     };
     diesel::insert_into(schema::slice_history::table)
         .values(slice_history)
@@ -225,7 +231,7 @@ pub fn update_slice_history(conn: &MysqlConnection, slice_id: i64, controller: &
     Ok(())
 }
 
-pub fn dump_to_db(conn: &MysqlConnection, slice_id: i64, controller: &Controller) -> SimpleResult {
+pub fn dump_to_db(conn: &ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
     log::info!("persisting orders and balances to db");
     dump_orders(conn, slice_id, controller)?;
     dump_balance(conn, slice_id, &controller.balance_manager.borrow())?;
@@ -235,7 +241,7 @@ pub fn dump_to_db(conn: &MysqlConnection, slice_id: i64, controller: &Controller
 
 const SLICE_KEEP_TIME: i64 = 30; //3 * 24 * 3600;
 
-pub fn delete_slice(conn: &MysqlConnection, slice_id: i64) -> SimpleResult {
+pub fn delete_slice(conn: &ConnectionType, slice_id: i64) -> SimpleResult {
     diesel::delete(schema::balance_slice::table.filter(schema::balance_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
     diesel::delete(schema::order_slice::table.filter(schema::order_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
     diesel::delete(schema::slice_history::table.filter(schema::slice_history::dsl::time.eq(slice_id))).execute(conn)?;
@@ -243,7 +249,7 @@ pub fn delete_slice(conn: &MysqlConnection, slice_id: i64) -> SimpleResult {
 }
 
 // slice_id: timestamp
-pub fn clear_slice(conn: &MysqlConnection, slice_id: i64) -> SimpleResult {
+pub fn clear_slice(conn: &ConnectionType, slice_id: i64) -> SimpleResult {
     let count: i64 = schema::slice_history::table
         .filter(schema::slice_history::dsl::time.ge(slice_id - SLICE_KEEP_TIME))
         .select(count_star())
@@ -259,7 +265,8 @@ pub fn clear_slice(conn: &MysqlConnection, slice_id: i64) -> SimpleResult {
 }
 
 pub fn make_slice() -> SimpleResult {
-    let conn = MysqlConnection::establish("mysql://exchange:exchangeAA9944@@127.0.0.1/exchange")?;
+    let url = "postgres://exchange:exchange_AA9944@127.0.0.1/exchange";
+    let conn = ConnectionType::establish(url)?;
     let controller = unsafe { G_STUB.as_mut().unwrap() };
     let slice_id = utils::current_timestamp() as i64;
     dump_to_db(&conn, slice_id, controller)?;

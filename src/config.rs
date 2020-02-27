@@ -2,32 +2,6 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-// TODO: remove default?
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct MysqlCfg {
-    pub host: String,
-    pub port: i32,
-    pub user: String,
-    pub pass: String,
-    pub name: String,
-    pub charset: String,
-}
-
-impl Default for MysqlCfg {
-    fn default() -> Self {
-        MysqlCfg {
-            host: "127.0.0.1".to_string(),
-            port: 3306,
-            user: "root".to_string(),
-            pass: "".to_string(),
-            name: "test".to_string(),
-            charset: "utf8mb4".to_string(),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Asset {

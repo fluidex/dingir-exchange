@@ -6,7 +6,6 @@
 
 #[macro_use]
 extern crate diesel;
-use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;
 
 #[macro_use]
@@ -33,6 +32,8 @@ use server::{GrpcHandler, MatchengineServer};
 
 embed_migrations!();
 
+use types::ConnectionType;
+
 fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
@@ -52,11 +53,11 @@ async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
     let settings: config::Settings = conf.try_into().unwrap();
     println!("Settings: {:?}", settings);
 
-    let conn = MysqlConnection::establish(&settings.db_log)?;
+    let conn = ConnectionType::establish(&settings.db_log)?;
     embedded_migrations::run_with_output(&conn, &mut std::io::stdout())?;
 
     let mut grpc_stub = Controller::new(settings);
-    persist::init_from_db(&conn, &mut grpc_stub);
+    persist::init_from_db(&conn, &mut grpc_stub).expect("load state error");
     unsafe {
         controller::G_STUB = Some(&mut grpc_stub);
     }

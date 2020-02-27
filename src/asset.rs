@@ -20,7 +20,7 @@ use std::time::Duration;
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash, Copy, TryFromPrimitive)]
-#[repr(u8)]
+#[repr(i16)]
 pub enum BalanceType {
     AVAILABLE = 1,
     FREEZE = 2,
@@ -83,8 +83,8 @@ pub struct BalanceStatus {
     pub total: Decimal,
     pub available_count: u32,
     pub available: Decimal,
-    pub freeze_count: u32,
-    pub freeze: Decimal,
+    pub frozen_count: u32,
+    pub frozen: Decimal,
 }
 
 impl BalanceManager {
@@ -175,7 +175,7 @@ impl BalanceManager {
         self.set_by_key(key, &new_value);
         new_value
     }
-    pub fn freeze(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
+    pub fn frozen(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
         let key = BalanceMapKey {
@@ -188,7 +188,7 @@ impl BalanceManager {
         self.sub(user_id, BalanceType::AVAILABLE, asset, &amount);
         self.add(user_id, BalanceType::FREEZE, asset, &amount);
     }
-    pub fn unfreeze(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
+    pub fn unfrozen(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
         let key = BalanceMapKey {
@@ -196,8 +196,8 @@ impl BalanceManager {
             balance_type: BalanceType::FREEZE,
             asset: asset.to_owned(),
         };
-        let old_freeze_value = self.get_by_key(&key);
-        debug_assert!(old_freeze_value.ge(&amount));
+        let old_frozen_value = self.get_by_key(&key);
+        debug_assert!(old_frozen_value.ge(&amount));
         self.add(user_id, BalanceType::AVAILABLE, asset, &amount);
         self.sub(user_id, BalanceType::FREEZE, asset, &amount);
     }
@@ -213,8 +213,8 @@ impl BalanceManager {
                     result.available_count += 1;
                     result.available += amount;
                 } else {
-                    result.freeze_count += 1;
-                    result.freeze += amount;
+                    result.frozen_count += 1;
+                    result.frozen += amount;
                 }
             }
         }
@@ -296,7 +296,7 @@ impl BalanceUpdateController {
             detail["id"] = serde_json::Value::from(business_id);
             let balance_history = BalanceHistory {
                 time: utils::current_native_date_time(),
-                user_id,
+                user_id: user_id as i32,
                 asset: asset.to_string(),
                 business: business.clone(),
                 change: utils::decimal_r2b(&change),

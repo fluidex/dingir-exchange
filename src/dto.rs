@@ -31,7 +31,7 @@ pub fn order_to_proto(o: &market::Order) -> OrderInfo {
         amount: o.amount.to_string(),
         taker_fee: o.taker_fee.to_string(),
         maker_fee: o.maker_fee.to_string(),
-        left: o.left.to_string(),
+        remain: o.remain.to_string(),
         finished_base: o.finished_base.to_string(),
         finished_quote: o.finished_quote.to_string(),
         finished_fee: o.finished_fee.to_string(),
