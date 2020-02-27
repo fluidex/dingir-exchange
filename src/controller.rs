@@ -383,7 +383,7 @@ impl Controller {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
             id: self.sequencer.borrow_mut().next_operation_log_id() as i64,
-            time: utils::current_native_date_time(),
+            time: utils::current_system_time(),
             method: method.to_owned(),
             params,
         };

@@ -26,10 +26,10 @@ crossbeam-channel = "0.4.2"
 rdkafka = "0.23.1"
 nix = "0.17.0"
 anyhow = "1.0.26"
-diesel = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc", features = ["mysql", "numeric", "unstable", "chrono", "postgres", "serde_json", "bigdecimal"] }
-diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc" }
+diesel = { version = "1.4",  features = ["numeric", "unstable", "chrono", "postgres", "serde_json", "bigdecimal"] }
+diesel_migrations = "1.4"
 chrono = "0.4.10"
-rust_decimal = "1.2.1"
+rust_decimal = { version = "1.2.1", features = ["postgres", "diesel"] }
 rust_decimal_macros = "1.2.1"
 
 tonic = "0.1.1"
@@ -42,7 +42,3 @@ num_enum = "0.4.2"
 [build-dependencies]
 tonic-build = "0.1.1"
 prost = "0.6.1"
-
-[replace]
-"diesel_derives:1.4.1" = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc" }
-"diesel:1.4.3" = { git = "https://github.com/diesel-rs/diesel.git", rev = "6404b7ebc"}

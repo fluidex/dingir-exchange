@@ -4,10 +4,9 @@
 use crate::schema::operation_log;
 use crate::schema::{balance_history, order_history, trade_history};
 use crate::schema::{balance_slice, order_slice, slice_history};
-//use rust_decimal::Decimal;
 
-pub type DecimalDbType = bigdecimal::BigDecimal;
-pub type TimestampDbType = chrono::NaiveDateTime;
+pub type DecimalDbType = rust_decimal::Decimal;
+pub type TimestampDbType = std::time::SystemTime;
 
 #[derive(Queryable, Insertable, Debug, Clone)]
 #[table_name = "balance_history"]
@@ -17,7 +16,6 @@ pub struct BalanceHistory {
     pub user_id: i32,
     pub asset: String,
     pub business: String,
-    // TODO: bigdecimal or rust-decimal?
     pub change: DecimalDbType,
     pub balance: DecimalDbType,
     // TODO: change it to jsonb

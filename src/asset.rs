@@ -295,12 +295,12 @@ impl BalanceUpdateController {
         if real {
             detail["id"] = serde_json::Value::from(business_id);
             let balance_history = BalanceHistory {
-                time: utils::current_native_date_time(),
+                time: utils::current_system_time(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
                 business: business.clone(),
-                change: utils::decimal_r2b(&change),
-                balance: utils::decimal_r2b(&new_balance),
+                change,
+                balance: new_balance,
                 detail: detail.to_string(),
             };
             self.history_writer.borrow_mut().append_balance_history(balance_history);

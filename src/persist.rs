@@ -7,7 +7,7 @@ use crate::models::{BalanceSlice, NewBalanceSlice, OperationLog, OrderSlice, Sli
 use crate::schema;
 use crate::types::SimpleResult;
 use crate::utils;
-use crate::utils::{decimal_b2r, decimal_r2b, timestamp_to_chrono};
+use crate::utils::{system_time_to_timestamp, timestamp_to_system_time};
 //use cre
 
 use diesel::dsl::count_star;
@@ -47,7 +47,7 @@ pub fn load_slice_from_db(conn: &ConnectionType, slice_id: i64, controller: &mut
             .unwrap();
         for balance in &balances {
             let balance_type = asset::BalanceType::try_from(balance.t).unwrap();
-            let amount = decimal_b2r(&balance.balance);
+            let amount = balance.balance;
             controller
                 .balance_manager
                 .borrow_mut()
@@ -77,19 +77,19 @@ pub fn load_slice_from_db(conn: &ConnectionType, slice_id: i64, controller: &mut
                 id: order.id as u64,
                 type_: market::OrderType::try_from(order.t).unwrap(),
                 side: market::OrderSide::try_from(order.side).unwrap(),
-                create_time: order.create_time.timestamp_millis() as f64,
-                update_time: order.update_time.timestamp_millis() as f64,
+                create_time: system_time_to_timestamp(order.create_time),
+                update_time: system_time_to_timestamp(order.update_time),
                 market: market.name,
                 user: order.user_id as u32,
-                price: decimal_b2r(&order.price),
-                amount: decimal_b2r(&order.amount),
-                taker_fee: decimal_b2r(&order.taker_fee),
-                maker_fee: decimal_b2r(&order.maker_fee),
-                remain: decimal_b2r(&order.remain),
-                frozen: decimal_b2r(&order.frozen),
-                finished_base: decimal_b2r(&order.finished_base),
-                finished_quote: decimal_b2r(&order.finished_quote),
-                finished_fee: decimal_b2r(&order.finished_fee),
+                price: order.price,
+                amount: order.amount,
+                taker_fee: order.taker_fee,
+                maker_fee: order.maker_fee,
+                remain: order.remain,
+                frozen: order.frozen,
+                finished_base: order.finished_base,
+                finished_quote: order.finished_quote,
+                finished_fee: order.finished_fee,
             }));
             market.insert_order(order_rc);
         }
@@ -151,7 +151,7 @@ pub fn dump_balance(conn: &ConnectionType, slice_id: i64, balance_manager: &Bala
             user_id: k.user_id as i32,
             asset: k.asset.clone(),
             t: k.balance_type as i16,
-            balance: decimal_r2b(v),
+            balance: *v,
         };
         records.push(record);
         if records.len() as i64 >= database::INSERT_LIMIT {
@@ -181,19 +181,19 @@ pub fn dump_orders(conn: &ConnectionType, slice_id: i64, controller: &Controller
                 slice_id,
                 t: order.type_ as i16,
                 side: order.side as i16,
-                create_time: timestamp_to_chrono(order.create_time),
-                update_time: timestamp_to_chrono(order.update_time),
+                create_time: timestamp_to_system_time(order.create_time),
+                update_time: timestamp_to_system_time(order.update_time),
                 user_id: order.user as i32,
                 market: order.market.to_string(),
-                price: decimal_r2b(&order.price),
-                amount: decimal_r2b(&order.amount),
-                taker_fee: decimal_r2b(&order.taker_fee),
-                maker_fee: decimal_r2b(&order.maker_fee),
-                remain: decimal_r2b(&order.remain),
-                frozen: decimal_r2b(&order.frozen),
-                finished_base: decimal_r2b(&order.finished_base),
-                finished_quote: decimal_r2b(&order.finished_quote),
-                finished_fee: decimal_r2b(&order.finished_fee),
+                price: order.price,
+                amount: order.amount,
+                taker_fee: order.taker_fee,
+                maker_fee: order.maker_fee,
+                remain: order.remain,
+                frozen: order.frozen,
+                finished_base: order.finished_base,
+                finished_quote: order.finished_quote,
+                finished_fee: order.finished_fee,
             };
             log::debug!("inserting order {:?}", record);
             records.push(record);
