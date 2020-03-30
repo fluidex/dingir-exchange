@@ -390,4 +390,4 @@ impl Controller {
         self.log_handler.append(operation_log)
     }
 }
-pub(crate) static mut G_STUB: Option<&mut Controller> = None;
+pub(crate) static mut G_STUB: *mut Controller = std::ptr::null_mut();

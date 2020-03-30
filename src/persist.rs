@@ -272,6 +272,7 @@ pub fn make_slice() -> SimpleResult {
     dump_to_db(&conn, slice_id, controller)?;
     clear_slice(&conn, slice_id)?;
     log::info!("make slice done, slice_id {}", slice_id);
+
     Ok(())
 }
 

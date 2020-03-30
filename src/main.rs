@@ -43,7 +43,7 @@ fn main() {
         .basic_scheduler()
         .build()
         .expect("build runtime");
-    rt.block_on(grpc_run()).unwrap();
+    rt.block_on({ grpc_run() }).unwrap();
 }
 
 async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +59,7 @@ async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
     let mut grpc_stub = Controller::new(settings);
     persist::init_from_db(&conn, &mut grpc_stub).expect("load state error");
     unsafe {
-        controller::G_STUB = Some(&mut grpc_stub);
+        controller::G_STUB = &mut grpc_stub;
     }
     persist::init_persist_timer();
 
