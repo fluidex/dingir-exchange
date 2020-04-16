@@ -11,18 +11,19 @@ use diesel::prelude::*;
 #[macro_use]
 extern crate diesel_migrations;
 
-mod config;
-mod models;
-mod schema;
 mod types;
+
 mod asset;
+mod config;
 mod controller;
 mod database;
 mod dto;
 mod history;
 mod market;
 mod message;
+mod models;
 mod persist;
+mod schema;
 mod sequencer;
 mod server;
 mod utils;
@@ -43,7 +44,7 @@ fn main() {
         .basic_scheduler()
         .build()
         .expect("build runtime");
-    rt.block_on({ grpc_run() }).unwrap();
+    rt.block_on(grpc_run()).unwrap();
 }
 
 async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {

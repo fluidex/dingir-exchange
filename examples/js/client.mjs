@@ -56,6 +56,10 @@ export async function assetList() {
   return (await client.AssetList({})).asset_lists;
 }
 
+export async function marketList() {
+  return (await client.MarketList({})).markets;
+}
+
 export async function orderDetail(market, order_id) {
   return await client.OrderDetail({ market, order_id });
 }

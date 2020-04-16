@@ -3,6 +3,7 @@ import {
   orderPut,
   balanceUpdate,
   assetList,
+  marketList,
   orderDetail,
   marketSummary,
   orderCancel,
@@ -10,9 +11,15 @@ import {
   debugReset,
   debugReload
 } from "./client.mjs";
+import { KafkaConsumer } from "./kafka_client.mjs";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
+
+import whynoderun from "why-is-node-running";
+
+import { inspect } from "util";
+inspect.defaultOptions.depth = null;
 
 const ORDER_SIDE_ASK = 0;
 const ORDER_SIDE_BID = 1;
@@ -170,12 +177,30 @@ async function naiveExample() {
   console.log(await balanceQuery(1));
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function checkMessages(messages) {
+  // TODO: more careful check
+  assert.equal(messages.orders.length, 5);
+  assert.equal(messages.balances.length, 2);
+  assert.equal(messages.trades.length, 1);
+}
+
 async function main() {
   try {
     await debugReset();
+    const kafkaConsumer = new KafkaConsumer();
+    kafkaConsumer.Init();
     const [askOrderId, bidOrderId] = await simpleTest();
-    await debugReload();
-    await testStatusAfterTrade(askOrderId, bidOrderId);
+    await sleep(3 * 1000);
+    const messages = kafkaConsumer.GetAllMessages();
+    console.log(messages);
+    checkMessages(messages);
+    await kafkaConsumer.Stop();
+    //await debugReload();
+    //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
     console.error("Catched error:", error);
   }
