@@ -28,7 +28,7 @@ pub struct MarketKeyAsk {
 
 pub type MarketKey = MarketKeyAsk;
 
-#[derive(PartialEq, PartialOrd, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct MarketKeyBid {
     pub order_price: Decimal,
     pub order_id: u64,
@@ -42,6 +42,12 @@ impl Ord for MarketKeyBid {
         } else {
             price_order.reverse()
         }
+    }
+}
+
+impl PartialOrd for MarketKeyBid {
+    fn partial_cmp(&self, other: &MarketKeyBid) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -235,10 +241,10 @@ impl Market {
         debug_assert_eq!(order.type_, OrderType::LIMIT);
         debug_assert!(!self.orders.contains_key(&order.id));
         //println!("order insert {}", &order.id);
-        self.orders.insert(order.id.clone(), order_rc.clone());
+        self.orders.insert(order.id, order_rc.clone());
         let user_map = self.users.entry(order.user).or_insert_with(BTreeMap::new);
         debug_assert!(!user_map.contains_key(&order.id));
-        user_map.insert(order.id.clone(), order_rc.clone());
+        user_map.insert(order.id, order_rc.clone());
         if order.side == OrderSide::ASK {
             let key = order.get_ask_key();
             debug_assert!(!self.asks.contains_key(&key));
@@ -431,7 +437,7 @@ impl Market {
 
             let maker_finished = maker_mut.remain.is_zero();
             if maker_finished {
-                finished_orders.push(maker_mut.clone());
+                finished_orders.push(*maker_mut);
             }
             // When maker_finished, `order_finish` will send message.
             // So we don't need to send the finish message here.
