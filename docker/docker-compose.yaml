@@ -1,6 +1,5 @@
 version: '3.4'
 services:
-
   db:
     image: timescale/timescaledb:2.0.0-pg12
     container_name: exchange_pq
