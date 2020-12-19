@@ -111,3 +111,6 @@ async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
     println!("Shutted down");
     Ok(())
 }
+
+// actix_web server router examples:
+// https://github.com/actix/examples/blob/master/diesel/src/main.rs
