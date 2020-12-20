@@ -1,6 +1,6 @@
 use crate::asset::{AssetManager, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::database::OperationLogSender;
-use crate::kline::KlineManager;
+use crate::kline::KlineUpdater;
 use crate::market;
 use crate::sequencer::Sequencer;
 use crate::{config, utils};
@@ -69,7 +69,6 @@ impl Controller {
         let asset_manager = AssetManager::new(&settings.assets).unwrap();
         let sequencer = Rc::new(RefCell::new(Sequencer::default()));
         let mut markets = HashMap::new();
-
         for entry in &settings.markets {
             let market = market::Market::new(
                 entry,
@@ -81,8 +80,10 @@ impl Controller {
             .unwrap();
             markets.insert(entry.name.clone(), market);
         }
-        // TODO: how do we copy this?
-        let _ = KlineManager::new(&settings).unwrap();
+        let kafka = settings.brokers.clone();
+        tokio::spawn(async move {
+            KlineUpdater::run(&kafka).await;
+        });
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             database_url: settings.db_log.clone(),
             run_daemon: true,

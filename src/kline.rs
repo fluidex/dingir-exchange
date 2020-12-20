@@ -1,46 +1,38 @@
 use anyhow::Result;
 use futures::StreamExt;
-use std::sync::Arc;
+// use std::sync::Arc;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::Consumer;
 use rdkafka::consumer::StreamConsumer;
 use rdkafka::Message;
 
-use crate::config;
+// use crate::config;
 use crate::message::DEALS_TOPIC;
 use crate::types::Trade;
 
-pub struct KlineManager {
-    msg_fetcher: Arc<StreamConsumer>,
+fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
+    let consumer: StreamConsumer = ClientConfig::new()
+        .set("bootstrap.servers", brokers)
+        .set("group.id", "kline_data_fetcher")
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .create()?;
+    consumer.subscribe(&[DEALS_TOPIC])?;
+
+    Ok(consumer)
 }
 
-impl KlineManager {
-    // TODO: can we return self?
-    pub fn new(settings: &config::Settings) -> Result<()> {
-        let consumer: StreamConsumer = ClientConfig::new()
-            .set("bootstrap.servers", &settings.brokers)
-            .set("group.id", "kline_data_fetcher")
-            .set("enable.partition.eof", "false")
-            .set("session.timeout.ms", "6000")
-            .set("enable.auto.commit", "true")
-            .create()?;
-
-        consumer.subscribe(&[DEALS_TOPIC])?;
-
-        let mngr = KlineManager {
-            msg_fetcher: Arc::new(consumer),
+pub struct KlineUpdater {}
+impl KlineUpdater {
+    pub async fn run(brokers: &str) {
+        let consumer = match init_kafka_fetcher(brokers) {
+            Err(e) => panic!("1111"),
+            consumer => consumer.unwrap(),
         };
-        // TODO: can we tokio::spawn outside?
-        tokio::spawn(async move {
-            mngr.run().await;
-        });
-        Ok(())
-    }
 
-    async fn run(&self) {
-        let mut stream = self.msg_fetcher.start();
-
+        let mut stream = consumer.start();
         while let Some(message) = stream.next().await {
             match message {
                 Err(e) => {
