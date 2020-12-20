@@ -2,41 +2,31 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use rdkafka::config::ClientConfig;
+use rdkafka::consumer::Consumer;
+use rdkafka::consumer::StreamConsumer;
 
 use crate::config;
+use crate::message::DEALS_TOPIC;
 
 pub struct KlineManager {
-    msgFetcher: Arc<KafkaMessageFetcher>,
+    msg_fetcher: Arc<StreamConsumer>,
 }
 
 impl KlineManager {
     pub fn new(settings: &config::Settings) -> Result<Self> {
-        let consumer = ClientConfig::new()
+        let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
-            // .set("queue.buffering.max.ms", "1")
+            .set("enable.partition.eof", "false")
+            .set("session.timeout.ms", "6000")
+            .set("enable.auto.commit", "true")
             .create()?;
-        let arc = Arc::new(consumer);
 
-        Ok(KlineManager { msgFetcher: arc })
+        consumer.subscribe(&[DEALS_TOPIC])?;
+
+        Ok(KlineManager {
+            msg_fetcher: Arc::new(consumer),
+        })
     }
+
+    pub fn run(&self) {}
 }
-
-// pub struct SimpleConsumerContext;
-// // TODO: impl ClientContext for SimpleConsumerContext {}
-// impl ConsumerContext for SimpleConsumerContext {
-//     // TODO:
-// }
-
-struct KafkaMessageFetcher {}
-
-// impl KafkaMessageFetcher {
-//     pub fn new(brokers: &str) -> Result<KafkaMessageFetcher> {
-//         let consumer = ClientConfig::new()
-//             .set("bootstrap.servers", brokers)
-//             .set("queue.buffering.max.ms", "1")
-//             .create_with_context(SimpleConsumerContext)?;
-//         let arc = Arc::new(consumer);
-
-//         Ok(KafkaMessageSender { consumer: arc })
-//     }
-// }
