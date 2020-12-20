@@ -15,6 +15,7 @@ pub struct KlineManager {
     msg_fetcher: Arc<StreamConsumer>,
 }
 
+// TODO: return self
 impl KlineManager {
     pub fn new(settings: &config::Settings) -> Result<()> {
         let consumer: StreamConsumer = ClientConfig::new()
@@ -30,10 +31,6 @@ impl KlineManager {
         let mngr = KlineManager {
             msg_fetcher: Arc::new(consumer),
         };
-        // TODO: 
-        // crossbeam
-        // join?
-        // return self
         tokio::spawn(async move {
             mngr.run().await;
         });
@@ -53,6 +50,7 @@ impl KlineManager {
                         let payload = String::from_utf8(p.to_vec()).unwrap();
                         let trade: Trade = serde_json::from_str(&payload).unwrap();
                         println!("{:?}", trade);
+                        // TODO: insert into db
                     }
                 }
             }
