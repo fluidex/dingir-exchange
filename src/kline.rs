@@ -1,5 +1,6 @@
 use anyhow::Result;
 use futures::StreamExt;
+use std::time::Duration;
 // use std::sync::Arc;
 
 use rdkafka::config::ClientConfig;
@@ -20,7 +21,8 @@ fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
         .set("enable.auto.commit", "true")
         .create()?;
     consumer.subscribe(&[DEALS_TOPIC])?;
-
+    // kafka server health check
+    consumer.fetch_metadata(Some(DEALS_TOPIC), Duration::from_millis(2000u64))?;
     Ok(consumer)
 }
 
@@ -28,21 +30,23 @@ pub struct KlineUpdater {}
 impl KlineUpdater {
     pub async fn run(brokers: &str) {
         let consumer = match init_kafka_fetcher(brokers) {
-            Err(e) => panic!("1111"),
+            Err(e) => {
+                log::error!("init_kafka_fetcher error: {}", e);
+                return;
+            }
             consumer => consumer.unwrap(),
         };
-
         let mut stream = consumer.start();
         while let Some(message) = stream.next().await {
             match message {
                 Err(e) => {
-                    println!("Kafka error: {}", e);
+                    log::error!("Kafka error: {}", e);
                 }
                 Ok(m) => {
                     if let Some(p) = m.payload() {
                         let payload = String::from_utf8(p.to_vec()).unwrap();
                         let trade: Trade = serde_json::from_str(&payload).unwrap();
-                        println!("{:?}", trade);
+                        log::debug!("{:?}", trade);
                         // TODO: insert into db
                     }
                 }
