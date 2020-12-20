@@ -15,8 +15,10 @@ pub struct KlineManager {
     msg_fetcher: Arc<StreamConsumer>,
 }
 
-// TODO: return self
 impl KlineManager {
+    // TODO: return self
+    // https://qiita.com/KumanoT/items/11e4315f4623291274c0
+    // https://github.com/fede1024/rust-rdkafka/issues/85
     pub fn new(settings: &config::Settings) -> Result<()> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
