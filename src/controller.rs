@@ -82,7 +82,7 @@ impl Controller {
             .unwrap();
             markets.insert(entry.name.clone(), market);
         }
-        let kline_manager = Rc::new(RefCell::new(KlineManager::new(&settings))).unwrap();
+        let kline_manager = Rc::new(RefCell::new(KlineManager::new(&settings).unwrap()));
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             database_url: settings.db_log.clone(),
             run_daemon: true,
