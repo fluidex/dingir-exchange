@@ -9,6 +9,7 @@ use rdkafka::Message;
 
 use crate::config;
 use crate::message::DEALS_TOPIC;
+use crate::types::Trade;
 
 pub struct KlineManager {
     msg_fetcher: Arc<StreamConsumer>,
@@ -45,11 +46,10 @@ impl KlineManager {
                 }
                 Ok(m) => {
                     if let Some(p) = m.payload() {
-                        println!("payload {:?}", String::from_utf8(p.to_vec()).unwrap());
+                        let payload = String::from_utf8(p.to_vec()).unwrap();
+                        let trade: Trade = serde_json::from_str(&payload).unwrap();
+                        println!("{:?}", trade);
                     }
-                    // if let Some(k) = m.key() {
-                    //     println!("key {:?}", k);
-                    // }
                 }
             }
         }
