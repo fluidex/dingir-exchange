@@ -33,5 +33,7 @@ impl KlineManager {
         Ok(mngr)
     }
 
-    pub fn run(&self) {}
+    pub fn run(&self) {
+        // https://github.com/fede1024/rust-rdkafka/blob/master/examples/simple_consumer.rs
+    }
 }
