@@ -80,6 +80,7 @@ impl Controller {
             .unwrap();
             markets.insert(entry.name.clone(), market);
         }
+        // TODO: impl copy/clone for settings
         let kafka = settings.brokers.clone();
         tokio::spawn(async move {
             KlineUpdater::run(&kafka).await;
