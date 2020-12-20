@@ -1,13 +1,25 @@
-#[derive(Debug)]
-pub struct KlineManager {}
+use anyhow::Result;
+use std::sync::Arc;
 
-impl KlineManager {
-    pub fn new() -> Self {
-        KlineManager {}
-    }
+use rdkafka::config::ClientConfig;
+
+use crate::config;
+
+pub struct KlineManager {
+    msgFetcher: Arc<KafkaMessageFetcher>,
 }
 
+impl KlineManager {
+    pub fn new(settings: &config::Settings) -> Result<Self> {
+        let consumer = ClientConfig::new()
+            .set("bootstrap.servers", &settings.brokers)
+            // .set("queue.buffering.max.ms", "1")
+            .create()?;
+        let arc = Arc::new(consumer);
 
+        Ok(KlineManager { msgFetcher: arc })
+    }
+}
 
 // pub struct SimpleConsumerContext;
 // // TODO: impl ClientContext for SimpleConsumerContext {}
@@ -15,8 +27,7 @@ impl KlineManager {
 //     // TODO:
 // }
 
-// // TODO: should we embed it into sender?
-// pub struct KafkaMessageFetcher {}
+struct KafkaMessageFetcher {}
 
 // impl KafkaMessageFetcher {
 //     pub fn new(brokers: &str) -> Result<KafkaMessageFetcher> {
