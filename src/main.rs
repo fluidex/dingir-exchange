@@ -13,6 +13,7 @@ mod controller;
 mod database;
 mod dto;
 mod history;
+mod kline;
 mod market;
 mod message;
 mod models;

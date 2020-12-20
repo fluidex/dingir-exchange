@@ -1,5 +1,6 @@
 use crate::asset::{AssetManager, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::database::OperationLogSender;
+use crate::kline::KlineManager;
 use crate::market;
 use crate::sequencer::Sequencer;
 use crate::{config, utils};
