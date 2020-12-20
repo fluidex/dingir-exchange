@@ -24,9 +24,13 @@ impl KlineManager {
 
         consumer.subscribe(&[DEALS_TOPIC])?;
 
-        Ok(KlineManager {
+        let mngr = KlineManager {
             msg_fetcher: Arc::new(consumer),
-        })
+        };
+        std::thread::spawn(move || {
+            mngr.run();
+        });
+        Ok(mngr)
     }
 
     pub fn run(&self) {}
