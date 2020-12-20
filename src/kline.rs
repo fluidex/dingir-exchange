@@ -30,11 +30,17 @@ fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
     Ok(consumer)
 }
 
+// TODO:
+// use lifetime so that we can have
+// KlineUpdater::new() -> Self
+// and make stream as a member.
+// Thus we can wrap KlineUpdater into controller::Controller and tokio::spawn in server.rs
 pub struct KlineUpdater {}
 impl KlineUpdater {
     pub async fn run(brokers: &str) {
         let consumer = match init_kafka_fetcher(brokers) {
             Err(e) => {
+                // TODO: we'd better terminate the whole process
                 log::error!("init_kafka_fetcher error: {}", e);
                 return;
             }
