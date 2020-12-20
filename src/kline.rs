@@ -13,7 +13,7 @@ pub struct KlineManager {
 }
 
 impl KlineManager {
-    pub fn new(settings: &config::Settings) -> Result<Self> {
+    pub fn new(settings: &config::Settings) -> Result<()> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
             .set("group.id", "kline_data_fetcher")
@@ -30,7 +30,7 @@ impl KlineManager {
         std::thread::spawn(move || {
             mngr.run();
         });
-        Ok(mngr)
+        Ok(())
     }
 
     pub fn run(&self) {
