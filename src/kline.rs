@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{format_err, Result};
 use futures::StreamExt;
 use std::time::Duration;
 // use std::sync::Arc;
@@ -21,8 +21,12 @@ fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
         .set("enable.auto.commit", "true")
         .create()?;
     consumer.subscribe(&[DEALS_TOPIC])?;
+
     // kafka server health check
-    consumer.fetch_metadata(Some(DEALS_TOPIC), Duration::from_millis(2000u64))?;
+    consumer
+        .fetch_metadata(Some(DEALS_TOPIC), Duration::from_millis(2000u64))
+        .map_err(|e| format_err!("kafka server health check: {}", e))?;
+
     Ok(consumer)
 }
 
