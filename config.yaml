@@ -38,4 +38,3 @@ markets:
 brokers: '127.0.0.1:9092'
 slice_interval: 3600
 slice_keeptime: 259200
-
