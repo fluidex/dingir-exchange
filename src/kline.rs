@@ -16,6 +16,7 @@ impl KlineManager {
     pub fn new(settings: &config::Settings) -> Result<Self> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
+            .set("group.id", "kline_data_fetcher")
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "6000")
             .set("enable.auto.commit", "true")
