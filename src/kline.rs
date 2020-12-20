@@ -16,9 +16,7 @@ pub struct KlineManager {
 }
 
 impl KlineManager {
-    // TODO: return self
-    // https://qiita.com/KumanoT/items/11e4315f4623291274c0
-    // https://github.com/fede1024/rust-rdkafka/issues/85
+    // TODO: can we return self?
     pub fn new(settings: &config::Settings) -> Result<()> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
@@ -33,6 +31,7 @@ impl KlineManager {
         let mngr = KlineManager {
             msg_fetcher: Arc::new(consumer),
         };
+        // TODO: can we tokio::spawn outside?
         tokio::spawn(async move {
             mngr.run().await;
         });
