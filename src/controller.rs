@@ -38,7 +38,7 @@ pub struct Controller {
     pub asset_manager: AssetManager,
     pub update_controller: Rc<RefCell<BalanceUpdateController>>,
     pub markets: HashMap<String, market::Market>,
-    pub kline_manager: KlineManager,
+    pub kline_manager: Rc<RefCell<KlineManager>>,
     pub log_handler: OperationLogSender,
     pub history_writer: Rc<RefCell<DatabaseHistoryWriter>>,
     pub message_manager: Rc<RefCell<ChannelMessageManager>>,
@@ -82,7 +82,7 @@ impl Controller {
             .unwrap();
             markets.insert(entry.name.clone(), market);
         }
-        let kline_manager = KlineManager::new(&settings).unwrap();
+        let kline_manager = Rc::new(RefCell::new(KlineManager::new(&settings).unwrap()));
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             database_url: settings.db_log.clone(),
             run_daemon: true,
