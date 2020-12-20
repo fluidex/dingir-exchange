@@ -16,6 +16,10 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+///
+/// sender
+///
+
 pub struct SimpleProducerContext;
 impl ClientContext for SimpleProducerContext {}
 impl ProducerContext for SimpleProducerContext {
@@ -235,4 +239,29 @@ pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMe
     // TODO: join handle?
     std::thread::spawn(move || kafka_sender.start());
     Ok(ChannelMessageManager { sender })
+}
+
+///
+/// fetcher
+///
+
+pub struct SimpleConsumerContext;
+// TODO: impl ClientContext for SimpleConsumerContext {}
+impl ConsumerContext for SimpleConsumerContext {
+    // TODO:
+}
+
+// TODO: should we embed it into sender?
+pub struct KafkaMessageFetcher {}
+
+impl KafkaMessageFetcher {
+    pub fn new(brokers: &str) -> Result<KafkaMessageFetcher> {
+        let consumer = ClientConfig::new()
+            .set("bootstrap.servers", brokers)
+            .set("queue.buffering.max.ms", "1")
+            .create_with_context(SimpleConsumerContext)?;
+        let arc = Arc::new(consumer);
+
+        Ok(KafkaMessageSender { consumer: arc })
+    }
 }
