@@ -30,6 +30,10 @@ impl KlineManager {
         let mngr = KlineManager {
             msg_fetcher: Arc::new(consumer),
         };
+        // TODO: 
+        // crossbeam
+        // join?
+        // return self
         tokio::spawn(async move {
             mngr.run().await;
         });
