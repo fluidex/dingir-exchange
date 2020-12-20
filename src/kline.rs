@@ -5,6 +5,7 @@ use std::sync::Arc;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::Consumer;
 use rdkafka::consumer::StreamConsumer;
+use rdkafka::Message;
 
 use crate::config;
 use crate::message::DEALS_TOPIC;
@@ -38,8 +39,19 @@ impl KlineManager {
         let mut stream = self.msg_fetcher.start();
 
         while let Some(message) = stream.next().await {
-            println!("!!!!!!!!!!!!!!!!!!!!!");
-            println!("{:?}", message);
+            match message {
+                Err(e) => {
+                    println!("Kafka error: {}", e);
+                }
+                Ok(m) => {
+                    if let Some(p) = m.payload() {
+                        println!("payload {:?}", String::from_utf8(p.to_vec()).unwrap());
+                    }
+                    // if let Some(k) = m.key() {
+                    //     println!("key {:?}", k);
+                    // }
+                }
+            }
         }
     }
 }
