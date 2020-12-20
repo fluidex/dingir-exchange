@@ -112,5 +112,15 @@ async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// plan
+// fetch from kafka
+// insert into time series db
+// response with REST API
+
+/// time series db.
+// https://github.com/LoopringSecondary/lightcone_legacy/blob/28142a7862dec33f79fa18e0ed2a8faae72604dc/persistence/src/main/scala/io/lightcone/persistence/dals/OHLCDataDalImpl.scala#L105
+// https://github.com/openware/peatio/blob/2d0a0bc0718f35b18753cc3eaeab6fe06ea58ef5/app/services/k_line_service.rb#L40
+// https://github.com/openware/peatio/blob/2d0a0bc0718f35b18753cc3eaeab6fe06ea58ef5/app/models/trade.rb#L18
+
 // actix_web server router examples:
 // https://github.com/actix/examples/blob/master/diesel/src/main.rs
