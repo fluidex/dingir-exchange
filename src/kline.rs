@@ -1,4 +1,5 @@
 use anyhow::Result;
+use futures::StreamExt;
 use std::sync::Arc;
 
 use rdkafka::config::ClientConfig;
@@ -27,13 +28,18 @@ impl KlineManager {
         let mngr = KlineManager {
             msg_fetcher: Arc::new(consumer),
         };
-        std::thread::spawn(move || {
-            mngr.run();
+        tokio::spawn(async move {
+            mngr.run().await;
         });
         Ok(())
     }
 
-    pub fn run(&self) {
-        // https://github.com/fede1024/rust-rdkafka/blob/master/examples/simple_consumer.rs
+    async fn run(&self) {
+        let mut stream = self.msg_fetcher.start();
+
+        while let Some(message) = stream.next().await {
+            println!("!!!!!!!!!!!!!!!!!!!!!");
+            println!("{:?}", message);
+        }
     }
 }
