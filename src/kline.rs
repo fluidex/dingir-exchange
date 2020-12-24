@@ -40,9 +40,8 @@ impl KlineUpdater {
     pub async fn run(brokers: &str) {
         let consumer = match init_kafka_fetcher(brokers) {
             Err(e) => {
-                // TODO: we'd better terminate the whole process
                 log::error!("init_kafka_fetcher error: {}", e);
-                return;
+                std::process::exit(1);
             }
             consumer => consumer.unwrap(),
         };
