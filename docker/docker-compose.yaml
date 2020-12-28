@@ -2,7 +2,7 @@ version: '3.4'
 services:
 
   db:
-    image: postgres
+    image: timescale/timescaledb:0.11.0-pg10
     container_name: exchange_pq
     restart: always
     volumes:
