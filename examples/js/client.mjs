@@ -76,10 +76,13 @@ export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
 
+export async function debugDump() {
+  return await client.DebugDump({});
+}
+
 export async function debugReset() {
   return await client.DebugReset({});
 }
-
 
 export async function debugReload() {
   return await client.DebugReload({});

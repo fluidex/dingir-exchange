@@ -337,6 +337,16 @@ impl Controller {
         Ok(())
     }
 
+    pub fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
+        (|| -> anyhow::Result<()> {
+            let connection = ConnectionType::establish(&self.settings.db_log)?;
+            crate::persist::dump_to_db(&connection, utils::current_timestamp() as i64, self)?;
+            Ok(())
+        })()
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        Ok(DebugDumpResponse {})
+    }
+
     pub fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
         (|| -> anyhow::Result<()> {
             self.reset_state();

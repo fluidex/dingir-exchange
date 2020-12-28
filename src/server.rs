@@ -73,6 +73,10 @@ impl Matchengine for GrpcHandler {
         Ok(Response::new(stub.order_cancel(true, request.into_inner())?))
     }
     // This is the only blocking call of the server
+    async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
+        let stub = get_stub!();
+        Ok(Response::new(stub.debug_dump(request.into_inner())?))
+    }    
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
         let stub = get_stub!();
         Ok(Response::new(stub.debug_reset(request.into_inner())?))

@@ -16,6 +16,7 @@ service Matchengine {
     rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
 
     // Used only in development
+    rpc DebugDump(DebugDumpRequest) returns (DebugDumpResponse) {}
     rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
     rpc DebugReload(DebugReloadRequest) returns (DebugReloadResponse) {}
 }
@@ -202,6 +203,13 @@ message MarketSummaryResponse {
         string bid_amount = 5;
     }
     repeated MarketSummary market_summaries = 1;
+}
+
+message DebugDumpRequest{
+
+}
+message DebugDumpResponse{
+
 }
 
 message DebugResetRequest{
