@@ -15,6 +15,7 @@ import { KafkaConsumer } from "./kafka_client.mjs";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
+import Dotenv from "dotenv"
 
 import whynoderun from "why-is-node-running";
 
@@ -202,6 +203,7 @@ function checkMessages(messages) {
 }
 
 async function mainTest(withMQ) {
+  Dotenv.config()
   await debugReset();
   if (withMQ) {
     const kafkaConsumer = new KafkaConsumer();

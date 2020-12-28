@@ -3,8 +3,9 @@ import Kafka from "kafkajs";
 export class KafkaConsumer {
   async Init(verbose = false) {
     this.verbose = verbose;
+    const brokers = process.env.KAFKA_BROKERS
     const kafka = new Kafka.Kafka({
-      brokers: ["127.0.0.1:9092"],
+      brokers: (brokers || "127.0.0.1:9092").split(','),
       logLevel: Kafka.logLevel.WARN
     });
     const consumer = kafka.consumer({ groupId: "test-group" });
