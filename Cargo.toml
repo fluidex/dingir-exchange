@@ -38,8 +38,12 @@ dotenv = "0.15.0"
 bigdecimal = "0.2.0"
 num_enum = "0.5.1"
 tonic = "0.3.1"
+actix-web = "3.3.2"
 
 [build-dependencies]
 prost = "0.6.1"
 tonic-build = "0.3.1"
+[[bin]]
+name = "rest_api"
+path = "src/rest_api.rs"
 
