@@ -9,7 +9,7 @@ import {
   orderCancel,
   orderDepth,
   debugReset,
-  debugReload
+  debugReload,
 } from "./client.mjs";
 import { KafkaConsumer } from "./kafka_client.mjs";
 
@@ -30,7 +30,7 @@ const userId = 3;
 const depositId = Math.floor(Date.now() / 1000);
 const base = "ETH";
 const quote = "BTC";
-const market = `${base}/${quote}`;
+const market = `${base}_${quote}`;
 const fee = "0";
 
 async function prettyPrint(obj) {
@@ -59,11 +59,24 @@ async function ensureAssetZero() {
 
 async function setupAsset() {
   await balanceUpdate(userId, "BTC", "deposit", depositId, "100.0", {
-    key: "value"
+    key: "value",
   });
   await balanceUpdate(userId, "ETH", "deposit", depositId + 1, "50.0", {
-    key: "value"
+    key: "value",
   });
+}
+
+async function putLimitOrder(side, amount, price) {
+  await orderPut(
+    userId,
+    market,
+    side,
+    ORDER_TYPE_LIMIT,
+    amount,
+    price,
+    fee,
+    fee
+  );
 }
 
 // Test order put and cancel
@@ -178,7 +191,7 @@ async function naiveExample() {
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function checkMessages(messages) {
@@ -188,17 +201,25 @@ function checkMessages(messages) {
   assert.equal(messages.trades.length, 1);
 }
 
-async function main() {
-  try {
-    await debugReset();
+async function mainTest(withMQ) {
+  await debugReset();
+  if (withMQ) {
     const kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
-    const [askOrderId, bidOrderId] = await simpleTest();
+  }
+  const [askOrderId, bidOrderId] = await simpleTest();
+  if (withMQ) {
     await sleep(3 * 1000);
     const messages = kafkaConsumer.GetAllMessages();
     console.log(messages);
     checkMessages(messages);
     await kafkaConsumer.Stop();
+  }
+}
+
+async function main() {
+  try {
+    mainTest(false);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {

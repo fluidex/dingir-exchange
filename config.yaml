@@ -27,7 +27,7 @@ assets:
     prec_save: 12
     prec_show: 8
 markets:
-  - name: ETH/BTC
+  - name: ETH_BTC
     base:
       name: ETH
       prec: 8

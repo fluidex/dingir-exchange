@@ -30,7 +30,7 @@ $ cd $DingirExchangeDir
 $ cd docker
 $ docker-compose up # Lanuch the external dependency services like MySQL and Kafka
 $ cd $DingirExchangeDir
-$ cargo run
+$ cargo run --bin dinger-exchange
 $ cd $DingirExchangeDir/examples/js
 $ node trade.js # This script will put orders into the exchange. Then you can see some others got matched, deals(trades) are generated, and users' balances are changed accordingly. 
 ```
