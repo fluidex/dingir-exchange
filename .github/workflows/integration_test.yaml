@@ -21,14 +21,11 @@ jobs:
           - nightly
 
     steps:
-      - name: Install libpq
-        uses: sudo apt-get install libpq-dev
-
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Up docker-compose
-        run: docker-compose --file "./docker/docker-compose.yaml" up --detach
+      - name: Install libpq
+        uses: sudo apt-get install libpq-dev
 
       - name: Install rust nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -37,3 +34,14 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt, clippy
+
+      - name: Install Node.js 14
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Npm install
+        run: npm install
+
+      - name: Up docker-compose
+        run: docker-compose --file "./docker/docker-compose.yaml" up --detach
