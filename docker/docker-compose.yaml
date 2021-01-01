@@ -21,6 +21,7 @@ services:
       - "2181:2181"
     volumes:
       - ./data/volumes/log_zookeeper:/var/log/zookeeper
+
   kafka:
     image: wurstmeister/kafka:latest
     container_name: exchange_kafka
