@@ -45,3 +45,18 @@ jobs:
 
       - name: Up docker-compose
         run: docker-compose --file "./docker/docker-compose.yaml" up --detach
+
+      # we build the binary after starting docker-compose, to ensure time for running services in docker-compose
+      - name: Run "cargo build --release"
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Start exchange server daemon
+        run: nohup ./target/release/$BIN_NAME &
+        env:
+          BIN_NAME: dingir-exchange
+
+      - name: Run trading tests
+        run: node ./examples/js/trade.js
