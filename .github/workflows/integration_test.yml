@@ -40,8 +40,8 @@ jobs:
         with:
           node-version: '14'
 
-      - name: Npm install
-        run: npm install
+      - name: NPM install
+        run: cd ./examples/js/ && npm install
 
       - name: Up docker-compose
         run: docker-compose --file "./docker/docker-compose.yaml" up --detach
