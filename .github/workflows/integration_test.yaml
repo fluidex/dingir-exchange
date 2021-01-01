@@ -21,6 +21,9 @@ jobs:
           - nightly
 
     steps:
+      - name: Install libpq
+        uses: sudo apt-get install libpq-dev
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
@@ -31,16 +34,3 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt, clippy
-      
-      - name: Run "cargo fmt & check"
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      
-      - name: Run "cargo clippy"
-        uses: actions-rs/cargo@v1
-        # continue-on-error: true
-        with:
-          command: clippy
-          args: -- -D warnings
