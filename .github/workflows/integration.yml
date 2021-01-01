@@ -12,8 +12,6 @@ on:
       - prod
       - release/*
 
-
-
 jobs:
   integration-test:
     runs-on: ubuntu-latest
