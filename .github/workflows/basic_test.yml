@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - prod
+      - release/*
+  pull_request:
+    branches:
+      - master
+      - prod
+      - release/*
+
+jobs:
+  basic_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Run "cargo test"
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --
+
+      - name: Run "cargo bench"
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --
