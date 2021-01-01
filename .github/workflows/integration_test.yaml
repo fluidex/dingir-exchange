@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - prod
+      - release/*
+  pull_request:
+    branches:
+      - master
+      - prod
+      - release/*
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install libpq
+        uses: sudo apt-get install libpq-dev
+
+      - name: Install rust nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Install Node.js 14
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Npm install
+        run: npm install
+
+      - name: Up docker-compose
+        run: docker-compose --file "./docker/docker-compose.yaml" up --detach
+
+      # we build the binary after starting docker-compose, to ensure time for running services in docker-compose
+      - name: Run "cargo build --release"
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Start exchange server daemon
+        run: nohup ./target/release/$BIN_NAME &
+        env:
+          BIN_NAME: dingir-exchange
+
+      - name: Run trading tests
+        run: node ./examples/js/trade.js
