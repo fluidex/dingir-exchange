@@ -27,7 +27,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Up docker-compose
+        run: docker-compose --file "./docker/docker-compose.yaml" up --detach
+
+      - name: Install rust nightly toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
