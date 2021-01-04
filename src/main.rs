@@ -12,6 +12,7 @@ use diesel::prelude::*;
 extern crate diesel_migrations;
 
 mod types;
+mod typesnew;
 
 mod asset;
 mod config;
@@ -21,7 +22,9 @@ mod dto;
 mod history;
 mod market;
 mod message;
+mod sqlxextend;
 mod models;
+mod modelsnew;
 mod persist;
 mod schema;
 mod sequencer;

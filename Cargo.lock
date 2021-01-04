@@ -170,17 +170,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bigdecimal"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc403c26e6b03005522e6e8053384c4e881dfe5b2bf041c0c2c49be33d64a539"
-dependencies = [
- "num-bigint 0.3.0",
- "num-integer",
- "num-traits 0.2.12",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -462,7 +451,7 @@ version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2de9deab977a153492a1468d1b1c0662c1cf39e5ea87d0c060ecd59ef18d8c"
 dependencies = [
- "bigdecimal 0.1.2",
+ "bigdecimal",
  "bitflags",
  "byteorder",
  "chrono",
@@ -519,7 +508,6 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
- "bigdecimal 0.2.0",
  "bytes",
  "chrono",
  "config",
@@ -1248,7 +1236,7 @@ checksum = "0840c1c50fd55e521b247f949c241c9997709f23bd7f023b9762cd561e935656"
 dependencies = [
  "log",
  "mio",
- "miow 0.3.5",
+ "miow 0.3.6",
  "winapi 0.3.9",
 ]
 
@@ -1277,9 +1265,9 @@ dependencies = [
 
 [[package]]
 name = "miow"
-version = "0.3.5"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b88fb9795d4d36d62a012dfbf49a8f5cf12751f36d31a9dbe66d528e58979e"
+checksum = "5a33c1b55807fbed163481b5ba66db4b2fa6cde694a5027be10fb724206c5897"
 dependencies = [
  "socket2",
  "winapi 0.3.9",
@@ -1350,9 +1338,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7f3fc75e3697059fb1bc465e3d8cca6cf92f56854f201158b3f9c77d5a3cfa0"
+checksum = "5e9a41747ae4633fce5adffb4d2e81ffc5e89593cb19917f8fb2cc5ff76507bf"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -2021,6 +2009,7 @@ version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fceb2595057b6891a4ee808f70054bd2d12f0e97f1cbb78689b59f676df325a"
 dependencies = [
+ "indexmap",
  "itoa",
  "ryu",
  "serde 1.0.116",
@@ -2107,7 +2096,7 @@ version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "122e570113d28d773067fab24266b66753f6ea915758651696b6e35e49f88d6e"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "libc",
  "winapi 0.3.9",
 ]
@@ -2170,11 +2159,15 @@ dependencies = [
  "log",
  "md-5",
  "memchr",
+ "num-bigint 0.3.1",
  "once_cell",
  "parking_lot",
  "percent-encoding",
  "rand",
+ "rust_decimal",
  "rustls",
+ "serde 1.0.116",
+ "serde_json",
  "sha-1 0.9.2",
  "sha2",
  "smallvec",
@@ -2202,6 +2195,7 @@ dependencies = [
  "lazy_static",
  "proc-macro2",
  "quote",
+ "serde_json",
  "sha2",
  "sqlx-core",
  "sqlx-rt",
