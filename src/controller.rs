@@ -10,9 +10,9 @@ use std::rc::Rc;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
-use crate::modelsnew as models;
-use crate::schema;
-use crate::types::{ConnectionType, SimpleResult};
+use crate::models;
+use crate::types;
+use types::{ConnectionType, SimpleResult};
 
 use crate::dto::*;
 
@@ -24,7 +24,9 @@ use crate::history::DatabaseHistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use diesel::{Connection, RunQueryDsl};
+use sqlx::Connection;
+use models::tablenames;
+
 use serde::Serialize;
 use std::str::FromStr;
 
@@ -325,48 +327,70 @@ impl Controller {
         //Ok(())
     }
 
-    fn truncate_database(&self) -> anyhow::Result<()> {
-        let connection = ConnectionType::establish(&self.settings.db_log)?;
-        diesel::delete(schema::order_slice::table).execute(&connection)?;
-        diesel::delete(schema::balance_slice::table).execute(&connection)?;
-        diesel::delete(schema::slice_history::table).execute(&connection)?;
-        diesel::delete(schema::operation_log::table).execute(&connection)?;
-        diesel::delete(schema::order_history::table).execute(&connection)?;
-        diesel::delete(schema::trade_history::table).execute(&connection)?;
-        diesel::delete(schema::balance_history::table).execute(&connection)?;
-        Ok(())
+    async fn debug_dump_imp(&self) -> anyhow::Result<()> {
+        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+        crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await?;
+        Ok(())        
     }
 
-    pub fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
-        (|| -> anyhow::Result<()> {
-            let connection = ConnectionType::establish(&self.settings.db_log)?;
-            crate::persist::dump_to_db(&connection, utils::current_timestamp() as i64, self)?;
+    #[cfg(debug_assertions)]
+    pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
+        /*(async || -> anyhow::Result<()> {
+            let mut connection = ConnectionType::establish(&self.settings.db_log).await?;
+            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await?;
             Ok(())
-        })()
-        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        })()*/
+        self.debug_dump_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugDumpResponse {})
     }
 
-    pub fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
-        (|| -> anyhow::Result<()> {
+    async fn debug_reset_imp(&mut self) -> anyhow::Result<()> {
+        self.reset_state();
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+
+        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+        sqlx::query(&format!("drop table if exists {}, {}, {}, {}, {}, {}, {}",
+            tablenames::BALANCEHISTORY,
+            tablenames::BALANCESLICE,
+            tablenames::SLICEHISTORY,
+            tablenames::OPERATIONLOG,
+            tablenames::ORDERHISTORY,
+            tablenames::TRADEHISTORY,
+            tablenames::BALANCESLICE))
+        .execute(&mut connection).await?;
+        Ok(())
+    }
+
+    #[cfg(debug_assertions)]
+    pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
+/*        (async || -> anyhow::Result<()> {
             self.reset_state();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            self.truncate_database()?;
+            tokio::time::sleep((std::time::Duration::from_secs(1)).await;
+            self.truncate_database().await?;
             Ok(())
-        })()
-        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        })()*/
+        self.debug_reset_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugResetResponse {})
     }
 
-    pub fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
-        (|| -> anyhow::Result<()> {
+    async fn debug_reload_imp(&mut self) -> anyhow::Result<()> {
+        self.reset_state();
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+        crate::persist::init_from_db(&mut connection, self).await?;
+        Ok(())
+    }
+
+    #[cfg(debug_assertions)]
+    pub async fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
+/*        (async || -> anyhow::Result<()> {
             self.reset_state();
             std::thread::sleep(std::time::Duration::from_secs(1));
-            let connection = ConnectionType::establish(&self.settings.db_log)?;
-            crate::persist::init_from_db(&connection, self)?;
+            let connection = ConnectionType::establish(&self.settings.db_log).await?;
+            crate::persist::init_from_db(&connection, self).await?;
             Ok(())
-        })()
-        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        })()*/
+        self.debug_reload_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugReloadResponse {})
     }
 

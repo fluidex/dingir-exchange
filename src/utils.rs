@@ -27,6 +27,14 @@ impl Into<NaiveDateTime> for FTimestamp
     }
 }
 
+impl From<&NaiveDateTime> for FTimestamp
+{
+    fn from(f : &NaiveDateTime) -> FTimestamp
+    {
+        FTimestamp(f.timestamp() as f64)
+    }
+}
+
 pub fn current_naive_time() -> NaiveDateTime
 {
     chrono::Local::now().naive_local()

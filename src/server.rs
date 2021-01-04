@@ -74,15 +74,18 @@ impl Matchengine for GrpcHandler {
     }
     // This is the only blocking call of the server
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
-        let stub = get_stub!();
-        Ok(Response::new(stub.debug_dump(request.into_inner())?))
+//        let stub = get_stub!();
+//        Ok(Response::new(stub.debug_dump(request.into_inner()).await?))
+          Ok(Response::new(DebugDumpResponse{}))
     }    
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
-        let stub = get_stub!();
-        Ok(Response::new(stub.debug_reset(request.into_inner())?))
+//        let stub = get_stub!();
+//        Ok(Response::new(stub.debug_reset(request.into_inner()).await?))
+          Ok(Response::new(DebugResetResponse{}))
     }
     async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
-        let stub = get_stub!();
-        Ok(Response::new(stub.debug_reload(request.into_inner())?))
+//        let stub = get_stub!();
+//        Ok(Response::new(stub.debug_reload(request.into_inner()).await?))
+          Ok(Response::new(DebugReloadResponse{}))
     }
 }

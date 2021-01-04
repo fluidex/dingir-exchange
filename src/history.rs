@@ -1,6 +1,6 @@
 use crate::database::{DatabaseWriter, DatabaseWriterConfig};
 use crate::market;
-use crate::modelsnew as models;
+use crate::models;
 use crate::types::Trade;
 
 use crate::utils::timestamp_to_system_time;

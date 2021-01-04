@@ -4,15 +4,7 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
-#[macro_use]
-extern crate diesel;
-use diesel::prelude::*;
-
-#[macro_use]
-extern crate diesel_migrations;
-
 mod types;
-mod typesnew;
 
 mod asset;
 mod config;
@@ -24,9 +16,8 @@ mod market;
 mod message;
 mod sqlxextend;
 mod models;
-mod modelsnew;
 mod persist;
-mod schema;
+//mod schema;
 mod sequencer;
 mod server;
 mod utils;
@@ -34,9 +25,9 @@ mod utils;
 use controller::Controller;
 use server::{GrpcHandler, MatchengineServer};
 
-embed_migrations!();
-
+use sqlx::Connection;
 use types::ConnectionType;
+
 
 fn main() {
     dotenv::dotenv().ok();
@@ -47,21 +38,27 @@ fn main() {
         .basic_scheduler()
         .build()
         .expect("build runtime");
-    rt.block_on(grpc_run()).unwrap();
+    let mut stub = rt.block_on(prepare()).expect("Init state error");
+    rt.block_on(grpc_run(stub)).unwrap();
 }
 
-async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
+async fn prepare() -> anyhow::Result<Controller>
+{
     let mut conf = config_rs::Config::new();
     let config_file = dotenv::var("CONFIG_FILE")?;
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
     let settings: config::Settings = conf.try_into().unwrap();
     println!("Settings: {:?}", settings);
 
-    let conn = ConnectionType::establish(&settings.db_log)?;
-    embedded_migrations::run_with_output(&conn, &mut std::io::stdout())?;
-
+    let mut conn = ConnectionType::connect(&settings.db_log).await?;
+    //TODO: add migrations
+    //embedded_migrations::run_with_output(&conn, &mut std::io::stdout())?;
     let mut grpc_stub = Controller::new(settings);
-    persist::init_from_db(&conn, &mut grpc_stub).expect("load state error");
+    persist::init_from_db(&mut conn, &mut grpc_stub).await?;
+    Ok(grpc_stub)
+}
+
+async fn grpc_run(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
         controller::G_STUB = &mut grpc_stub;
     }

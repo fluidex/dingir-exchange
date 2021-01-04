@@ -6,8 +6,8 @@ use sqlx::prelude::*;
 use anyhow::Result;
 use crossbeam_channel::RecvTimeoutError;
 
-use crate::modelsnew as models;
-use crate::typesnew as types;
+use crate::models;
+use crate::types;
 
 use crate::sqlxextend;
 use crate::sqlxextend::*;

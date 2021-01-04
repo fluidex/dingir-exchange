@@ -1,7 +1,7 @@
 use crate::config;
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageSender};
-use crate::modelsnew as models;
+use crate::models;
 use models::BalanceHistory;
 use crate::utils;
 
