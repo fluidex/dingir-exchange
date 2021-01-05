@@ -50,8 +50,6 @@ async fn prepare() -> anyhow::Result<Controller> {
     println!("Settings: {:?}", settings);
 
     let mut conn = ConnectionType::connect(&settings.db_log).await?;
-    //TODO: add migrations
-    //embedded_migrations::run_with_output(&conn, &mut std::io::stdout())?;
     persist::MIGRATOR.run(&mut conn).await?;
     let mut grpc_stub = Controller::new(settings);
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
@@ -59,7 +57,7 @@ async fn prepare() -> anyhow::Result<Controller> {
 }
 
 #[cfg(debug_assertions)]
-async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
+async fn main_scheme(grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     println!("Now we are under debug single-thread running mode");
     let local = LocalSet::new();
     let (tx_stop, mut rx_stop) = tokio::sync::watch::channel(false);

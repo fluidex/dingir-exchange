@@ -25,7 +25,6 @@ use crate::history::DatabaseHistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use models::tablenames;
 use sqlx::Connection;
 
 use serde::Serialize;
