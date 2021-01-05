@@ -264,6 +264,11 @@ async fn main() -> SimpleResult<()>{
     Ok(())
 }
 */
+#[cfg(sqlxverf)]
+fn test1()
+{
+    sqlx::query!("insert into operation_log select $1, $2, $3, $4");
+}
 
 fn main(){
     let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
@@ -291,18 +296,22 @@ fn main(){
         rt.block_on(InsertTable::sql_query(l, &mut conn)).unwrap();
     }
 
-    let pr1 : Vec<i64> = vec![99,100];
-    let pr2 : Vec<chrono::NaiveDateTime> = vec![99,100];
-    let pr3 : Vec<&String> = vec![99,100];
-    let pr4 : Vec<&String> = vec![99,100];
+    let pr1 : Vec<i64> = vec![qid+1,qid+2];
+    let pr2 : Vec<chrono::NaiveDateTime> = vec![curr_time.naive_local(),curr_time.naive_local()];
+    let pr3 : Vec<&str> = vec!["SQLTest insert","SQLTest insert"];
+    let pr4 : Vec<&str> = vec!["Add1","Add2"];
 
     {
-        let f = sqlx::query!("
-        insert into operation_log values ($1,$2,$3,$4);
-        ", 
-        
-        ).execute(&mut conn);
-        rt.block_on(f).expect("execute many");
+        // let f = sqlx::query("insert into operation_log values ($1,$3,$5,$7),($2,$4,$6,$8)")
+        // .bind(qid+1).bind(qid+2).bind(curr_time.naive_local()).bind(curr_time.naive_local())
+        // .bind("SQLTest insert").bind("SQLTest insert").bind("Add1").bind("Add2")
+        //.bind(qid+1).bind(qid+2).bind(curr_time.naive_local()).bind(curr_time.naive_local())
+        //.bind("SQLTest insert").bind("SQLTest insert").bind("Add1").bind("Add2")   
+        let f = sqlx::query("insert into operation_log select $1, $2, $3, $4")
+        .bind(pr1).bind(pr2).bind(pr3).bind(pr4)
+        .execute(&mut conn);
+        let done = rt.block_on(f).expect("batch insert");
+        println!("{}", done.rows_affected());
     }
     
 

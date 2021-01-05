@@ -6,7 +6,8 @@ use crate::{config, utils};
 use rust_decimal::Decimal;
 use serde_json::json;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc};
+use tokio::sync::oneshot;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
@@ -30,6 +31,17 @@ use models::tablenames;
 use serde::Serialize;
 use std::str::FromStr;
 
+
+pub trait DebugRunner<T> : std::future::Future<Output = Result<T, Status>> + Unpin{}
+
+impl<T, U> DebugRunner<T> for U where U : std::future::Future<Output = Result<T, Status>> + Unpin{}
+
+pub enum DebugRunTask {
+    Dump(Box::<dyn DebugRunner<DebugDumpResponse>>),
+    Reset(Box::<dyn DebugRunner<DebugResetResponse>>),
+    Reload(Box::<dyn DebugRunner<DebugReloadResponse>>),
+}
+
 pub struct Controller {
     pub settings: config::Settings,
     pub sequencer: Rc<RefCell<Sequencer>>,
@@ -38,6 +50,9 @@ pub struct Controller {
     pub update_controller: Rc<RefCell<BalanceUpdateController>>,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
+
+    #[cfg(debug_assertions)]
+    pub stw_notifier: Rc<RefCell<Option<oneshot::Sender<DebugRunTask>>>>,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -89,6 +104,9 @@ impl Controller {
             update_controller,
             markets,
             log_handler,
+
+            #[cfg(debug_assertions)]
+            stw_notifier : Rc::new(RefCell::new(None)),
         }
     }
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
@@ -316,6 +334,14 @@ impl Controller {
         Ok(order_to_proto(&order))
     }
 
+    pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
+        async {
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await
+        }.await.map_err(|err| Status::unknown(format!("{}", err)))?;
+        Ok(DebugDumpResponse {})
+    }
+
     fn reset_state(&mut self) {
         self.sequencer.borrow_mut().reset();
         for market in self.markets.values_mut() {
@@ -327,70 +353,31 @@ impl Controller {
         //Ok(())
     }
 
-    async fn debug_dump_imp(&self) -> anyhow::Result<()> {
-        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
-        crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await?;
-        Ok(())        
-    }
-
-    #[cfg(debug_assertions)]
-    pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
-        /*(async || -> anyhow::Result<()> {
-            let mut connection = ConnectionType::establish(&self.settings.db_log).await?;
-            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await?;
-            Ok(())
-        })()*/
-        self.debug_dump_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
-        Ok(DebugDumpResponse {})
-    }
-
-    async fn debug_reset_imp(&mut self) -> anyhow::Result<()> {
-        self.reset_state();
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
-
-        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
-        sqlx::query(&format!("drop table if exists {}, {}, {}, {}, {}, {}, {}",
-            tablenames::BALANCEHISTORY,
-            tablenames::BALANCESLICE,
-            tablenames::SLICEHISTORY,
-            tablenames::OPERATIONLOG,
-            tablenames::ORDERHISTORY,
-            tablenames::TRADEHISTORY,
-            tablenames::BALANCESLICE))
-        .execute(&mut connection).await?;
-        Ok(())
-    }
-
-    #[cfg(debug_assertions)]
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
-/*        (async || -> anyhow::Result<()> {
+      async {
             self.reset_state();
-            tokio::time::sleep((std::time::Duration::from_secs(1)).await;
-            self.truncate_database().await?;
-            Ok(())
-        })()*/
-        self.debug_reset_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            sqlx::query(&format!("drop table if exists {}, {}, {}, {}, {}, {}, {}",
+                tablenames::BALANCEHISTORY,
+                tablenames::BALANCESLICE,
+                tablenames::SLICEHISTORY,
+                tablenames::OPERATIONLOG,
+                tablenames::ORDERHISTORY,
+                tablenames::TRADEHISTORY,
+                tablenames::BALANCESLICE))
+            .execute(&mut connection).await
+        }.await.map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugResetResponse {})
     }
 
-    async fn debug_reload_imp(&mut self) -> anyhow::Result<()> {
-        self.reset_state();
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
-        let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
-        crate::persist::init_from_db(&mut connection, self).await?;
-        Ok(())
-    }
-
-    #[cfg(debug_assertions)]
     pub async fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
-/*        (async || -> anyhow::Result<()> {
+        async {
             self.reset_state();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            let connection = ConnectionType::establish(&self.settings.db_log).await?;
-            crate::persist::init_from_db(&connection, self).await?;
-            Ok(())
-        })()*/
-        self.debug_reload_imp().await.map_err(|err| Status::unknown(format!("{}", err)))?;
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            crate::persist::init_from_db(&mut connection, self).await
+        }.await.map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugReloadResponse {})
     }
 
@@ -424,4 +411,11 @@ impl Controller {
         self.log_handler.append(operation_log)
     }
 }
+
+#[cfg(sqlxverf)]
+fn sqlverf_clear_slice()
+{
+    sqlx::query!("drop table if exists balance_history, balance_slice"); 
+}
+
 pub(crate) static mut G_STUB: *mut Controller = std::ptr::null_mut();

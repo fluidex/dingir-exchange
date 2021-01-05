@@ -1,5 +1,5 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use sqlx::types::chrono::{NaiveDateTime, Local};
+use sqlx::types::chrono::{NaiveDateTime};
 
 pub fn system_time_to_timestamp(t: SystemTime) -> f64 {
     t.duration_since(UNIX_EPOCH).unwrap().as_micros() as f64 / 1_000_000_f64

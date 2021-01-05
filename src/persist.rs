@@ -7,22 +7,32 @@ use crate::models;
 use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
 use crate::types::SimpleResult;
 use crate::utils;
-use crate::utils::{FTimestamp, system_time_to_timestamp, timestamp_to_system_time};
-//use cre
+use crate::utils::{FTimestamp};
 
 use sqlx::Connection;
 use crate::sqlxextend::*;
 
-use std::cell::{RefMut, RefCell};
+use std::cell::{RefCell};
 use std::rc::Rc;
 
 use crate::market::Order;
 use std::convert::TryFrom;
-//use core::panicking::panic;
-use std::panic;
 
 use crate::types;
 use types::ConnectionType;
+
+#[cfg(sqlxverf)]
+fn sqlverf_get_last_slice()
+{
+    sqlx::query!("select * from slice_history order by id desc limit 1");
+}
+
+#[test]
+fn utest_get_last_slice()
+{
+    assert_eq!(format!("select * from {} order by id desc limit 1", tablenames::SLICEHISTORY),
+    "select * from slice_history order by id desc limit 1");    
+}
 
 pub async fn get_last_slice(conn: &mut ConnectionType) -> Option<SliceHistory> {
     let query = format!("select * from {} order by id desc limit 1", tablenames::SLICEHISTORY);
@@ -33,6 +43,31 @@ pub async fn get_last_slice(conn: &mut ConnectionType) -> Option<SliceHistory> {
         Err(sqlx::Error::RowNotFound) => None,
         Err(e) => panic!(e),
     }*/
+}
+
+
+#[cfg(sqlxverf)]
+fn sqlverf_load_slice_from_db()
+{
+    let last_balance_id = 0;
+    let slice_id :i64 = 1;
+    let order_id: i64 = 0;
+    sqlx::query!("select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
+        , slice_id, last_balance_id);
+    sqlx::query!("select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
+        , slice_id, order_id);        
+}
+
+#[test]
+fn utest_load_slice_from_db()
+{
+    assert_eq!(format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
+    tablenames::BALANCESLICE, database::QUERY_LIMIT),
+    "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000");
+
+    assert_eq!(format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
+    tablenames::ORDERSLICE, database::QUERY_LIMIT),
+    "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000");    
 }
 
 pub async fn load_slice_from_db(conn : &mut ConnectionType, slice_id: i64, controller: &mut Controller) {
@@ -102,6 +137,23 @@ pub async fn load_slice_from_db(conn : &mut ConnectionType, slice_id: i64, contr
             break;
         }
     }
+}
+
+
+#[cfg(sqlxverf)]
+fn sqlverf_load_operation_log_from_db()
+{
+    let operation_log_start_id : i64 = 0;
+    sqlx::query!("select * from operation_log where id > $1 order by id asc limit 1000"
+        , operation_log_start_id);     
+}
+
+#[test]
+fn utest_load_operation_log_from_db()
+{
+    assert_eq!(format!("select * from {} where id > $1 order by id asc limit {}", 
+    tablenames::OPERATIONLOG, database::QUERY_LIMIT),
+    "select * from operation_log where id > $1 order by id asc limit 1000");  
 }
 
 pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log_start_id: u64, controller: &mut Controller) {
@@ -244,6 +296,22 @@ pub async fn dump_to_db(conn: &mut ConnectionType, slice_id: i64, controller: &C
     Ok(())
 }
 
+
+#[cfg(sqlxverf)]
+fn sqlverf_delete_slice()
+{
+    let slice_id : i64 = 0;
+    sqlx::query!("delete from balance_slice where slice_id = $1"
+        , slice_id);     
+}
+
+#[test]
+fn utest_delete_slice()
+{
+    assert_eq!(format!("delete from {} where slice_id = $1", tablenames::BALANCESLICE),
+    "delete from balance_slice where slice_id = $1");  
+}
+
 const SLICE_KEEP_TIME: i64 = 30; //3 * 24 * 3600;
 
 pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleResult {
@@ -259,6 +327,24 @@ pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleRes
     // diesel::delete(schema::order_slice::table.filter(schema::order_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
     // diesel::delete(schema::slice_history::table.filter(schema::slice_history::dsl::time.eq(slice_id))).execute(conn)?;
     Ok(())
+}
+
+
+#[cfg(sqlxverf)]
+fn sqlverf_clear_slice()
+{
+    let slice_id : i64 = 0;
+    sqlx::query!("select count(*) from slice_history where time > $1", slice_id);     
+    sqlx::query!("select time from slice_history where time <= $1", slice_id);     
+}
+
+#[test]
+fn utest_clear_slice()
+{
+    assert_eq!(format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY),
+    "select count(*) from slice_history where time > $1");  
+    assert_eq!(format!("select time from {} where time <= $1", tablenames::SLICEHISTORY),
+    "select time from slice_history where time <= $1");     
 }
 
 // slice_id: timestamp
@@ -298,6 +384,9 @@ pub fn fork_and_make_slice()
 {
     log::error!("windows platform has no fork");
 }
+
+#[cfg(not(target_family = "windows"))]
+use std::panic;
 
 #[cfg(not(target_family = "windows"))]
 pub fn fork_and_make_slice() /*-> SimpleResult*/

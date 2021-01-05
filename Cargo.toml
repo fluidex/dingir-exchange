@@ -44,4 +44,3 @@ tonic-build = "0.3.1"
 [[bin]]
 name = "rest_api"
 path = "src/rest_api.rs"
-
