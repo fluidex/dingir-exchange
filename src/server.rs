@@ -117,4 +117,19 @@ impl Matchengine for GrpcHandler {
             _ => Err(Status::unknown("No channel for Stop the world, may be occupied?"))
         }
     }
+
+    #[cfg(not(debug_assertions))]
+    async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
+        Err(Status::unknown("Not avaliable in release build"))
+    }    
+
+    #[cfg(not(debug_assertions))]
+    async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
+        Err(Status::unknown("Not avaliable in release build")) 
+    }
+
+    #[cfg(not(debug_assertions))]
+    async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
+        Err(Status::unknown("Not avaliable in release build"))
+    }    
 }

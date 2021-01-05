@@ -116,7 +116,7 @@ async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error
 }
 
 #[cfg(not(debug_assertions))]
-async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>>{grpc_run(grpc_stub)}
+async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>>{grpc_run(grpc_stub).await}
 
 async fn grpc_run(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
