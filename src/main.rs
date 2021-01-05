@@ -14,9 +14,9 @@ mod dto;
 mod history;
 mod market;
 mod message;
-mod sqlxextend;
 mod models;
 mod persist;
+mod sqlxextend;
 //mod schema;
 mod sequencer;
 mod server;
@@ -25,8 +25,8 @@ mod utils;
 use controller::Controller;
 use server::{GrpcHandler, MatchengineServer};
 
-use tokio::task::LocalSet;
 use sqlx::Connection;
+use tokio::task::LocalSet;
 use types::ConnectionType;
 
 fn main() {
@@ -42,8 +42,7 @@ fn main() {
     rt.block_on(main_scheme(stub)).unwrap();
 }
 
-async fn prepare() -> anyhow::Result<Controller>
-{
+async fn prepare() -> anyhow::Result<Controller> {
     let mut conf = config_rs::Config::new();
     let config_file = dotenv::var("CONFIG_FILE")?;
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
@@ -60,14 +59,13 @@ async fn prepare() -> anyhow::Result<Controller>
 }
 
 #[cfg(debug_assertions)]
-async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>>
-{
+async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     println!("Now we are under debug single-thread running mode");
     let local = LocalSet::new();
     let (tx_stop, mut rx_stop) = tokio::sync::watch::channel(false);
     let stw_chn = grpc_stub.stw_notifier.clone();
 
-    let mainroute = async move{
+    let mainroute = async move {
         grpc_run(grpc_stub).await.unwrap();
         tx_stop.broadcast(true).unwrap();
     };
@@ -80,35 +78,41 @@ async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error
     let mainroute_ret = local.spawn_local(mainroute);
 
     loop {
-
         let (tx_stw, rx_stw) = tokio::sync::oneshot::channel::<controller::DebugRunTask>();
         stw_chn.replace(Some(tx_stw));
 
-        let ret = local.run_until(async {
-            tokio::select! {
-                Some(true) = rx_stop.recv() => None,
-                any = rx_stw => Some(any),
-            }
-        }).await;
+        let ret = local
+            .run_until(async {
+                tokio::select! {
+                    Some(true) = rx_stop.recv() => None,
+                    any = rx_stw => Some(any),
+                }
+            })
+            .await;
 
         if let Some(f) = ret {
             println!("We have Stop-the-world notify, handling it");
 
             let local_stw = LocalSet::new();
 
-            match f.unwrap(){
-                controller::DebugRunTask::Dump(fu) => {local_stw.spawn_local(fu);},
-                controller::DebugRunTask::Reset(fu) => {local_stw.spawn_local(fu);},
-                controller::DebugRunTask::Reload(fu) => {local_stw.spawn_local(fu);},
+            match f.unwrap() {
+                controller::DebugRunTask::Dump(fu) => {
+                    local_stw.spawn_local(fu);
+                }
+                controller::DebugRunTask::Reset(fu) => {
+                    local_stw.spawn_local(fu);
+                }
+                controller::DebugRunTask::Reload(fu) => {
+                    local_stw.spawn_local(fu);
+                }
             }
 
             local_stw.await;
 
             println!("Stop-the-world task done, continue running");
-        }else {
+        } else {
             break;
         }
-        
     }
 
     mainroute_ret.await?;
@@ -116,7 +120,9 @@ async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error
 }
 
 #[cfg(not(debug_assertions))]
-async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>>{grpc_run(grpc_stub).await}
+async fn main_scheme(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
+    grpc_run(grpc_stub).await
+}
 
 async fn grpc_run(mut grpc_stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {

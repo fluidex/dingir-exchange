@@ -79,14 +79,14 @@ impl Matchengine for GrpcHandler {
         match stub.stw_notifier.replace(None) {
             Some(chn) => {
                 let f = Box::pin(stub.debug_dump(request.into_inner()));
-                let fs : Box::<dyn controller::DebugRunner<DebugDumpResponse>> = Box::new(f);
+                let fs: Box<dyn controller::DebugRunner<DebugDumpResponse>> = Box::new(f);
                 chn.send(controller::DebugRunTask::Dump(fs))
                     .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugDumpResponse{}))
-            },
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?"))
-        }        
-    }    
+                Ok(Response::new(DebugDumpResponse {}))
+            }
+            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
+        }
+    }
 
     #[cfg(debug_assertions)]
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
@@ -94,13 +94,13 @@ impl Matchengine for GrpcHandler {
         match stub.stw_notifier.replace(None) {
             Some(chn) => {
                 let f = Box::pin(stub.debug_reset(request.into_inner()));
-                let fs : Box::<dyn controller::DebugRunner<DebugResetResponse>> = Box::new(f);
+                let fs: Box<dyn controller::DebugRunner<DebugResetResponse>> = Box::new(f);
                 chn.send(controller::DebugRunTask::Reset(fs))
                     .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugResetResponse{}))
-            },
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?"))
-        } 
+                Ok(Response::new(DebugResetResponse {}))
+            }
+            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
+        }
     }
 
     #[cfg(debug_assertions)]
@@ -109,27 +109,27 @@ impl Matchengine for GrpcHandler {
         match stub.stw_notifier.replace(None) {
             Some(chn) => {
                 let f = Box::pin(stub.debug_reload(request.into_inner()));
-                let fs : Box::<dyn controller::DebugRunner<DebugReloadResponse>> = Box::new(f);
+                let fs: Box<dyn controller::DebugRunner<DebugReloadResponse>> = Box::new(f);
                 chn.send(controller::DebugRunTask::Reload(fs))
                     .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugReloadResponse{}))
-            },
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?"))
+                Ok(Response::new(DebugReloadResponse {}))
+            }
+            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
         }
     }
 
     #[cfg(not(debug_assertions))]
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
         Err(Status::unknown("Not avaliable in release build"))
-    }    
+    }
 
     #[cfg(not(debug_assertions))]
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
-        Err(Status::unknown("Not avaliable in release build")) 
+        Err(Status::unknown("Not avaliable in release build"))
     }
 
     #[cfg(not(debug_assertions))]
     async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
         Err(Status::unknown("Not avaliable in release build"))
-    }    
+    }
 }

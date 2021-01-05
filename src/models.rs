@@ -4,15 +4,14 @@
 pub type DecimalDbType = rust_decimal::Decimal;
 pub type TimestampDbType = sqlx::types::chrono::NaiveDateTime;
 
-pub mod tablenames
-{
-    pub const BALANCEHISTORY : &str = "balance_history";
-    pub const ORDERHISTORY : &str = "order_history";
-    pub const TRADEHISTORY : &str = "trade_history";
-    pub const OPERATIONLOG : &str = "operation_log";
-    pub const ORDERSLICE : &str = "order_slice";
-    pub const BALANCESLICE : &str = "balance_slice";
-    pub const SLICEHISTORY : &str = "slice_history";    
+pub mod tablenames {
+    pub const BALANCEHISTORY: &str = "balance_history";
+    pub const ORDERHISTORY: &str = "order_history";
+    pub const TRADEHISTORY: &str = "trade_history";
+    pub const OPERATIONLOG: &str = "operation_log";
+    pub const ORDERSLICE: &str = "order_slice";
+    pub const BALANCESLICE: &str = "balance_slice";
+    pub const SLICEHISTORY: &str = "slice_history";
 }
 
 use tablenames::*;
@@ -132,27 +131,27 @@ pub struct SliceHistory {
     pub end_trade_id: i64,
 }
 
-
-/* 
-    Not like diesel, we still need more code for insert action here 
+/*
+    Not like diesel, we still need more code for insert action here
     May be we could use macro to save these works
 */
-use crate::types;
 use crate::sqlxextend;
+use crate::types;
 use types::DbType;
 
 /* --------------------- models::BalanceHistory -----------------------------*/
-impl sqlxextend::TableSchemas for BalanceHistory
-{
-    fn table_name() -> &'static str {BALANCEHISTORY}
+impl sqlxextend::TableSchemas for BalanceHistory {
+    fn table_name() -> &'static str {
+        BALANCEHISTORY
+    }
     const ARGN: i32 = 7;
-    fn default_argsn() -> Vec<i32>{ vec![1] }
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
 }
 
-impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
         arg.add(self.user_id);
         arg.add(&self.asset);
@@ -163,80 +162,79 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceHistory{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceHistory {}
 
 /* --------------------- models::TradeHistory -----------------------------*/
-impl sqlxextend::TableSchemas for TradeHistory
-{
-    fn table_name() -> &'static str {TRADEHISTORY}
+impl sqlxextend::TableSchemas for TradeHistory {
+    fn table_name() -> &'static str {
+        TRADEHISTORY
+    }
     const ARGN: i32 = 13;
-    fn default_argsn() -> Vec<i32>{ vec![1] }
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
 }
 
-impl sqlxextend::BindQueryArg<'_, DbType> for TradeHistory
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for TradeHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
         arg.add(self.user_id);
         arg.add(&self.market);
         arg.add(self.trade_id);
         arg.add(self.order_id);
         arg.add(self.counter_order_id);
-        arg.add(self.side);        
-        arg.add(self.role);        
-        arg.add(&self.price);   
-        arg.add(&self.amount);   
-        arg.add(&self.quote_amount);   
-        arg.add(&self.fee);   
-        arg.add(&self.counter_order_fee);   
+        arg.add(self.side);
+        arg.add(self.role);
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.quote_amount);
+        arg.add(&self.fee);
+        arg.add(&self.counter_order_fee);
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for TradeHistory{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for TradeHistory {}
 
 /* --------------------- models::OrderHistory -----------------------------*/
-impl sqlxextend::TableSchemas for OrderHistory
-{
-    fn table_name() -> &'static str {ORDERHISTORY}
+impl sqlxextend::TableSchemas for OrderHistory {
+    fn table_name() -> &'static str {
+        ORDERHISTORY
+    }
     const ARGN: i32 = 14;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
-impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.id);
         arg.add(self.create_time);
         arg.add(self.finish_time);
         arg.add(self.user_id);
         arg.add(&self.market);
         arg.add(self.t);
-        arg.add(self.side);             
-        arg.add(&self.price);   
-        arg.add(&self.amount);   
-        arg.add(&self.taker_fee);   
-        arg.add(&self.maker_fee);   
-        arg.add(&self.finished_base);   
-        arg.add(&self.finished_quote);   
-        arg.add(&self.finished_fee);           
+        arg.add(self.side);
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.taker_fee);
+        arg.add(&self.maker_fee);
+        arg.add(&self.finished_base);
+        arg.add(&self.finished_quote);
+        arg.add(&self.finished_fee);
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderHistory{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderHistory {}
 
 /* --------------------- models::OperationLog -----------------------------*/
-impl sqlxextend::TableSchemas for OperationLog
-{
+impl sqlxextend::TableSchemas for OperationLog {
     const ARGN: i32 = 4;
-    fn table_name() -> &'static str {OPERATIONLOG}
+    fn table_name() -> &'static str {
+        OPERATIONLOG
+    }
 }
 
-impl sqlxextend::BindQueryArg<'_, DbType> for OperationLog
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for OperationLog {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.id);
         arg.add(self.time);
         arg.add(&self.method);
@@ -244,22 +242,20 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OperationLog
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OperationLog{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OperationLog {}
 
 /* --------------------- models::OrderSlice -----------------------------*/
 
-impl sqlxextend::TableSchemas for OrderSlice
-{
-    fn table_name() -> &'static str {ORDERSLICE}
+impl sqlxextend::TableSchemas for OrderSlice {
+    fn table_name() -> &'static str {
+        ORDERSLICE
+    }
     const ARGN: i32 = 17;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
-
-impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.id);
         arg.add(self.slice_id);
         arg.add(self.t);
@@ -268,35 +264,34 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice
         arg.add(self.update_time);
         arg.add(self.user_id);
         arg.add(&self.market);
-        arg.add(&self.price);   
-        arg.add(&self.amount);   
-        arg.add(&self.taker_fee);   
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.taker_fee);
         arg.add(&self.maker_fee);
         arg.add(&self.remain);
         arg.add(&self.frozen);
-        arg.add(&self.finished_base);   
-        arg.add(&self.finished_quote);   
-        arg.add(&self.finished_fee);           
+        arg.add(&self.finished_base);
+        arg.add(&self.finished_quote);
+        arg.add(&self.finished_fee);
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderSlice{}
-
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderSlice {}
 
 /* --------------------- models::BalanceSliceInsert -----------------------------*/
 
-impl sqlxextend::TableSchemas for BalanceSliceInsert
-{
-    fn table_name() -> &'static str {BALANCESLICE}
+impl sqlxextend::TableSchemas for BalanceSliceInsert {
+    fn table_name() -> &'static str {
+        BALANCESLICE
+    }
     const ARGN: i32 = 5;
-    fn default_argsn() -> Vec<i32>{ vec![1] }
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
 }
 
-
-impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.slice_id);
         arg.add(self.user_id);
         arg.add(&self.asset);
@@ -305,22 +300,20 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceSliceInsert{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceSliceInsert {}
 
 /* --------------------- models::SliceHistory -----------------------------*/
 
-impl sqlxextend::TableSchemas for SliceHistory
-{
-    fn table_name() -> &'static str {SLICEHISTORY}
+impl sqlxextend::TableSchemas for SliceHistory {
+    fn table_name() -> &'static str {
+        SLICEHISTORY
+    }
     const ARGN: i32 = 5;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
-
-impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory
-{
-    fn bind_args<'g, 'q : 'g>(&'q self, arg : &mut impl sqlx::Arguments<'g, Database = DbType>)
-    {
+impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.id);
         arg.add(self.time);
         arg.add(self.end_operation_log_id);
@@ -329,4 +322,4 @@ impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for SliceHistory{}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for SliceHistory {}

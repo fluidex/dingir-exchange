@@ -4,16 +4,16 @@ use crate::controller::{Controller, G_STUB};
 use crate::database;
 use crate::market;
 use crate::models;
-use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
 use crate::types::SimpleResult;
 use crate::utils;
-use crate::utils::{FTimestamp};
+use crate::utils::FTimestamp;
+use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
 
-use sqlx::Connection;
-use sqlx::migrate::Migrator;
 use crate::sqlxextend::*;
+use sqlx::migrate::Migrator;
+use sqlx::Connection;
 
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::market::Order;
@@ -26,67 +26,85 @@ use types::ConnectionType;
 pub static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
 #[cfg(sqlxverf)]
-fn sqlverf_get_last_slice()
-{
+fn sqlverf_get_last_slice() {
     sqlx::query!("select * from slice_history order by id desc limit 1");
 }
 
 #[test]
-fn utest_get_last_slice()
-{
-    assert_eq!(format!("select * from {} order by id desc limit 1", tablenames::SLICEHISTORY),
-    "select * from slice_history order by id desc limit 1");    
+fn utest_get_last_slice() {
+    assert_eq!(
+        format!("select * from {} order by id desc limit 1", tablenames::SLICEHISTORY),
+        "select * from slice_history order by id desc limit 1"
+    );
 }
 
 pub async fn get_last_slice(conn: &mut ConnectionType) -> Option<SliceHistory> {
     let query = format!("select * from {} order by id desc limit 1", tablenames::SLICEHISTORY);
 
     sqlx::query_as(&query).fetch_optional(conn).await.unwrap()
-/*    match sqlx::query_as(&query).fetch_optional(conn).await {
+    /*    match sqlx::query_as(&query).fetch_optional(conn).await {
         Ok(s) => Some(s),
         Err(sqlx::Error::RowNotFound) => None,
         Err(e) => panic!(e),
     }*/
 }
 
-
 #[cfg(sqlxverf)]
-fn sqlverf_load_slice_from_db()
-{
+fn sqlverf_load_slice_from_db() {
     let last_balance_id = 0;
-    let slice_id :i64 = 1;
+    let slice_id: i64 = 1;
     let order_id: i64 = 0;
-    sqlx::query!("select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
-        , slice_id, last_balance_id);
-    sqlx::query!("select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
-        , slice_id, order_id);        
+    sqlx::query!(
+        "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
+        slice_id,
+        last_balance_id
+    );
+    sqlx::query!(
+        "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
+        slice_id,
+        order_id
+    );
 }
 
 #[test]
-fn utest_load_slice_from_db()
-{
-    assert_eq!(format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
-    tablenames::BALANCESLICE, database::QUERY_LIMIT),
-    "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000");
+fn utest_load_slice_from_db() {
+    assert_eq!(
+        format!(
+            "select * from {} where slice_id = $1 and id > $2 order by id asc limit {}",
+            tablenames::BALANCESLICE,
+            database::QUERY_LIMIT
+        ),
+        "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
+    );
 
-    assert_eq!(format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
-    tablenames::ORDERSLICE, database::QUERY_LIMIT),
-    "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000");    
+    assert_eq!(
+        format!(
+            "select * from {} where slice_id = $1 and id > $2 order by id asc limit {}",
+            tablenames::ORDERSLICE,
+            database::QUERY_LIMIT
+        ),
+        "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000"
+    );
 }
 
-pub async fn load_slice_from_db(conn : &mut ConnectionType, slice_id: i64, controller: &mut Controller) {
+pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, controller: &mut Controller) {
     // load balance
     let mut last_balance_id = 0;
-    let balance_query = format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
-        tablenames::BALANCESLICE, database::QUERY_LIMIT);
-    
+    let balance_query = format!(
+        "select * from {} where slice_id = $1 and id > $2 order by id asc limit {}",
+        tablenames::BALANCESLICE,
+        database::QUERY_LIMIT
+    );
+
     loop {
         // least order_id is 1
-        let balances : Vec<BalanceSlice> = sqlx::query_as(&balance_query)
+        let balances: Vec<BalanceSlice> = sqlx::query_as(&balance_query)
             .bind(slice_id)
             .bind(last_balance_id)
-            .fetch_all(&mut *conn).await.unwrap();
-    
+            .fetch_all(&mut *conn)
+            .await
+            .unwrap();
+
         for balance in &balances {
             let balance_type = asset::BalanceType::try_from(balance.t).unwrap();
             let amount = balance.balance;
@@ -104,14 +122,19 @@ pub async fn load_slice_from_db(conn : &mut ConnectionType, slice_id: i64, contr
     }
     // load orders
     let mut order_id: i64 = 0;
-    let order_query = format!("select * from {} where slice_id = $1 and id > $2 order by id asc limit {}", 
-        tablenames::ORDERSLICE, database::QUERY_LIMIT);    
+    let order_query = format!(
+        "select * from {} where slice_id = $1 and id > $2 order by id asc limit {}",
+        tablenames::ORDERSLICE,
+        database::QUERY_LIMIT
+    );
     loop {
         // least order_id is 1
-        let orders : Vec<OrderSlice> = sqlx::query_as(&order_query)
+        let orders: Vec<OrderSlice> = sqlx::query_as(&order_query)
             .bind(slice_id)
             .bind(order_id)
-            .fetch_all(&mut *conn).await.unwrap();
+            .fetch_all(&mut *conn)
+            .await
+            .unwrap();
         for order in &orders {
             let market = controller.markets.get_mut(&order.market).unwrap();
             let order_rc = Rc::new(RefCell::new(Order {
@@ -143,33 +166,42 @@ pub async fn load_slice_from_db(conn : &mut ConnectionType, slice_id: i64, contr
     }
 }
 
-
 #[cfg(sqlxverf)]
-fn sqlverf_load_operation_log_from_db()
-{
-    let operation_log_start_id : i64 = 0;
-    sqlx::query!("select * from operation_log where id > $1 order by id asc limit 1000"
-        , operation_log_start_id);     
+fn sqlverf_load_operation_log_from_db() {
+    let operation_log_start_id: i64 = 0;
+    sqlx::query!(
+        "select * from operation_log where id > $1 order by id asc limit 1000",
+        operation_log_start_id
+    );
 }
 
 #[test]
-fn utest_load_operation_log_from_db()
-{
-    assert_eq!(format!("select * from {} where id > $1 order by id asc limit {}", 
-    tablenames::OPERATIONLOG, database::QUERY_LIMIT),
-    "select * from operation_log where id > $1 order by id asc limit 1000");  
+fn utest_load_operation_log_from_db() {
+    assert_eq!(
+        format!(
+            "select * from {} where id > $1 order by id asc limit {}",
+            tablenames::OPERATIONLOG,
+            database::QUERY_LIMIT
+        ),
+        "select * from operation_log where id > $1 order by id asc limit 1000"
+    );
 }
 
 pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log_start_id: u64, controller: &mut Controller) {
     // LOAD operation_log
     let mut operation_log_start_id = operation_log_start_id as i64; // exclusive
-    let query = format!("select * from {} where id > $1 order by id asc limit {}", 
-        tablenames::OPERATIONLOG, database::QUERY_LIMIT);
+    let query = format!(
+        "select * from {} where id > $1 order by id asc limit {}",
+        tablenames::OPERATIONLOG,
+        database::QUERY_LIMIT
+    );
 
     loop {
-        let operation_logs : Vec<OperationLog> = sqlx::query_as(&query)
+        let operation_logs: Vec<OperationLog> = sqlx::query_as(&query)
             .bind(operation_log_start_id)
-            .fetch_all(&mut *conn).await.unwrap();
+            .fetch_all(&mut *conn)
+            .await
+            .unwrap();
 
         if operation_logs.is_empty() {
             break;
@@ -188,7 +220,6 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
 }
 
 pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller) -> anyhow::Result<()> {
-
     let last_slice = get_last_slice(conn).await;
     let mut end_operation_log_id = 0;
     if let Some(slice) = last_slice {
@@ -270,10 +301,10 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
         }
     }
 
-//    if !records.is_empty() {
-//        count += records.len();
-//        diesel::insert_into(schema::order_slice::table).values(&records).execute(conn)?;
-//    }
+    //    if !records.is_empty() {
+    //        count += records.len();
+    //        diesel::insert_into(schema::order_slice::table).values(&records).execute(conn)?;
+    //    }
 
     log::debug!("persist {} orders done", count);
 
@@ -301,32 +332,35 @@ pub async fn dump_to_db(conn: &mut ConnectionType, slice_id: i64, controller: &C
     Ok(())
 }
 
-
 #[cfg(sqlxverf)]
-fn sqlverf_delete_slice()
-{
-    let slice_id : i64 = 0;
-    sqlx::query!("delete from balance_slice where slice_id = $1"
-        , slice_id);     
+fn sqlverf_delete_slice() {
+    let slice_id: i64 = 0;
+    sqlx::query!("delete from balance_slice where slice_id = $1", slice_id);
 }
 
 #[test]
-fn utest_delete_slice()
-{
-    assert_eq!(format!("delete from {} where slice_id = $1", tablenames::BALANCESLICE),
-    "delete from balance_slice where slice_id = $1");  
+fn utest_delete_slice() {
+    assert_eq!(
+        format!("delete from {} where slice_id = $1", tablenames::BALANCESLICE),
+        "delete from balance_slice where slice_id = $1"
+    );
 }
 
 const SLICE_KEEP_TIME: i64 = 30; //3 * 24 * 3600;
 
 pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleResult {
-
     sqlx::query(&format!("delete from {} where slice_id = $1", tablenames::BALANCESLICE))
-        .bind(slice_id).execute(&mut *conn).await?;
+        .bind(slice_id)
+        .execute(&mut *conn)
+        .await?;
     sqlx::query(&format!("delete from {} where slice_id = $1", tablenames::ORDERSLICE))
-        .bind(slice_id).execute(&mut *conn).await?;
+        .bind(slice_id)
+        .execute(&mut *conn)
+        .await?;
     sqlx::query(&format!("delete from {} where time = $1", tablenames::SLICEHISTORY))
-        .bind(slice_id).execute(&mut *conn).await?;
+        .bind(slice_id)
+        .execute(&mut *conn)
+        .await?;
 
     // diesel::delete(schema::balance_slice::table.filter(schema::balance_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
     // diesel::delete(schema::order_slice::table.filter(schema::order_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
@@ -334,38 +368,41 @@ pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleRes
     Ok(())
 }
 
-
 #[cfg(sqlxverf)]
-fn sqlverf_clear_slice()
-{
-    let slice_id : i64 = 0;
-    sqlx::query!("select count(*) from slice_history where time > $1", slice_id);     
-    sqlx::query!("select time from slice_history where time <= $1", slice_id);     
+fn sqlverf_clear_slice() {
+    let slice_id: i64 = 0;
+    sqlx::query!("select count(*) from slice_history where time > $1", slice_id);
+    sqlx::query!("select time from slice_history where time <= $1", slice_id);
 }
 
 #[test]
-fn utest_clear_slice()
-{
-    assert_eq!(format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY),
-    "select count(*) from slice_history where time > $1");  
-    assert_eq!(format!("select time from {} where time <= $1", tablenames::SLICEHISTORY),
-    "select time from slice_history where time <= $1");     
+fn utest_clear_slice() {
+    assert_eq!(
+        format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY),
+        "select count(*) from slice_history where time > $1"
+    );
+    assert_eq!(
+        format!("select time from {} where time <= $1", tablenames::SLICEHISTORY),
+        "select time from slice_history where time <= $1"
+    );
 }
 
 // slice_id: timestamp
 pub async fn clear_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleResult {
-/*    let count: i64 = schema::slice_history::table
-        .filter(schema::slice_history::dsl::time.ge(slice_id - SLICE_KEEP_TIME))
-        .select(count_star())
-        .first(conn)?;
-*/
-    let count : i64 = sqlx::query_scalar(&format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY))
+    /*    let count: i64 = schema::slice_history::table
+            .filter(schema::slice_history::dsl::time.ge(slice_id - SLICE_KEEP_TIME))
+            .select(count_star())
+            .first(conn)?;
+    */
+    let count: i64 = sqlx::query_scalar(&format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY))
         .bind(slice_id - SLICE_KEEP_TIME)
-        .fetch_one(&mut *conn).await?;
+        .fetch_one(&mut *conn)
+        .await?;
     log::info!("recent slice count: {}", count);
     let slices: Vec<i64> = sqlx::query_scalar(&format!("select time from {} where time <= $1", tablenames::SLICEHISTORY))
         .bind(slice_id - SLICE_KEEP_TIME)
-        .fetch_all(&mut *conn).await?;
+        .fetch_all(&mut *conn)
+        .await?;
     for entry_time in slices {
         delete_slice(&mut *conn, entry_time).await?;
     }
@@ -385,8 +422,7 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
 }
 
 #[cfg(target_family = "windows")]
-pub fn fork_and_make_slice()
-{
+pub fn fork_and_make_slice() {
     log::error!("windows platform has no fork");
 }
 

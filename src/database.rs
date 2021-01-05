@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use sqlx::prelude::*;
 use anyhow::Result;
 use crossbeam_channel::RecvTimeoutError;
+use sqlx::prelude::*;
 
 use crate::models;
 use crate::types;
@@ -84,12 +84,11 @@ where
     }
 
     pub fn run(config: ThreadConfig<U>) {
-
         let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
-        .enable_all()
-        .basic_scheduler()
-        .build()
-        .expect("build runtime for workerthread");
+            .enable_all()
+            .basic_scheduler()
+            .build()
+            .expect("build runtime for workerthread");
 
         let mut conn = rt.block_on(ConnectionType::connect(config.conn_str.as_ref())).unwrap();
         let mut running = true;
@@ -124,8 +123,8 @@ where
                 //print the insert sql statement
                 println!("{}", sqlxextend::InsertTable::sql_statement::<U>());
                 for u in entries.drain(0..) {
-                    loop {                  
-                        match rt.block_on(u.sql_query(&mut conn)){
+                    loop {
+                        match rt.block_on(u.sql_query(&mut conn)) {
                             Ok(_) => {
                                 break;
                             }
@@ -138,11 +137,10 @@ where
                             Err(e) => {
                                 println!("exec sql:  fail: {}. retry.", e.to_string());
                                 std::thread::sleep(std::time::Duration::from_secs(1));
-                            }                        
+                            }
                         }
                     }
                 }
-                
             }
         }
 

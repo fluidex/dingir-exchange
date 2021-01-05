@@ -2,8 +2,8 @@ use crate::config;
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageSender};
 use crate::models;
-use models::BalanceHistory;
 use crate::utils;
+use models::BalanceHistory;
 
 use anyhow::Result;
 use rust_decimal::prelude::Zero;

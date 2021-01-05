@@ -204,7 +204,7 @@ function checkMessages(messages) {
 
 async function mainTest(withMQ) {
   Dotenv.config()
-  await debugReset();
+//  await debugReset();
   if (withMQ) {
     const kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
