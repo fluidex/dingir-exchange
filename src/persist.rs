@@ -10,6 +10,7 @@ use crate::utils;
 use crate::utils::{FTimestamp};
 
 use sqlx::Connection;
+use sqlx::migrate::Migrator;
 use crate::sqlxextend::*;
 
 use std::cell::{RefCell};
@@ -20,6 +21,9 @@ use std::convert::TryFrom;
 
 use crate::types;
 use types::ConnectionType;
+
+//migration
+pub static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
 #[cfg(sqlxverf)]
 fn sqlverf_get_last_slice()
@@ -184,6 +188,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
 }
 
 pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller) -> anyhow::Result<()> {
+
     let last_slice = get_last_slice(conn).await;
     let mut end_operation_log_id = 0;
     if let Some(slice) = last_slice {

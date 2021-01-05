@@ -29,7 +29,6 @@ use tokio::task::LocalSet;
 use sqlx::Connection;
 use types::ConnectionType;
 
-
 fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
@@ -54,6 +53,7 @@ async fn prepare() -> anyhow::Result<Controller>
     let mut conn = ConnectionType::connect(&settings.db_log).await?;
     //TODO: add migrations
     //embedded_migrations::run_with_output(&conn, &mut std::io::stdout())?;
+    persist::MIGRATOR.run(&mut conn).await?;
     let mut grpc_stub = Controller::new(settings);
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
     Ok(grpc_stub)
