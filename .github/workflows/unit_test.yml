@@ -38,8 +38,8 @@ jobs:
           command: test
           args: --
 
-      - name: Run "cargo bench"
-        uses: actions-rs/cargo@v1
-        with:
-          command: bench
-          args: --
+#      - name: Run "cargo bench"
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: bench
+#          args: --
