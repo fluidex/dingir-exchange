@@ -8,7 +8,7 @@ fmtsql:
 	find migrations -type f | xargs -L 1 pg_format --type-case 2 -i
 
 fmtrs:
-	rustfmt src/*
+	cargo fmt
 
 fmt: fmtproto fmtsql fmtrs
 
