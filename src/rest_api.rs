@@ -43,7 +43,7 @@ async fn main() -> std::io::Result<()> {
             .route("/ping", web::get().to(ping))
             .route("/user/{id_or_addr}", web::get().to(get_user))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", 50053))?
     .run()
     .await
 }

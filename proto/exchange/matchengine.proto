@@ -1,228 +1,229 @@
 syntax = "proto3";
+
 package matchengine;
+
+import "google/api/annotations.proto";
+
 service Matchengine {
-    rpc BalanceQuery(BalanceQueryRequest) returns (BalanceQueryResponse) {}
-    rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {}
-    rpc AssetList(AssetListRequest) returns (AssetListResponse) {}
-    //rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}
-    rpc OrderPut(OrderPutRequest) returns (OrderInfo) {}
-    rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {}
-    rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
-    //rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
-    rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {}
-    rpc OrderDetail(OrderDetailRequest) returns (OrderInfo) {}
+  rpc BalanceQuery(BalanceQueryRequest) returns (BalanceQueryResponse) {
+    option (google.api.http) = {
+      get : "/balances/{user_id}"
+    };
+  }
+  rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {}
+  rpc AssetList(AssetListRequest) returns (AssetListResponse) {
+    option (google.api.http) = {
+      get : "/assets"
+    };
+  }
+  // rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}
+  rpc OrderPut(OrderPutRequest) returns (OrderInfo) {
+    option (google.api.http) = {
+      post : "/order"
+      body : "*"
+    };
+  }
+  rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {}
+  rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
+  // rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
+  rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {
+    option (google.api.http) = {
+      get : "/depth/{market}/{limit}"
+    };
+  }
+  rpc OrderDetail(OrderDetailRequest) returns (OrderInfo) {}
 
-    rpc MarketList(MarketListRequest) returns (MarketListResponse) {}
-    rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
+  rpc MarketList(MarketListRequest) returns (MarketListResponse) {
+    option (google.api.http) = {
+      get : "/markets"
+    };
+  }
 
-    // Used only in development
-    rpc DebugDump(DebugDumpRequest) returns (DebugDumpResponse) {}
-    rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
-    rpc DebugReload(DebugReloadRequest) returns (DebugReloadResponse) {}
+  rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
+
+  // Used only in development
+  rpc DebugDump(DebugDumpRequest) returns (DebugDumpResponse) {}
+  rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
+  rpc DebugReload(DebugReloadRequest) returns (DebugReloadResponse) {}
 }
 //
 message BalanceQueryRequest {
-    uint32 user_id = 1;
-    repeated string assets = 2; // optional
+  uint32 user_id = 1;
+  repeated string assets = 2; // optional
 }
 
 message BalanceQueryResponse {
-    message AssetBalance {
-        string asset_name = 1;
-        string available = 2;
-        string frozen = 3;
-    }
-    repeated AssetBalance balances = 1;
+  message AssetBalance {
+    string asset_name = 1;
+    string available = 2;
+    string frozen = 3;
+  }
+  repeated AssetBalance balances = 1;
 }
 
 message BalanceUpdateRequest {
-    uint32 user_id = 1;
-    string asset = 2;
-    string business = 3;
-    uint64 business_id = 4;
-    string delta = 5;
-    string detail = 6;
+  uint32 user_id = 1;
+  string asset = 2;
+  string business = 3;
+  uint64 business_id = 4;
+  string delta = 5;
+  string detail = 6;
 }
 
-message BalanceUpdateResponse {
-}
+message BalanceUpdateResponse {}
 
 message AssetListRequest {
-    //repeated string assets = 1;
+  // repeated string assets = 1;
 }
 
 message AssetListResponse {
-    message AssetInfo {
-        string name = 1;
-        uint32 precision = 2;
-    };
-    repeated AssetInfo asset_lists = 1;
+  message AssetInfo {
+    string name = 1;
+    uint32 precision = 2;
+  };
+  repeated AssetInfo asset_lists = 1;
 }
 //
 // internal?
-message AssetSummaryRequest {
-    repeated string assets = 1;
-}
+message AssetSummaryRequest { repeated string assets = 1; }
 
 message AssetSummaryResponse {
-    message AssetSummaryInfo {
-        string name = 1;
-        string total_balance = 2;
-        int32 available_count = 3;
-        string available_balance = 4;
-        int32 frozen_count = 5;
-        string frozen_balance = 6;
-    }
-    repeated AssetSummaryInfo asset_summaries = 1;
+  message AssetSummaryInfo {
+    string name = 1;
+    string total_balance = 2;
+    int32 available_count = 3;
+    string available_balance = 4;
+    int32 frozen_count = 5;
+    string frozen_balance = 6;
+  }
+  repeated AssetSummaryInfo asset_summaries = 1;
 }
 
 enum OrderSide {
-    ASK = 0;
-    BID = 1;
+  ASK = 0;
+  BID = 1;
 }
 
 enum OrderType {
-    LIMIT = 0;
-    MARKET = 1;
+  LIMIT = 0;
+  MARKET = 1;
 }
 
 message OrderPutRequest {
-    uint32 user_id = 1;
-    string market = 2;
-    OrderSide order_side = 3;
-    OrderType order_type = 4;
-    string amount = 5;
-    string price = 6; // should be empty or zero for market order
-    string taker_fee = 7;
-    string maker_fee = 8;
+  uint32 user_id = 1;
+  string market = 2;
+  OrderSide order_side = 3;
+  OrderType order_type = 4;
+  string amount = 5;
+  string price = 6; // should be empty or zero for market order
+  string taker_fee = 7;
+  string maker_fee = 8;
 }
 
 message OrderInfo {
-    uint64 id = 1;
-    string market = 2;
-    OrderSide order_side = 3;
-    OrderType order_type = 4;
-    uint32 user_id = 5;
-    double create_time = 6;
-    double update_time = 7;
-    string price = 8;
-    string amount = 9;
-    string taker_fee = 10;
-    string maker_fee = 11;
-    string remain = 12;
-    string finished_base = 13;
-    string finished_quote = 14;
-    string finished_fee = 15;
+  uint64 id = 1;
+  string market = 2;
+  OrderSide order_side = 3;
+  OrderType order_type = 4;
+  uint32 user_id = 5;
+  double create_time = 6;
+  double update_time = 7;
+  string price = 8;
+  string amount = 9;
+  string taker_fee = 10;
+  string maker_fee = 11;
+  string remain = 12;
+  string finished_base = 13;
+  string finished_quote = 14;
+  string finished_fee = 15;
 }
 
-
 message OrderQueryRequest {
-    uint32 user_id = 1;
-    string market = 2;
-    int32 offset = 3;
-    int32 limit = 4;
+  uint32 user_id = 1;
+  string market = 2;
+  int32 offset = 3;
+  int32 limit = 4;
 }
 
 message OrderQueryResponse {
-    int32 offset = 1;
-    int32 limit = 2;
-    int32 total = 3;
-    repeated OrderInfo records = 4;
+  int32 offset = 1;
+  int32 limit = 2;
+  int32 total = 3;
+  repeated OrderInfo records = 4;
 }
 
 message OrderCancelRequest {
-    uint32 user_id = 1;
-    string market = 2;
-    uint64 order_id = 3;
+  uint32 user_id = 1;
+  string market = 2;
+  uint64 order_id = 3;
 }
-
 
 // why not both side
 message OrderBookRequest {
-    string market = 1;
-    OrderSide side = 2;
-    int32 offset = 3;
-    int32 limit = 4;
+  string market = 1;
+  OrderSide side = 2;
+  int32 offset = 3;
+  int32 limit = 4;
 }
 
 // strange api
 message OrderBookResponse {
-    int32 offset = 1;
-    int32 limit = 2;
-    uint64 total = 3;
-    repeated OrderInfo orders = 4;
+  int32 offset = 1;
+  int32 limit = 2;
+  uint64 total = 3;
+  repeated OrderInfo orders = 4;
 }
 
 // with cache
 message OrderBookDepthRequest {
-    string market = 1;
-    int32 limit = 2;
-    string interval = 3;
+  string market = 1;
+  int32 limit = 2;
+  string interval = 3;
 }
 
 message OrderBookDepthResponse {
-    message PriceInfo {
-        string price = 1;
-        string amount = 2;
-    }
-    repeated PriceInfo asks = 1;
-    repeated PriceInfo bids = 2;
+  message PriceInfo {
+    string price = 1;
+    string amount = 2;
+  }
+  repeated PriceInfo asks = 1;
+  repeated PriceInfo bids = 2;
 }
 
 message OrderDetailRequest {
-    string market = 1;
-    uint64 order_id = 2;
+  string market = 1;
+  uint64 order_id = 2;
 }
 
-message MarketListRequest {
-}
+message MarketListRequest {}
 
 message MarketListResponse {
-    message MarketInfo {
-        string name = 1;
-        string base = 2; // base
-        string quote = 3; // quote
-        uint32 fee_precision = 4;
-        uint32 base_precision = 5;
-        uint32 quote_precision = 6;
-        string min_amount = 7;
-    }
-    repeated MarketInfo markets = 1;
+  message MarketInfo {
+    string name = 1;
+    string base = 2;  // base
+    string quote = 3; // quote
+    uint32 fee_precision = 4;
+    uint32 base_precision = 5;
+    uint32 quote_precision = 6;
+    string min_amount = 7;
+  }
+  repeated MarketInfo markets = 1;
 }
 
-message MarketSummaryRequest {
-    repeated string markets = 1;
-}
+message MarketSummaryRequest { repeated string markets = 1; }
 
 message MarketSummaryResponse {
-    message MarketSummary {
-        string name = 1;
-        int32 ask_count = 2;
-        string ask_amount = 3;
-        int32 bid_count = 4;
-        string bid_amount = 5;
-    }
-    repeated MarketSummary market_summaries = 1;
+  message MarketSummary {
+    string name = 1;
+    int32 ask_count = 2;
+    string ask_amount = 3;
+    int32 bid_count = 4;
+    string bid_amount = 5;
+  }
+  repeated MarketSummary market_summaries = 1;
 }
 
-message DebugDumpRequest{
-
-}
-message DebugDumpResponse{
-
-}
-
-message DebugResetRequest{
-
-}
-message DebugResetResponse{
-
-}
-
-
-message DebugReloadRequest{
-
-}
-message DebugReloadResponse{
-
-}
+message DebugDumpRequest {}
+message DebugDumpResponse {}
+message DebugReloadRequest {}
+message DebugReloadResponse {}
