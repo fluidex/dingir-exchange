@@ -56,7 +56,7 @@ jobs:
           args: --release
 
       - name: Start exchange server daemon
-        run: nohup ./target/release/$BIN_NAME &
+        run: nohup ./target/release/$BIN_NAME 2>&1 &
         env:
           BIN_NAME: dingir-exchange
 
