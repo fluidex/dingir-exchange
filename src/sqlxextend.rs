@@ -107,7 +107,7 @@ where
 {
     type Item = Option<i32>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.2 .0 = self.2 .0 + 1;
+        self.2 .0 += 1;
         let ret = match self.2 .1 {
             Some(i) => {
                 if i > self.2 .0 {
@@ -154,7 +154,7 @@ impl CommonSQLQuery<sqlx::Postgres> for InsertTable {
                     None => String::from("DEFAULT"),
                 })
                 .fold(String::new(), |acc, s| {
-                    if acc.len() == 0 {
+                    if acc.is_empty() {
                         s
                     } else {
                         acc + "," + &s

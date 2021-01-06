@@ -19,9 +19,9 @@ pub fn current_timestamp() -> f64 {
 
 pub struct FTimestamp(pub f64);
 
-impl Into<NaiveDateTime> for FTimestamp {
-    fn into(self) -> NaiveDateTime {
-        NaiveDateTime::from_timestamp(self.0 as i64, 0)
+impl From<FTimestamp> for NaiveDateTime {
+    fn from(f: FTimestamp) -> NaiveDateTime {
+        NaiveDateTime::from_timestamp(f.0 as i64, 0)
     }
 }
 
