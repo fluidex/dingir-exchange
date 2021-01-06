@@ -38,7 +38,7 @@ fn main() {
         .basic_scheduler()
         .build()
         .expect("build runtime");
-    let mut stub = rt.block_on(prepare()).expect("Init state error");
+    let stub = rt.block_on(prepare()).expect("Init state error");
     rt.block_on(main_scheme(stub)).unwrap();
 }
 

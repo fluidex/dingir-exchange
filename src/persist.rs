@@ -422,47 +422,75 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     Ok(())
 }
 
-#[cfg(target_family = "windows")]
-pub fn fork_and_make_slice() {
-    log::error!("windows platform has no fork");
-}
-
-#[cfg(not(target_family = "windows"))]
 use std::panic;
 
+#[cfg(target_family = "windows")]
+pub fn do_forking() -> bool{
+    log::error!("windows platform has no fork");
+    false
+}
+
+
 #[cfg(not(target_family = "windows"))]
-pub fn fork_and_make_slice() /*-> SimpleResult*/
+fn do_forking() -> bool
 {
-    //sure tokio runtime would still work after fork? Anyway we prefer a safer way ...
     match nix::unistd::fork() {
         Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
             println!("Continuing execution in parent process, new child has pid: {}", child);
-            //return Ok(());
-            return;
+            false
         }
         Ok(nix::unistd::ForkResult::Child) => {
             println!("fork success");
+            true
         }
+        //if fork fail? should we panic? this will make the main process exit
+        //purpose to do that?
         Err(e) => panic!("Fork failed {}", e),
     }
+}
+
+
+pub fn fork_and_make_slice() /*-> SimpleResult*/
+{
+    if !do_forking() {return;}
     //env_logger::init();
 
-    let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
+    // Now we are in the child process
+
+    //tokio runtime in current thread would highly possible being ruined after fork
+    //so we put our task under new thread, with another tokio runtime
+
+    let thread_handle  = std::thread::spawn(move || {
+       
+        let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
         .enable_all()
         .basic_scheduler()
         .build()
-        .expect("build runtime");
+        .expect("build another runtime for slice-making");
+        
+        let controller = unsafe { G_STUB.as_mut().unwrap() };
+        
+        if let Err(e) = rt.block_on(make_slice(controller)) {
+            panic!("{:?}", e);
+        }
 
-    // Now we are in the child process
-    let controller = unsafe { G_STUB.as_mut().unwrap() };
-    if let Err(e) = rt.block_on(make_slice(controller)) {
-        log::error!("make slice error {:?}", e);
-        std::process::exit(1);
-    }
+    });
+
+    let exitcode = match thread_handle.join() {
+        Err(e) => {
+            println!("make slice fail: {:?}", e);
+            1
+        },
+        _ => {
+            println!("make slice done");
+            0
+        },
+    };
+
     log::logger().flush();
-    println!("make slice done");
-    std::process::exit(0);
-    // exit the child process
+
+    //die fast
+    std::process::exit(exitcode);
 }
 
 /*
@@ -479,12 +507,14 @@ pub fn on_timer() {
 
 pub fn init_persist_timer() {
 
-    let duration = std::time::Duration::from_millis(3600 * 1000);
     // use spawn_local here will block the network thread
-    std::thread::spawn(move ||{
+    tokio::spawn(async move {
+        let duration = std::time::Duration::from_millis(3600 * 1000);
+        let mut ticker_dump = tokio::time::interval(duration);
+    
         loop {
+            ticker_dump.tick().await;
             fork_and_make_slice();
-            std::thread::sleep(duration);
         }
     });
 }
