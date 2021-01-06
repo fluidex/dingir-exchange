@@ -1,7 +1,8 @@
 import caller from "grpc-caller";
 const file = "../../proto/exchange/matchengine.proto";
 const load = { keepCase: "true", defaults: "true" };
-const client = caller("0.0.0.0:50051", { file, load }, "Matchengine");
+const server = "localhost";
+const client = caller(`${server}:50051`, { file, load }, "Matchengine");
 
 export async function balanceQuery(user_id) {
   const balances = (await client.BalanceQuery({ user_id: user_id })).balances;

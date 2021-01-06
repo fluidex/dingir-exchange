@@ -7,12 +7,13 @@ pub struct Sequencer {
 
 impl Sequencer {
     pub fn reset(&mut self) {
-        self.trade_id = 0;
-        self.order_id = 0;
-        self.operation_log_id = 0;
+        self.set_operation_log_id(0);
+        self.set_order_id(0);
+        self.set_trade_id(0);
     }
     pub fn next_order_id(&mut self) -> u64 {
         self.order_id += 1;
+        log::debug!("next_order_id {}", self.order_id);
         self.order_id
     }
     pub fn next_trade_id(&mut self) -> u64 {
@@ -38,7 +39,7 @@ impl Sequencer {
     }
     pub fn set_trade_id(&mut self, id: u64) {
         log::debug!("set trade id {}", id);
-        self.operation_log_id = id;
+        self.trade_id = id;
     }
     pub fn set_order_id(&mut self, id: u64) {
         log::debug!("set order id {}", id);

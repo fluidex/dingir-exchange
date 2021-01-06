@@ -223,6 +223,7 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
     let last_slice = get_last_slice(conn).await;
     let mut end_operation_log_id = 0;
     if let Some(slice) = last_slice {
+        log::debug!("last slice {:?}", slice);
         load_slice_from_db(conn, slice.time, controller).await;
         end_operation_log_id = slice.end_operation_log_id;
         controller.sequencer.borrow_mut().set_order_id(slice.end_order_id as u64);
