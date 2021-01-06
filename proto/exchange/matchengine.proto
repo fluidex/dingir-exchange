@@ -225,5 +225,7 @@ message MarketSummaryResponse {
 
 message DebugDumpRequest {}
 message DebugDumpResponse {}
+message DebugResetRequest {}
+message DebugResetResponse {}
 message DebugReloadRequest {}
 message DebugReloadResponse {}
