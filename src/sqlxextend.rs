@@ -144,7 +144,7 @@ impl CommonSQLQuery<sqlx::Postgres> for InsertTable {
     fn sql_statement<T: TableSchemas>() -> String {
         //not good, sql statements can be cached or formed by marco in advance
         //fix it later ...
-        format!(
+        let sql = format!(
             "INSERT INTO {} VALUES ({})",
             T::table_name(),
             expand_argsn((T::ARGN, T::default_argsn()))
@@ -160,7 +160,8 @@ impl CommonSQLQuery<sqlx::Postgres> for InsertTable {
                         acc + "," + &s
                     }
                 })
-        )
+        );
+        sql
     }
 }
 
