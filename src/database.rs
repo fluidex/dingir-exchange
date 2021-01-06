@@ -127,17 +127,20 @@ where
                         match rt.block_on(u.sql_query(&mut conn)) {
                             Ok(_) => {
                                 break;
-                            }
-                            /* TODO: handle this error later
-                            Err(DBErrType(UniqueViolation, _)) => {
-                                // it may be caused by master-slave replication?
-                                println!("SQL ERR: Dup entry, skip. ");
-                                break;
-                            }*/
+                            },
+                            Err(sqlx::Error::Database(dberr)) => {
+                                if let Some(code) = dberr.code() {
+                                    if code == "23505" {
+                                        println!("Warning, exec sql duplicated entry, break");
+                                        break;
+                                    }
+                                }
+                                println!("exec sql: db fail: {}. retry.", dberr.message());
+                            },
                             Err(e) => {
                                 println!("exec sql:  fail: {}. retry.", e.to_string());
                                 std::thread::sleep(std::time::Duration::from_secs(1));
-                            }
+                            },
                         }
                     }
                 }

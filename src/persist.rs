@@ -321,7 +321,8 @@ pub async fn update_slice_history(conn: &mut ConnectionType, slice_id: i64, cont
         end_trade_id: sequencer.get_trade_id() as i64,
     };
 
-    slice_history.sql_query(conn).await
+    slice_history.sql_query(conn).await?;
+    Ok(())
 }
 
 pub async fn dump_to_db(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
@@ -477,15 +478,13 @@ pub fn on_timer() {
 */
 
 pub fn init_persist_timer() {
-    //let duration = std::time::Duration::from_millis(3600 * 1000);
 
     let duration = std::time::Duration::from_millis(3600 * 1000);
-    let mut ticker_dump = tokio::time::interval(duration);
     // use spawn_local here will block the network thread
-    tokio::spawn(async move {
+    std::thread::spawn(move ||{
         loop {
-            ticker_dump.tick().await;
             fork_and_make_slice();
+            std::thread::sleep(duration);
         }
     });
 }

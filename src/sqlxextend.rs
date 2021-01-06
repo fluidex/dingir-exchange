@@ -1,4 +1,9 @@
-use anyhow::Result as SimpleResult;
+
+pub enum SqlResultExt
+{
+    Done,
+    Issue((i32, &'static str)),
+}
 
 /* traits which a struct for sql-querying should be implied: TablseSchema and BindQueryArg */
 pub trait TableSchemas: 'static {
@@ -39,7 +44,7 @@ where
 }
 
 pub trait FinalQuery {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> SimpleResult<()>;
+    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error>;
 }
 
 #[tonic::async_trait]
@@ -47,7 +52,7 @@ pub trait CommonSqlxAction<DB>: CommonSQLQueryWithBind<DB> + FinalQuery
 where
     DB: sqlx::Database,
 {
-    async fn sql_query<'c, 'a, Q, C>(qr: Q, conn: C) -> SimpleResult<()>
+    async fn sql_query<'c, 'a, Q, C>(qr: Q, conn: C) -> Result<SqlResultExt, sqlx::Error>
     where
         C: sqlx::Executor<'c, Database = DB>,
         Q: TableSchemas + BindQueryArg<'a, DB> + Send,
@@ -66,7 +71,7 @@ where
     QT: CommonSQLQueryWithBind<DB> + FinalQuery,
     DB: sqlx::Database,
 {
-    async fn sql_query<'c, C>(&'a self, conn: C) -> SimpleResult<()>
+    async fn sql_query<'c, C>(&'a self, conn: C) -> Result<SqlResultExt, sqlx::Error>
     where
         C: sqlx::Executor<'c, Database = DB>,
     {
@@ -84,12 +89,12 @@ where
 pub struct InsertTable {}
 
 impl FinalQuery for InsertTable {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> SimpleResult<()> {
+    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
         let maydone = res?;
         if maydone.rows_affected() != 1 {
-            return Err(anyhow::anyhow!("Insert has no effect"));
+            return Ok(SqlResultExt::Issue((0, "Insert no line")));
         }
-        Ok(())
+        Ok(SqlResultExt::Done)
     }
 }
 
