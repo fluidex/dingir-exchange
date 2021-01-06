@@ -93,7 +93,7 @@ impl KafkaMessageSender {
         })
     }
     pub fn push_message(&mut self, message: &str, topic_name: &str) -> SimpleResult {
-        println!("KAFA: push {} message: {}", topic_name, message);
+        println!("KAFKA: push {} message: {}", topic_name, message);
         let list: &mut LinkedList<String> = match topic_name {
             BALANCES_TOPIC => &mut self.balances_list,
             DEALS_TOPIC => &mut self.trades_list,

@@ -314,7 +314,6 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
 pub async fn update_slice_history(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
     let sequencer = controller.sequencer.borrow_mut();
     let slice_history = SliceHistory {
-        id: 0,
         time: slice_id,
         end_operation_log_id: sequencer.get_operation_log_id() as i64,
         end_order_id: sequencer.get_order_id() as i64,
@@ -469,7 +468,8 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
         let controller = unsafe { G_STUB.as_mut().unwrap() };
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
-            panic!("{:?}", e);
+            // TODO: it seems sometimes no stderr/stdout is printed here. check it later
+            panic!("panic {:?}", e);
         }
     });
 
@@ -489,18 +489,6 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //die fast
     std::process::exit(exitcode);
 }
-
-/*
-pub fn on_timer() {
-    let mut now: time_t = time(0 as *mut time_t);
-    if now - last_slice_time >= settings.slice_interval as libc::c_long
-        && now % settings.slice_interval as libc::c_long <= 5i32 as libc::c_long
-    {
-        //make_slice(now);
-        last_slice_time = now
-    };
-}
-*/
 
 pub fn init_persist_timer() {
     // use spawn_local here will block the network thread

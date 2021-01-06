@@ -124,7 +124,6 @@ pub struct OrderSlice {
 // xx_id here means the last persisted entry id
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct SliceHistory {
-    pub id: i32,
     pub time: i64,
     pub end_operation_log_id: i64,
     pub end_order_id: i64,
@@ -308,13 +307,14 @@ impl sqlxextend::TableSchemas for SliceHistory {
     fn table_name() -> &'static str {
         SLICEHISTORY
     }
-    const ARGN: i32 = 5;
-    //fn default_argsn() -> Vec<i32>{ vec![1] }
+    const ARGN: i32 = 4;
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
         arg.add(self.time);
         arg.add(self.end_operation_log_id);
         arg.add(self.end_order_id);

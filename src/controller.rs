@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
-use crate::models;
+use crate::models::{self};
 use crate::types;
 use types::{ConnectionType, SimpleResult};
 
@@ -26,6 +26,7 @@ use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
 use sqlx::Connection;
+use sqlx::Executor;
 
 use serde::Serialize;
 use std::str::FromStr;
@@ -375,17 +376,20 @@ impl Controller {
             now the way i found is drop and re-create the database ..., maybe a throughout
             dropping may also work?
             */
-            /*sqlx::query(&format!("drop table if exists {}, {}, {}, {}, {}, {}, {}",
+            /*
+            let drop_cmd = format!("drop table if exists _sqlx_migrations, {}, {}, {}, {}, {}, {}, {}",
                 tablenames::BALANCEHISTORY,
                 tablenames::BALANCESLICE,
                 tablenames::SLICEHISTORY,
                 tablenames::OPERATIONLOG,
                 tablenames::ORDERHISTORY,
                 tablenames::TRADEHISTORY,
-                tablenames::ORDERSLICE))
-            .execute(&mut connection).await*/
-            sqlx::query("drop database exchange").execute(&mut connection).await?;
-            sqlx::query("create database exchange").execute(&mut connection).await?;
+                tablenames::ORDERSLICE);
+            */
+            let drop_cmd = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;";
+            // cannot insert multiple commands into a prepared statement
+            connection.execute(drop_cmd).await?;
+            // sqlx::query(drop_cmd).execute(&mut connection).await?;
             crate::persist::MIGRATOR.run(&mut connection).await
         }
         .await

@@ -3,6 +3,7 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 mod types;
 
