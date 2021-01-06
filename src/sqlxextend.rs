@@ -1,6 +1,4 @@
-
-pub enum SqlResultExt
-{
+pub enum SqlResultExt {
     Done,
     Issue((i32, &'static str)),
 }

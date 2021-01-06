@@ -425,15 +425,13 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
 use std::panic;
 
 #[cfg(target_family = "windows")]
-pub fn do_forking() -> bool{
+pub fn do_forking() -> bool {
     log::error!("windows platform has no fork");
     false
 }
 
-
 #[cfg(not(target_family = "windows"))]
-fn do_forking() -> bool
-{
+fn do_forking() -> bool {
     match nix::unistd::fork() {
         Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
             println!("Continuing execution in parent process, new child has pid: {}", child);
@@ -449,10 +447,11 @@ fn do_forking() -> bool
     }
 }
 
-
 pub fn fork_and_make_slice() /*-> SimpleResult*/
 {
-    if !do_forking() {return;}
+    if !do_forking() {
+        return;
+    }
     //env_logger::init();
 
     // Now we are in the child process
@@ -460,31 +459,29 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
-    let thread_handle  = std::thread::spawn(move || {
-       
+    let thread_handle = std::thread::spawn(move || {
         let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
-        .enable_all()
-        .basic_scheduler()
-        .build()
-        .expect("build another runtime for slice-making");
-        
+            .enable_all()
+            .basic_scheduler()
+            .build()
+            .expect("build another runtime for slice-making");
+
         let controller = unsafe { G_STUB.as_mut().unwrap() };
-        
+
         if let Err(e) = rt.block_on(make_slice(controller)) {
             panic!("{:?}", e);
         }
-
     });
 
     let exitcode = match thread_handle.join() {
         Err(e) => {
             println!("make slice fail: {:?}", e);
             1
-        },
+        }
         _ => {
             println!("make slice done");
             0
-        },
+        }
     };
 
     log::logger().flush();
@@ -506,12 +503,11 @@ pub fn on_timer() {
 */
 
 pub fn init_persist_timer() {
-
     // use spawn_local here will block the network thread
     tokio::spawn(async move {
         let duration = std::time::Duration::from_millis(3600 * 1000);
         let mut ticker_dump = tokio::time::interval(duration);
-    
+
         loop {
             ticker_dump.tick().await;
             fork_and_make_slice();

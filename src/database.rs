@@ -127,7 +127,7 @@ where
                         match rt.block_on(u.sql_query(&mut conn)) {
                             Ok(_) => {
                                 break;
-                            },
+                            }
                             Err(sqlx::Error::Database(dberr)) => {
                                 if let Some(code) = dberr.code() {
                                     if code == "23505" {
@@ -136,11 +136,11 @@ where
                                     }
                                 }
                                 println!("exec sql: db fail: {}. retry.", dberr.message());
-                            },
+                            }
                             Err(e) => {
                                 println!("exec sql:  fail: {}. retry.", e.to_string());
                                 std::thread::sleep(std::time::Duration::from_secs(1));
-                            },
+                            }
                         }
                     }
                 }
