@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 pub type SimpleResult = anyhow::Result<()>;
 
-#[macro_export]
 macro_rules! simple_err {
     ($msg:literal $(,)?) => {
         std::result::Result::Err(anyhow::anyhow!($msg))
@@ -56,5 +55,6 @@ pub enum OrderEventType {
 
 //pub type DbType = diesel::mysql::Mysql;
 //pub type ConnectionType = diesel::mysql::MysqlConnection;
-pub type DbType = diesel::pg::Pg;
-pub type ConnectionType = diesel::pg::PgConnection;
+pub type DbType = sqlx::Postgres;
+pub type ConnectionType = sqlx::postgres::PgConnection;
+pub type DBErrType = sqlx::Error;

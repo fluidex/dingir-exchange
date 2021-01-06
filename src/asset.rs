@@ -1,8 +1,9 @@
 use crate::config;
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageSender};
-use crate::models::BalanceHistory;
+use crate::models;
 use crate::utils;
+use models::BalanceHistory;
 
 use anyhow::Result;
 use rust_decimal::prelude::Zero;
@@ -295,7 +296,7 @@ impl BalanceUpdateController {
         if real {
             detail["id"] = serde_json::Value::from(business_id);
             let balance_history = BalanceHistory {
-                time: utils::current_system_time(),
+                time: utils::current_naive_time(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
                 business: business.clone(),

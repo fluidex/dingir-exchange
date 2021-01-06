@@ -7,12 +7,13 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use std::cell::RefCell;
 use std::rc::Rc;
+use tokio::sync::oneshot;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
 use crate::models;
-use crate::schema;
-use crate::types::{ConnectionType, SimpleResult};
+use crate::types;
+use types::{ConnectionType, SimpleResult};
 
 use crate::dto::*;
 
@@ -24,9 +25,20 @@ use crate::history::DatabaseHistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use diesel::{Connection, RunQueryDsl};
+use sqlx::Connection;
+
 use serde::Serialize;
 use std::str::FromStr;
+
+pub trait DebugRunner<T>: std::future::Future<Output = Result<T, Status>> + Unpin {}
+
+impl<T, U> DebugRunner<T> for U where U: std::future::Future<Output = Result<T, Status>> + Unpin {}
+
+pub enum DebugRunTask {
+    Dump(Box<dyn DebugRunner<DebugDumpResponse>>),
+    Reset(Box<dyn DebugRunner<DebugResetResponse>>),
+    Reload(Box<dyn DebugRunner<DebugReloadResponse>>),
+}
 
 pub struct Controller {
     pub settings: config::Settings,
@@ -36,6 +48,9 @@ pub struct Controller {
     pub update_controller: Rc<RefCell<BalanceUpdateController>>,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
+
+    #[cfg(debug_assertions)]
+    pub stw_notifier: Rc<RefCell<Option<oneshot::Sender<DebugRunTask>>>>,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -87,6 +102,9 @@ impl Controller {
             update_controller,
             markets,
             log_handler,
+
+            #[cfg(debug_assertions)]
+            stw_notifier: Rc::new(RefCell::new(None)),
         }
     }
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
@@ -314,6 +332,16 @@ impl Controller {
         Ok(order_to_proto(&order))
     }
 
+    pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
+        async {
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await
+        }
+        .await
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
+        Ok(DebugDumpResponse {})
+    }
+
     fn reset_state(&mut self) {
         self.sequencer.borrow_mut().reset();
         for market in self.markets.values_mut() {
@@ -325,37 +353,54 @@ impl Controller {
         //Ok(())
     }
 
-    fn truncate_database(&self) -> anyhow::Result<()> {
-        let connection = ConnectionType::establish(&self.settings.db_log)?;
-        diesel::delete(schema::order_slice::table).execute(&connection)?;
-        diesel::delete(schema::balance_slice::table).execute(&connection)?;
-        diesel::delete(schema::slice_history::table).execute(&connection)?;
-        diesel::delete(schema::operation_log::table).execute(&connection)?;
-        diesel::delete(schema::order_history::table).execute(&connection)?;
-        diesel::delete(schema::trade_history::table).execute(&connection)?;
-        diesel::delete(schema::balance_history::table).execute(&connection)?;
-        Ok(())
-    }
-
-    pub fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
-        (|| -> anyhow::Result<()> {
+    pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
+        async {
+            println!("do full reset: memory and db");
             self.reset_state();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            self.truncate_database()?;
-            Ok(())
-        })()
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            /*
+            notice: migration in sqlx is rather crude. It simply add operating records into
+            _sqlx_migrations table and once an operating is recorded, it never try to reapply
+            corresponding actions (even the table has been drop accidentily).
+
+            and it is still not handle some edge case well: like create a the existed seq
+            in postgresql cause an error from migrator
+
+            that means you can not simply drop some table (because the migrations recorded
+            in table _sqlx_migrations forbid it reroll,
+            you can not even drop the all the talbes include _sqlx_migrations because some
+            other object left in database will lead migrator fail ...
+
+            now the way i found is drop and re-create the database ..., maybe a throughout
+            dropping may also work?
+            */
+            /*sqlx::query(&format!("drop table if exists {}, {}, {}, {}, {}, {}, {}",
+                tablenames::BALANCEHISTORY,
+                tablenames::BALANCESLICE,
+                tablenames::SLICEHISTORY,
+                tablenames::OPERATIONLOG,
+                tablenames::ORDERHISTORY,
+                tablenames::TRADEHISTORY,
+                tablenames::ORDERSLICE))
+            .execute(&mut connection).await*/
+            sqlx::query("drop database exchange").execute(&mut connection).await?;
+            sqlx::query("create database exchange").execute(&mut connection).await?;
+            crate::persist::MIGRATOR.run(&mut connection).await
+        }
+        .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugResetResponse {})
     }
 
-    pub fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
-        (|| -> anyhow::Result<()> {
+    pub async fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
+        async {
             self.reset_state();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            let connection = ConnectionType::establish(&self.settings.db_log)?;
-            crate::persist::init_from_db(&connection, self)?;
-            Ok(())
-        })()
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
+            crate::persist::init_from_db(&mut connection, self).await
+        }
+        .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugReloadResponse {})
     }
@@ -383,11 +428,17 @@ impl Controller {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
             id: self.sequencer.borrow_mut().next_operation_log_id() as i64,
-            time: utils::current_system_time(),
+            time: utils::current_naive_time(),
             method: method.to_owned(),
             params,
         };
         self.log_handler.append(operation_log)
     }
 }
+
+#[cfg(sqlxverf)]
+fn sqlverf_clear_slice() {
+    sqlx::query!("drop table if exists balance_history, balance_slice");
+}
+
 pub(crate) static mut G_STUB: *mut Controller = std::ptr::null_mut();

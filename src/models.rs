@@ -1,16 +1,25 @@
 #![allow(unused_imports)]
 #![allow(clippy::single_component_path_imports)]
 
-use crate::schema::operation_log;
-use crate::schema::{balance_history, order_history, trade_history};
-use crate::schema::{balance_slice, order_slice, slice_history};
-
 pub type DecimalDbType = rust_decimal::Decimal;
-pub type TimestampDbType = std::time::SystemTime;
+pub type TimestampDbType = sqlx::types::chrono::NaiveDateTime;
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "balance_history"]
+pub mod tablenames {
+    pub const BALANCEHISTORY: &str = "balance_history";
+    pub const ORDERHISTORY: &str = "order_history";
+    pub const TRADEHISTORY: &str = "trade_history";
+    pub const OPERATIONLOG: &str = "operation_log";
+    pub const ORDERSLICE: &str = "order_slice";
+    pub const BALANCESLICE: &str = "balance_slice";
+    pub const SLICEHISTORY: &str = "slice_history";
+}
+
+use tablenames::*;
+
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct BalanceHistory {
+    //for renaming, add #[sqlx(rename = "<row name>")] in corresponding
+    //field (not like diesel imply within the derive macro)
     //pub id: i64,
     pub time: TimestampDbType,
     pub user_id: i32,
@@ -22,8 +31,7 @@ pub struct BalanceHistory {
     pub detail: String,
 }
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "order_history"]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct OrderHistory {
     pub id: i64,
     pub create_time: TimestampDbType,
@@ -42,8 +50,7 @@ pub struct OrderHistory {
     pub finished_fee: DecimalDbType,
 }
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "trade_history"]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct TradeHistory {
     pub time: TimestampDbType,
     pub user_id: i32,
@@ -61,8 +68,7 @@ pub struct TradeHistory {
 }
 
 // Can the following struct be auto generated in diesel?
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "operation_log"]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct OperationLog {
     pub id: i64,
     pub time: TimestampDbType,
@@ -71,8 +77,8 @@ pub struct OperationLog {
     pub params: String,
 }
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "balance_slice"]
+//Notice this is used for query the full columns but not for insert
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct BalanceSlice {
     pub id: i32,
     pub slice_id: i64, // Unix timestamp
@@ -82,9 +88,8 @@ pub struct BalanceSlice {
     pub balance: DecimalDbType,
 }
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "balance_slice"]
-pub struct NewBalanceSlice {
+#[derive(Debug, Clone)]
+pub struct BalanceSliceInsert {
     //pub id: i32,
     pub slice_id: i64, // Unix timestamp
     pub user_id: i32,
@@ -93,8 +98,7 @@ pub struct NewBalanceSlice {
     pub balance: DecimalDbType,
 }
 
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "order_slice"]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct OrderSlice {
     pub id: i64,
     pub slice_id: i64,
@@ -118,8 +122,7 @@ pub struct OrderSlice {
 }
 
 // xx_id here means the last persisted entry id
-#[derive(Queryable, Insertable, Debug, Clone)]
-#[table_name = "slice_history"]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct SliceHistory {
     pub id: i32,
     pub time: i64,
@@ -127,3 +130,196 @@ pub struct SliceHistory {
     pub end_order_id: i64,
     pub end_trade_id: i64,
 }
+
+/*
+    Not like diesel, we still need more code for insert action here
+    May be we could use macro to save these works
+*/
+use crate::sqlxextend;
+use crate::types;
+use types::DbType;
+
+/* --------------------- models::BalanceHistory -----------------------------*/
+impl sqlxextend::TableSchemas for BalanceHistory {
+    fn table_name() -> &'static str {
+        BALANCEHISTORY
+    }
+    const ARGN: i32 = 7;
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.time);
+        arg.add(self.user_id);
+        arg.add(&self.asset);
+        arg.add(&self.business);
+        arg.add(&self.change);
+        arg.add(&self.balance);
+        arg.add(&self.detail);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceHistory {}
+
+/* --------------------- models::TradeHistory -----------------------------*/
+impl sqlxextend::TableSchemas for TradeHistory {
+    fn table_name() -> &'static str {
+        TRADEHISTORY
+    }
+    const ARGN: i32 = 13;
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for TradeHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.time);
+        arg.add(self.user_id);
+        arg.add(&self.market);
+        arg.add(self.trade_id);
+        arg.add(self.order_id);
+        arg.add(self.counter_order_id);
+        arg.add(self.side);
+        arg.add(self.role);
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.quote_amount);
+        arg.add(&self.fee);
+        arg.add(&self.counter_order_fee);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for TradeHistory {}
+
+/* --------------------- models::OrderHistory -----------------------------*/
+impl sqlxextend::TableSchemas for OrderHistory {
+    fn table_name() -> &'static str {
+        ORDERHISTORY
+    }
+    const ARGN: i32 = 14;
+    //fn default_argsn() -> Vec<i32>{ vec![1] }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
+        arg.add(self.create_time);
+        arg.add(self.finish_time);
+        arg.add(self.user_id);
+        arg.add(&self.market);
+        arg.add(self.t);
+        arg.add(self.side);
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.taker_fee);
+        arg.add(&self.maker_fee);
+        arg.add(&self.finished_base);
+        arg.add(&self.finished_quote);
+        arg.add(&self.finished_fee);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderHistory {}
+
+/* --------------------- models::OperationLog -----------------------------*/
+impl sqlxextend::TableSchemas for OperationLog {
+    const ARGN: i32 = 4;
+    fn table_name() -> &'static str {
+        OPERATIONLOG
+    }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for OperationLog {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
+        arg.add(self.time);
+        arg.add(&self.method);
+        arg.add(&self.params);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OperationLog {}
+
+/* --------------------- models::OrderSlice -----------------------------*/
+
+impl sqlxextend::TableSchemas for OrderSlice {
+    fn table_name() -> &'static str {
+        ORDERSLICE
+    }
+    const ARGN: i32 = 17;
+    //fn default_argsn() -> Vec<i32>{ vec![1] }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
+        arg.add(self.slice_id);
+        arg.add(self.t);
+        arg.add(self.side);
+        arg.add(self.create_time);
+        arg.add(self.update_time);
+        arg.add(self.user_id);
+        arg.add(&self.market);
+        arg.add(&self.price);
+        arg.add(&self.amount);
+        arg.add(&self.taker_fee);
+        arg.add(&self.maker_fee);
+        arg.add(&self.remain);
+        arg.add(&self.frozen);
+        arg.add(&self.finished_base);
+        arg.add(&self.finished_quote);
+        arg.add(&self.finished_fee);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for OrderSlice {}
+
+/* --------------------- models::BalanceSliceInsert -----------------------------*/
+
+impl sqlxextend::TableSchemas for BalanceSliceInsert {
+    fn table_name() -> &'static str {
+        BALANCESLICE
+    }
+    const ARGN: i32 = 5;
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.slice_id);
+        arg.add(self.user_id);
+        arg.add(&self.asset);
+        arg.add(self.t);
+        arg.add(&self.balance);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceSliceInsert {}
+
+/* --------------------- models::SliceHistory -----------------------------*/
+
+impl sqlxextend::TableSchemas for SliceHistory {
+    fn table_name() -> &'static str {
+        SLICEHISTORY
+    }
+    const ARGN: i32 = 5;
+    //fn default_argsn() -> Vec<i32>{ vec![1] }
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
+        arg.add(self.time);
+        arg.add(self.end_operation_log_id);
+        arg.add(self.end_order_id);
+        arg.add(self.end_trade_id);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for SliceHistory {}

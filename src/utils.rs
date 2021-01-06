@@ -1,3 +1,4 @@
+use sqlx::types::chrono::NaiveDateTime;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn system_time_to_timestamp(t: SystemTime) -> f64 {
@@ -14,4 +15,22 @@ pub fn current_system_time() -> SystemTime {
 
 pub fn current_timestamp() -> f64 {
     system_time_to_timestamp(current_system_time())
+}
+
+pub struct FTimestamp(pub f64);
+
+impl From<FTimestamp> for NaiveDateTime {
+    fn from(f: FTimestamp) -> NaiveDateTime {
+        NaiveDateTime::from_timestamp(f.0 as i64, 0)
+    }
+}
+
+impl From<&NaiveDateTime> for FTimestamp {
+    fn from(f: &NaiveDateTime) -> FTimestamp {
+        FTimestamp(f.timestamp() as f64)
+    }
+}
+
+pub fn current_naive_time() -> NaiveDateTime {
+    chrono::Local::now().naive_local()
 }

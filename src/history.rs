@@ -1,15 +1,14 @@
 use crate::database::{DatabaseWriter, DatabaseWriterConfig};
 use crate::market;
 use crate::models;
-use crate::schema;
 use crate::types::Trade;
 
-use crate::utils::timestamp_to_system_time;
+use crate::utils::FTimestamp;
 use anyhow::Result;
 
-type BalanceWriter = DatabaseWriter<schema::balance_history::table, models::BalanceHistory>;
-type OrderWriter = DatabaseWriter<schema::order_history::table, models::OrderHistory>;
-type TradeWriter = DatabaseWriter<schema::trade_history::table, models::TradeHistory>;
+type BalanceWriter = DatabaseWriter<models::BalanceHistory>;
+type OrderWriter = DatabaseWriter<models::OrderHistory>;
+type TradeWriter = DatabaseWriter<models::TradeHistory>;
 
 pub trait HistoryWriter {
     fn append_balance_history(&mut self, data: models::BalanceHistory);
@@ -47,8 +46,8 @@ impl HistoryWriter for DatabaseHistoryWriter {
     fn append_order_history(&mut self, order: &market::Order) {
         let data = models::OrderHistory {
             id: order.id as i64,
-            create_time: timestamp_to_system_time(order.create_time),
-            finish_time: timestamp_to_system_time(order.update_time),
+            create_time: FTimestamp(order.create_time).into(),
+            finish_time: FTimestamp(order.update_time).into(),
             user_id: order.user as i32,
             market: order.market.to_string(),
             t: order.type_ as i16,
@@ -66,7 +65,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
 
     fn append_trade_history(&mut self, trade: &Trade) {
         let ask_trade = models::TradeHistory {
-            time: timestamp_to_system_time(trade.timestamp),
+            time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
             market: trade.market.clone(),
             trade_id: trade.id as i64,
@@ -81,7 +80,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
             counter_order_fee: trade.bid_fee, // counter order
         };
         let bid_trade = models::TradeHistory {
-            time: timestamp_to_system_time(trade.timestamp),
+            time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
             market: trade.market.clone(),
             trade_id: trade.id as i64,
