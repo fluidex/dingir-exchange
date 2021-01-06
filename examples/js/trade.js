@@ -1,3 +1,4 @@
+import * as process from "process";
 import {
   balanceQuery,
   orderPut,
@@ -9,13 +10,13 @@ import {
   orderCancel,
   orderDepth,
   debugReset,
-  debugReload,
+  debugReload
 } from "./client.mjs";
 import { KafkaConsumer } from "./kafka_client.mjs";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
-import Dotenv from "dotenv"
+import Dotenv from "dotenv";
 
 import whynoderun from "why-is-node-running";
 
@@ -60,10 +61,10 @@ async function ensureAssetZero() {
 
 async function setupAsset() {
   await balanceUpdate(userId, "BTC", "deposit", depositId, "100.0", {
-    key: "value",
+    key: "value"
   });
   await balanceUpdate(userId, "ETH", "deposit", depositId + 1, "50.0", {
-    key: "value",
+    key: "value"
   });
 }
 
@@ -78,6 +79,41 @@ async function putLimitOrder(side, amount, price) {
     fee,
     fee
   );
+}
+
+async function putRandOrder() {
+  // TODO: market order?
+  function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+  function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+  const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
+  const price = getRandomArbitrary(1, 5);
+  const amount = getRandomArbitrary(1, 3);
+  await putLimitOrder(side, price, amount);
+  console.log("order put", side, price, amount);
+}
+
+async function stressTest(parallel, interval, repeat) {
+  let count = 0;
+  // TODO: check balance before and after stress test
+  // depends https://github.com/Fluidex/dingir-exchange/issues/30
+  while (true) {
+    let promises = [];
+    for (let i = 0; i < parallel; i++) {
+      promises.push(putRandOrder());
+    }
+    await Promise.all(promises);
+    await sleep(interval);
+    count += 1;
+    if (repeat != 0 && count >= repeat) {
+      break;
+    }
+  }
 }
 
 // Test order put and cancel
@@ -192,7 +228,7 @@ async function naiveExample() {
 }
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function checkMessages(messages) {
@@ -203,8 +239,15 @@ function checkMessages(messages) {
 }
 
 async function mainTest(withMQ) {
-  Dotenv.config()
-  await debugReset();
+  Dotenv.config();
+  // TODO: something seems to go wrong... after the `mainTest`, the db is empty??!!
+  // https://github.com/Fluidex/dingir-exchange/issues/29
+  if (process.platform != "darwin") {
+    // just skip the wrong debugXXX to make system behavior reasonable...
+    await debugReset();
+    // await sleep(5000);
+  }
+
   if (withMQ) {
     const kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
@@ -221,7 +264,8 @@ async function mainTest(withMQ) {
 
 async function main() {
   try {
-    mainTest(false);
+    //await stressTest(10, 5000, 5);
+    await mainTest(false);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
