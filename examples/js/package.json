@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "fmt": "npx prettier --write *.js *.mjs package.json"
+  },
   "dependencies": {
     "decimal.js": "^10.2.0",
     "grpc": "^1.24.2",

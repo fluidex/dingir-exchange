@@ -17,11 +17,11 @@ use types::{ConnectionType, SimpleResult};
 
 use crate::dto::*;
 
-use crate::message::KafkaMessageSender;
-//use crate::me_history::HistoryWriter;
 use crate::database::DatabaseWriterConfig;
+use crate::message::KafkaMessageSender;
 
 use crate::history::DatabaseHistoryWriter;
+use crate::history::HistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
@@ -49,6 +49,8 @@ pub struct Controller {
     pub update_controller: Rc<RefCell<BalanceUpdateController>>,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
+    pub history_writer: Rc<RefCell<DatabaseHistoryWriter>>,
+    pub message_sender: Rc<RefCell<KafkaMessageSender>>,
 
     #[cfg(debug_assertions)]
     pub stw_notifier: Rc<RefCell<Option<oneshot::Sender<DebugRunTask>>>>,
@@ -67,6 +69,7 @@ impl Controller {
             DatabaseHistoryWriter::new(&DatabaseWriterConfig {
                 database_url: settings.db_history.clone(),
                 run_daemon: true,
+                inner_buffer_size: 1000,
             })
             .unwrap(),
         ));
@@ -93,6 +96,7 @@ impl Controller {
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             database_url: settings.db_log.clone(),
             run_daemon: true,
+            inner_buffer_size: 1000,
         })
         .unwrap();
         Controller {
@@ -103,6 +107,8 @@ impl Controller {
             update_controller,
             markets,
             log_handler,
+            history_writer,
+            message_sender,
 
             #[cfg(debug_assertions)]
             stw_notifier: Rc::new(RefCell::new(None)),
@@ -270,7 +276,26 @@ impl Controller {
         Ok(MarketSummaryResponse { market_summaries })
     }
 
+    fn check_service_available(&self) -> bool {
+        if self.log_handler.is_block() {
+            log::warn!("log_handler full");
+            return false;
+        }
+        if self.message_sender.borrow_mut().is_block() {
+            log::warn!("message_sender full");
+            return false;
+        }
+        if self.history_writer.borrow_mut().is_block() {
+            log::warn!("history_writer full");
+            return false;
+        }
+        true
+    }
+
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
         if !self.asset_manager.asset_exist(&req.asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
@@ -301,6 +326,9 @@ impl Controller {
     }
 
     pub fn order_put(&mut self, real: bool, req: OrderPutRequest) -> Result<OrderInfo, Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
         let order = self
@@ -316,6 +344,9 @@ impl Controller {
     }
 
     pub fn order_cancel(&mut self, real: bool, req: OrderCancelRequest) -> Result<OrderInfo, tonic::Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
         let market = self
             .markets
             .get_mut(&req.market)

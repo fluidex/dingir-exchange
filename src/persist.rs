@@ -496,7 +496,7 @@ pub fn init_persist_timer() {
     tokio::spawn(async move {
         let duration = std::time::Duration::from_millis(3600 * 1000);
         let mut ticker_dump = tokio::time::interval(duration);
-
+        ticker_dump.tick().await; // skip the first tick.
         loop {
             ticker_dump.tick().await;
             fork_and_make_slice();
