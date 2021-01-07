@@ -18,17 +18,17 @@ jobs:
     strategy:
       matrix:
         rust:
-          - stable
+          - 1.49.0
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install 1.49.0 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.49.0
           override: true
           components: rustfmt, clippy
       
