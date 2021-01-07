@@ -11,6 +11,7 @@ type OrderWriter = DatabaseWriter<models::OrderHistory>;
 type TradeWriter = DatabaseWriter<models::TradeHistory>;
 
 pub trait HistoryWriter {
+    fn is_block(&self) -> bool;
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_order_history(&mut self, order: &market::Order);
     fn append_trade_history(&mut self, trade: &Trade);
@@ -21,6 +22,9 @@ impl HistoryWriter for DummyHistoryWriter {
     fn append_balance_history(&mut self, _data: models::BalanceHistory) {}
     fn append_order_history(&mut self, _order: &market::Order) {}
     fn append_trade_history(&mut self, _trade: &Trade) {}
+    fn is_block(&self) -> bool {
+        false
+    }
 }
 
 pub struct DatabaseHistoryWriter {
@@ -40,6 +44,9 @@ impl DatabaseHistoryWriter {
 }
 
 impl HistoryWriter for DatabaseHistoryWriter {
+    fn is_block(&self) -> bool {
+        self.balance_writer.is_block() || self.trade_writer.is_block() || self.order_writer.is_block()
+    }
     fn append_balance_history(&mut self, data: models::BalanceHistory) {
         self.balance_writer.append(data);
     }

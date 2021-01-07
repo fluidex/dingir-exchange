@@ -84,19 +84,10 @@ async function depositAssets(assets) {
     });
     depositId++;
   }
-
-  /*
-  }  await balanceUpdate(userId, "BTC", "deposit", depositId, "100.0", {
-    key: "value"
-  });
-  await balanceUpdate(userId, "ETH", "deposit", depositId + 1, "50.0", {
-    key: "value"
-  });
-*/
 }
 
 async function putLimitOrder(side, amount, price) {
-  await orderPut(
+  return await orderPut(
     userId,
     market,
     side,
@@ -121,14 +112,18 @@ async function putRandOrder() {
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
   const price = getRandomArbitrary(1, 50);
   const amount = getRandomArbitrary(1, 7);
-  await putLimitOrder(side, amount, price);
-  console.log("order put", { side, price, amount });
+  const order = await putLimitOrder(side, amount, price);
+  console.log("order put", order.id.toString(), { side, price, amount });
 }
 
-async function stressTest(parallel, interval, repeat) {
+async function stressTest({ parallel, interval, repeat }) {
   await depositAssets({ BTC: "100000", ETH: "50000" });
 
   await printBalance();
+  const startTime = new Date();
+  function elapsedSecs() {
+    return (new Date() - startTime) / 1000;
+  }
   let count = 0;
   // TODO: check balance before and after stress test
   // depends https://github.com/Fluidex/dingir-exchange/issues/30
@@ -138,13 +133,27 @@ async function stressTest(parallel, interval, repeat) {
       promises.push(putRandOrder());
     }
     await Promise.all(promises);
-    await sleep(interval);
+    if (interval > 0) {
+      await sleep(interval);
+    }
     count += 1;
+    console.log(
+      "avg op/s:",
+      (parallel * count) / elapsedSecs(),
+      "orders",
+      parallel * count,
+      "secs",
+      elapsedSecs()
+    );
     if (repeat != 0 && count >= repeat) {
       break;
     }
-    await printBalance();
+    //await printBalance();
   }
+  await printBalance();
+  const endTime = new Date();
+  console.log("avg op/s:", (parallel * repeat) / elapsedSecs());
+  console.log("stressTest done");
 }
 
 // Test order put and cancel
@@ -294,7 +303,7 @@ async function mainTest(withMQ) {
 
 async function main() {
   try {
-    //await stressTest(10, 5000, 5);
+    //await stressTest({ parallel: 100, interval: 1000, repeat: 1000 });
     await mainTest(false);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);

@@ -37,6 +37,7 @@ where
 pub struct DatabaseWriterConfig {
     pub database_url: String,
     pub run_daemon: bool,
+    pub inner_buffer_size: usize,
 }
 
 #[derive(std::clone::Clone)]
@@ -61,7 +62,7 @@ where
         // test connection
         //me_util::check_sql_conn(&config.database_url);
 
-        let (sender, receiver) = crossbeam_channel::bounded::<U>(100_000);
+        let (sender, receiver) = crossbeam_channel::bounded::<U>(config.inner_buffer_size);
 
         let thread_config: ThreadConfig<U> = ThreadConfig {
             conn_str: config.database_url.clone(),
@@ -97,7 +98,11 @@ where
             let mut deadline = Instant::now() + config.timer_interval;
 
             loop {
-                match config.channel_receiver.recv_timeout(deadline.duration_since(Instant::now())) {
+                let timeout = deadline.checked_duration_since(Instant::now());
+                if timeout.is_none() {
+                    break;
+                }
+                match config.channel_receiver.recv_timeout(timeout.unwrap()) {
                     Ok(entry) => {
                         if entries.is_empty() {
                             // Message should have a worst delivery time
@@ -112,7 +117,7 @@ where
                         break;
                     }
                     Err(RecvTimeoutError::Disconnected) => {
-                        println!("sql consumer Disconnected");
+                        println!("sql consumer for {}  \tdisconnected", U::table_name());
                         running = false;
                         break;
                     }
@@ -168,7 +173,7 @@ where
     }
 
     pub fn is_block(&self) -> bool {
-        self.sender.is_full()
+        self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
     }
 
     pub fn append(&self, item: U) {
