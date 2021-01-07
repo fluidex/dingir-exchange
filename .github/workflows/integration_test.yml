@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.49.0
+          - stable
 
     steps:
       - name: Checkout sources
@@ -28,11 +28,11 @@ jobs:
       - name: Install libpq
         run: sudo apt-get install libpq-dev
 
-      - name: Install rust 1.49.0 toolchain
+      - name: Install rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.49.0
+          toolchain: stable
           override: true
           components: rustfmt, clippy
 

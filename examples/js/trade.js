@@ -297,15 +297,15 @@ async function mainTest(withMQ) {
     await sleep(3 * 1000);
     const messages = kafkaConsumer.GetAllMessages();
     console.log(messages);
-    checkMessages(messages);
     await kafkaConsumer.Stop();
+    checkMessages(messages);
   }
 }
 
 async function main() {
   try {
     //await stressTest({ parallel: 100, interval: 1000, repeat: 100 });
-    await mainTest(true);
+    await mainTest(false);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
