@@ -50,11 +50,11 @@ jobs:
       # 1. we build the binary after starting docker-compose, to ensure time for running services in docker-compose
       # 2. we avoid nohup cargo run directly, to make sure server is running before starting trading tests
       # 3. TODO: switch to 'release' when the exchange is `almost done`
-      - name: Run "cargo build --debug"
+      - name: Run "cargo build"
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --debug
+          args: --
 
       - name: Start exchange server daemon
         run: nohup ./target/debug/$BIN_NAME &
