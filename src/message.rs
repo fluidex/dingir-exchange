@@ -76,7 +76,7 @@ impl KafkaMessageSender {
             trades_list: RefCell::new(LinkedList::new()),
             orders_list: RefCell::new(LinkedList::new()),
             balances_list: RefCell::new(LinkedList::new()),
-            receiver: receiver,
+            receiver,
         })
     }
     pub fn on_message(&self, topic_name: &str, message: &str) -> SimpleResult {

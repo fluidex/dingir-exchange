@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - nightly
+          - 1.49.0
 
     steps:
       - name: Checkout sources
@@ -28,11 +28,11 @@ jobs:
       - name: Install libpq
         run: sudo apt-get install libpq-dev
 
-      - name: Install rust nightly toolchain
+      - name: Install rust 1.49.0 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: 1.49.0
           override: true
           components: rustfmt, clippy
 
