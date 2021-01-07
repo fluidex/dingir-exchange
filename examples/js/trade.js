@@ -287,8 +287,9 @@ async function mainTest(withMQ) {
     // await sleep(5000);
   }
 
+  let kafkaConsumer;
   if (withMQ) {
-    const kafkaConsumer = new KafkaConsumer();
+    kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
   }
   const [askOrderId, bidOrderId] = await simpleTest();
@@ -304,7 +305,7 @@ async function mainTest(withMQ) {
 async function main() {
   try {
     //await stressTest({ parallel: 100, interval: 1000, repeat: 100 });
-    await mainTest(false);
+    await mainTest(true);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
