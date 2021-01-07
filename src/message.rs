@@ -186,17 +186,17 @@ impl KafkaMessageSender {
     }
 }
 
-pub trait MessageReceiver {
+pub trait MessageManager {
     fn push_order_message(&mut self, order: &OrderMessage);
     fn push_trade_message(&mut self, trade: &Trade);
     fn push_balance_message(&mut self, balance: &BalanceMessage);
 }
 
-pub struct ChannelMessageReceiver {
+pub struct ChannelMessageManager {
     pub sender: crossbeam_channel::Sender<(&'static str, String)>,
 }
 
-impl ChannelMessageReceiver {
+impl ChannelMessageManager {
     fn push_message(&self, message: String, topic_name: &'static str) {
         println!("KAFKA: push {} message: {}", topic_name, message);
         self.sender.try_send((topic_name, message)).unwrap();
@@ -206,7 +206,7 @@ impl ChannelMessageReceiver {
     }
 }
 
-impl MessageReceiver for ChannelMessageReceiver {
+impl MessageManager for ChannelMessageManager {
     fn push_order_message(&mut self, order: &OrderMessage) {
         let message = serde_json::to_string(&order).unwrap();
         self.push_message(message, ORDERS_TOPIC)
@@ -221,17 +221,17 @@ impl MessageReceiver for ChannelMessageReceiver {
     }
 }
 
-pub struct DummyMessageReceiver;
-impl MessageReceiver for DummyMessageReceiver {
+pub struct DummyMessageManager;
+impl MessageManager for DummyMessageManager {
     fn push_order_message(&mut self, _order: &OrderMessage) {}
     fn push_trade_message(&mut self, _trade: &Trade) {}
     fn push_balance_message(&mut self, _balance: &BalanceMessage) {}
 }
 
-pub fn new_message_receiver_with_kafka_backend(brokers: &str) -> Result<ChannelMessageReceiver> {
+pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMessageManager> {
     let (sender, receiver) = crossbeam_channel::bounded(100);
     let kafka_sender = KafkaMessageSender::new(brokers, receiver)?;
     // TODO: join handle?
     std::thread::spawn(move || kafka_sender.start());
-    Ok(ChannelMessageReceiver { sender })
+    Ok(ChannelMessageManager { sender })
 }

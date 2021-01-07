@@ -1,6 +1,6 @@
 use crate::asset::{BalanceManager, BalanceType};
 use crate::history::HistoryWriter;
-use crate::message::{MessageReceiver, OrderMessage};
+use crate::message::{MessageManager, OrderMessage};
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType, Trade};
 use crate::utils;
@@ -126,7 +126,7 @@ pub struct Market {
     pub sequencer: Rc<RefCell<Sequencer>>,
     balance_manager: BalanceManagerWrapper,
     pub history_writer: Rc<RefCell<dyn HistoryWriter>>,
-    message_receiver: MessageReceiverWrapper,
+    message_manager: MessageManagerWrapper,
 }
 
 // FIXME
@@ -140,10 +140,10 @@ pub fn asset_prec(_asset: &str) -> u32 {
 
 const MAP_INIT_CAPACITY: usize = 1024;
 
-struct MessageReceiverWrapper {
-    inner: Rc<RefCell<dyn MessageReceiver>>,
+struct MessageManagerWrapper {
+    inner: Rc<RefCell<dyn MessageManager>>,
 }
-impl MessageReceiverWrapper {
+impl MessageManagerWrapper {
     pub fn push_order_message(&self, message: &OrderMessage) {
         self.inner.borrow_mut().push_order_message(message)
     }
@@ -181,7 +181,7 @@ impl Market {
         balance_manager: Rc<RefCell<BalanceManager>>,
         sequencer: Rc<RefCell<Sequencer>>,
         history_writer: Rc<RefCell<dyn HistoryWriter>>,
-        message_receiver: Rc<RefCell<dyn MessageReceiver>>,
+        message_manager: Rc<RefCell<dyn MessageManager>>,
     ) -> Result<Market> {
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
             return simple_err!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name);
@@ -208,7 +208,7 @@ impl Market {
             bids: BTreeMap::new(),
             balance_manager: BalanceManagerWrapper { inner: balance_manager },
             history_writer,
-            message_receiver: MessageReceiverWrapper { inner: message_receiver },
+            message_manager: MessageManagerWrapper { inner: message_manager },
         };
         Ok(market)
     }
@@ -286,7 +286,7 @@ impl Market {
                 base: self.base.clone(),
                 quote: self.quote.clone(),
             };
-            self.message_receiver.push_order_message(&order_message);
+            self.message_manager.push_order_message(&order_message);
         }
     }
 
@@ -374,7 +374,7 @@ impl Market {
                     bid_fee,
                 };
                 self.history_writer.borrow_mut().append_trade_history(&trade);
-                self.message_receiver.push_trade_message(&trade);
+                self.message_manager.push_trade_message(&trade);
             }
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
@@ -448,7 +448,7 @@ impl Market {
                     base: self.base.clone(),
                     quote: self.quote.clone(),
                 };
-                self.message_receiver.push_order_message(&order_message);
+                self.message_manager.push_order_message(&order_message);
             }
         }
 
@@ -544,7 +544,7 @@ impl Market {
                     base: self.base.clone(),
                     quote: self.quote.clone(),
                 };
-                self.message_receiver.push_order_message(&order_message);
+                self.message_manager.push_order_message(&order_message);
             }
             order = self.insert_order(order_rc);
             self.frozen_balance(&order);
@@ -557,7 +557,7 @@ impl Market {
                     base: self.base.clone(),
                     quote: self.quote.clone(),
                 };
-                self.message_receiver.push_order_message(&order_message);
+                self.message_manager.push_order_message(&order_message);
             }
         }
         Ok(order)
@@ -678,7 +678,7 @@ mod tests {
     use super::*;
     use crate::asset::AssetManager;
     use crate::history::DummyHistoryWriter;
-    use crate::message::DummyMessageReceiver;
+    use crate::message::DummyMessageManager;
     use rust_decimal_macros::*;
 
     fn get_simple_market_config() -> config::Market {
@@ -736,7 +736,7 @@ mod tests {
             balance_manager_rc.clone(),
             sequencer,
             Rc::new(RefCell::new(DummyHistoryWriter)),
-            Rc::new(RefCell::new(DummyMessageReceiver)),
+            Rc::new(RefCell::new(DummyMessageManager)),
         )
         .unwrap();
         let ask_order_input = OrderInput {
