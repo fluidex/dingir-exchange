@@ -10,7 +10,10 @@ fmtsql:
 fmtrs:
 	cargo fmt
 
-fmt: fmtproto fmtsql fmtrs
+fmtjs:
+	cd examples/js && yarn fmt
+
+fmt: fmtproto fmtsql fmtrs fmtjs
 
 conn:
 	psql $(DB)

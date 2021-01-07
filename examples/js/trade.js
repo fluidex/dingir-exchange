@@ -1,3 +1,4 @@
+import "./config.mjs"; // dotenv
 import * as process from "process";
 import {
   balanceQuery,
@@ -16,8 +17,6 @@ import { KafkaConsumer } from "./kafka_client.mjs";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
-import Dotenv from "dotenv";
-
 import whynoderun from "why-is-node-running";
 
 import { inspect } from "util";
@@ -29,7 +28,7 @@ const ORDER_TYPE_LIMIT = 0;
 const ORDER_TYPE_MARKET = 1;
 
 const userId = 3;
-const depositId = Math.floor(Date.now() / 1000);
+let depositId = Math.floor(Date.now() / 1000);
 const base = "ETH";
 const quote = "BTC";
 const market = `${base}_${quote}`;
@@ -41,6 +40,24 @@ async function prettyPrint(obj) {
 
 function floatEqual(result, gt) {
   assert(new Decimal(result).equals(new Decimal(gt)), `${result} != ${gt}`);
+}
+
+async function printBalance(printList = ["BTC", "ETH"]) {
+  const balances = await balanceQuery(userId);
+  console.log("\nasset\tsum\tavaiable\tfrozen");
+  for (const asset of printList) {
+    const balance = balances[asset];
+    console.log(
+      asset,
+      "\t",
+      new Decimal(balance.available).add(new Decimal(balance.frozen)),
+      "\t",
+      balance.available,
+      "\t",
+      balance.frozen
+    );
+  }
+  //console.log('\n');
 }
 
 async function ensureAssetValid() {
@@ -59,13 +76,23 @@ async function ensureAssetZero() {
   floatEqual(balance1.ETH.frozen, "0");
 }
 
-async function setupAsset() {
-  await balanceUpdate(userId, "BTC", "deposit", depositId, "100.0", {
+async function depositAssets(assets) {
+  for (const [asset, amount] of Object.entries(assets)) {
+    console.log("deposit", amount, asset);
+    await balanceUpdate(userId, asset, "deposit", depositId, amount, {
+      key: "value"
+    });
+    depositId++;
+  }
+
+  /*
+  }  await balanceUpdate(userId, "BTC", "deposit", depositId, "100.0", {
     key: "value"
   });
   await balanceUpdate(userId, "ETH", "deposit", depositId + 1, "50.0", {
     key: "value"
   });
+*/
 }
 
 async function putLimitOrder(side, amount, price) {
@@ -92,13 +119,16 @@ async function putRandOrder() {
     return Math.floor(Math.random() * (max - min)) + min;
   }
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
-  const price = getRandomArbitrary(1, 5);
-  const amount = getRandomArbitrary(1, 3);
-  await putLimitOrder(side, price, amount);
-  console.log("order put", side, price, amount);
+  const price = getRandomArbitrary(1, 50);
+  const amount = getRandomArbitrary(1, 7);
+  await putLimitOrder(side, amount, price);
+  console.log("order put", { side, price, amount });
 }
 
 async function stressTest(parallel, interval, repeat) {
+  await depositAssets({ BTC: "100000", ETH: "50000" });
+
+  await printBalance();
   let count = 0;
   // TODO: check balance before and after stress test
   // depends https://github.com/Fluidex/dingir-exchange/issues/30
@@ -113,6 +143,7 @@ async function stressTest(parallel, interval, repeat) {
     if (repeat != 0 && count >= repeat) {
       break;
     }
+    await printBalance();
   }
 }
 
@@ -214,7 +245,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
 
 async function simpleTest() {
   await ensureAssetZero();
-  await setupAsset();
+  await depositAssets({ BTC: "100.0", ETH: "50.0" });
   await ensureAssetValid();
   await orderTest();
   return await tradeTest();
@@ -239,7 +270,6 @@ function checkMessages(messages) {
 }
 
 async function mainTest(withMQ) {
-  Dotenv.config();
   // TODO: something seems to go wrong... after the `mainTest`, the db is empty??!!
   // https://github.com/Fluidex/dingir-exchange/issues/29
   if (process.platform != "darwin") {
