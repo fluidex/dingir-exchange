@@ -303,7 +303,7 @@ async function mainTest(withMQ) {
 
 async function main() {
   try {
-    //await stressTest({ parallel: 100, interval: 1000, repeat: 1000 });
+    await stressTest({ parallel: 100, interval: 1000, repeat: 100 });
     await mainTest(false);
     //await debugReload();
     //await testStatusAfterTrade(askOrderId, bidOrderId);

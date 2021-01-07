@@ -289,7 +289,7 @@ impl Controller {
             log::warn!("history_writer full");
             return false;
         }
-        return true;
+        true
     }
 
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
