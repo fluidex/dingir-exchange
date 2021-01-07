@@ -1,6 +1,6 @@
 use crate::config;
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageSender};
+use crate::message::{BalanceMessage, MessageManager};
 use crate::models;
 use crate::utils;
 use models::BalanceHistory;
@@ -234,21 +234,21 @@ struct BalanceUpdateKey {
 pub struct BalanceUpdateController {
     cache: TtlCache<BalanceUpdateKey, bool>,
     balance_manager: Rc<RefCell<BalanceManager>>,
-    message_sender: Rc<RefCell<dyn MessageSender>>,
+    message_manager: Rc<RefCell<dyn MessageManager>>,
     history_writer: Rc<RefCell<dyn HistoryWriter>>,
 }
 
 impl BalanceUpdateController {
     pub fn new(
         balance_manager: Rc<RefCell<BalanceManager>>,
-        message_sender: Rc<RefCell<dyn MessageSender>>,
+        message_manager: Rc<RefCell<dyn MessageManager>>,
         history_writer: Rc<RefCell<dyn HistoryWriter>>,
     ) -> BalanceUpdateController {
         let capacity = 1_000_000;
         BalanceUpdateController {
             cache: TtlCache::new(capacity),
             balance_manager,
-            message_sender,
+            message_manager,
             history_writer,
         }
     }
@@ -313,7 +313,7 @@ impl BalanceUpdateController {
                 business,
                 change: change.to_string(),
             };
-            self.message_sender.borrow_mut().push_balance_message(&message).unwrap();
+            self.message_manager.borrow_mut().push_balance_message(&message);
         }
         true
     }

@@ -287,8 +287,9 @@ async function mainTest(withMQ) {
     // await sleep(5000);
   }
 
+  let kafkaConsumer;
   if (withMQ) {
-    const kafkaConsumer = new KafkaConsumer();
+    kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
   }
   const [askOrderId, bidOrderId] = await simpleTest();
@@ -296,8 +297,8 @@ async function mainTest(withMQ) {
     await sleep(3 * 1000);
     const messages = kafkaConsumer.GetAllMessages();
     console.log(messages);
-    checkMessages(messages);
     await kafkaConsumer.Stop();
+    checkMessages(messages);
   }
 }
 

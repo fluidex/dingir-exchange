@@ -1,7 +1,9 @@
 use crate::market::Order;
 use crate::types::{OrderEventType, SimpleResult, Trade};
+use core::cell::RefCell;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use crossbeam_channel::RecvTimeoutError;
 use rdkafka::client::ClientContext;
 use rdkafka::config::ClientConfig;
 use rdkafka::error::{KafkaError, RDKafkaError};
@@ -11,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::LinkedList;
 use std::sync::Arc;
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, Instant};
 
 pub struct SimpleProducerContext;
 impl ClientContext for SimpleProducerContext {}
@@ -25,7 +28,7 @@ impl ProducerContext for SimpleProducerContext {
     }
 }
 pub(crate) const ORDERS_TOPIC: &str = "orders";
-pub(crate) const DEALS_TOPIC: &str = "trades";
+pub(crate) const TRADES_TOPIC: &str = "trades";
 pub(crate) const BALANCES_TOPIC: &str = "balances";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,33 +55,16 @@ pub struct MessageSenderStatus {
     balances_len: usize,
 }
 
-pub trait MessageSender {
-    fn push_order_message(&mut self, order: &OrderMessage) -> SimpleResult;
-    fn push_trade_message(&mut self, trade: &Trade) -> SimpleResult;
-    fn push_balance_message(&mut self, balance: &BalanceMessage) -> SimpleResult;
-}
-
-pub struct DummyMessageSender;
-impl MessageSender for DummyMessageSender {
-    fn push_order_message(&mut self, _order: &OrderMessage) -> SimpleResult {
-        Ok(())
-    }
-    fn push_trade_message(&mut self, _trade: &Trade) -> SimpleResult {
-        Ok(())
-    }
-    fn push_balance_message(&mut self, _balance: &BalanceMessage) -> SimpleResult {
-        Ok(())
-    }
-}
-
 pub struct KafkaMessageSender {
     producer: Arc<BaseProducer<SimpleProducerContext>>,
-    orders_list: LinkedList<String>,
-    trades_list: LinkedList<String>,
-    balances_list: LinkedList<String>,
+    orders_list: RefCell<LinkedList<String>>,
+    trades_list: RefCell<LinkedList<String>>,
+    balances_list: RefCell<LinkedList<String>>,
+    receiver: crossbeam_channel::Receiver<(&'static str, String)>,
 }
+
 impl KafkaMessageSender {
-    pub fn new(brokers: &str) -> Result<KafkaMessageSender> {
+    pub fn new(brokers: &str, receiver: crossbeam_channel::Receiver<(&'static str, String)>) -> Result<KafkaMessageSender> {
         let producer = ClientConfig::new()
             .set("bootstrap.servers", brokers)
             .set("queue.buffering.max.ms", "1")
@@ -87,17 +73,18 @@ impl KafkaMessageSender {
 
         Ok(KafkaMessageSender {
             producer: arc,
-            trades_list: LinkedList::new(),
-            orders_list: LinkedList::new(),
-            balances_list: LinkedList::new(),
+            trades_list: RefCell::new(LinkedList::new()),
+            orders_list: RefCell::new(LinkedList::new()),
+            balances_list: RefCell::new(LinkedList::new()),
+            receiver,
         })
     }
-    pub fn push_message(&mut self, message: &str, topic_name: &str) -> SimpleResult {
+    pub fn on_message(&self, topic_name: &str, message: &str) -> SimpleResult {
         println!("KAFKA: push {} message: {}", topic_name, message);
-        let list: &mut LinkedList<String> = match topic_name {
-            BALANCES_TOPIC => &mut self.balances_list,
-            DEALS_TOPIC => &mut self.trades_list,
-            ORDERS_TOPIC => &mut self.orders_list,
+        let mut list = match topic_name {
+            BALANCES_TOPIC => self.balances_list.borrow_mut(),
+            TRADES_TOPIC => self.trades_list.borrow_mut(),
+            ORDERS_TOPIC => self.orders_list.borrow_mut(),
             _ => unreachable!(),
         };
 
@@ -114,11 +101,11 @@ impl KafkaMessageSender {
                 list.push_back(message.to_string());
                 return Ok(());
             }
-            return simple_err!("kafka push err");
+            return Err(anyhow!("kafka push err"));
         }
         Ok(())
     }
-    pub fn finish(mut self) -> SimpleResult {
+    pub fn finish(self) -> SimpleResult {
         self.flush();
         self.producer.flush(std::time::Duration::from_millis(1000));
         drop(self);
@@ -126,11 +113,11 @@ impl KafkaMessageSender {
     }
 
     // if kafka is full, queue messages in list, so here flush them.
-    fn flush_list(&mut self, topic_name: &str) {
-        let list: &mut LinkedList<String> = match topic_name {
-            BALANCES_TOPIC => &mut self.balances_list,
-            DEALS_TOPIC => &mut self.trades_list,
-            ORDERS_TOPIC => &mut self.orders_list,
+    fn flush_list(&self, topic_name: &str) {
+        let mut list = match topic_name {
+            BALANCES_TOPIC => self.balances_list.borrow_mut(),
+            TRADES_TOPIC => self.trades_list.borrow_mut(),
+            ORDERS_TOPIC => self.orders_list.borrow_mut(),
             _ => unreachable!(),
         };
         for message in list.iter() {
@@ -146,50 +133,105 @@ impl KafkaMessageSender {
         list.clear();
     }
 
-    fn flush(&mut self) {
+    fn flush(&self) {
         self.flush_list(BALANCES_TOPIC);
         self.flush_list(ORDERS_TOPIC);
-        self.flush_list(DEALS_TOPIC);
+        self.flush_list(TRADES_TOPIC);
         self.producer.poll(Duration::from_millis(0));
     }
 
-    pub fn start_timer(&self) {
-        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(100));
-        let self_ptr: *mut Self = self as *const Self as *mut Self;
-        tokio::task::spawn_local(async move {
-            loop {
-                ticker.tick().await;
-                unsafe {
-                    (*self_ptr).flush();
+    pub fn start(self) {
+        let mut last_flush_time = Instant::now();
+        let flush_interval = std::time::Duration::from_millis(100);
+        let timeout_interval = std::time::Duration::from_millis(100);
+        loop {
+            if self.is_block() {
+                // skip receiving from channel, so main server can know something goes wrong
+                // sleep to avoid cpu 100% usage
+                thread::sleep(flush_interval);
+            } else {
+                match self.receiver.recv_timeout(timeout_interval) {
+                    Ok((topic, message)) => {
+                        self.on_message(topic, &message).ok();
+                    }
+                    Err(RecvTimeoutError::Timeout) => {}
+                    Err(RecvTimeoutError::Disconnected) => {
+                        println!("kafka producer disconnected");
+                        break;
+                    }
                 }
             }
-        });
+            let now = Instant::now();
+            if now > last_flush_time + flush_interval {
+                self.flush();
+                last_flush_time = now;
+            }
+        }
+        self.finish().ok();
+        log::info!("kafka sender exit");
     }
 
     pub fn is_block(&self) -> bool {
-        self.trades_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100
+        self.trades_list.borrow_mut().len() >= 100
+            || self.orders_list.borrow_mut().len() >= 100
+            || self.balances_list.borrow_mut().len() >= 100
     }
 
     pub fn status(&self) -> MessageSenderStatus {
         MessageSenderStatus {
-            trades_len: self.trades_list.len(),
-            orders_len: self.orders_list.len(),
-            balances_len: self.balances_list.len(),
+            trades_len: self.trades_list.borrow_mut().len(),
+            orders_len: self.orders_list.borrow_mut().len(),
+            balances_len: self.balances_list.borrow_mut().len(),
         }
     }
 }
 
-impl MessageSender for KafkaMessageSender {
-    fn push_order_message(&mut self, order: &OrderMessage) -> SimpleResult {
-        let message = serde_json::to_string(&order)?;
-        self.push_message(&message, ORDERS_TOPIC)
+pub trait MessageManager {
+    fn push_order_message(&mut self, order: &OrderMessage);
+    fn push_trade_message(&mut self, trade: &Trade);
+    fn push_balance_message(&mut self, balance: &BalanceMessage);
+}
+
+pub struct ChannelMessageManager {
+    pub sender: crossbeam_channel::Sender<(&'static str, String)>,
+}
+
+impl ChannelMessageManager {
+    fn push_message(&self, message: String, topic_name: &'static str) {
+        println!("KAFKA: push {} message: {}", topic_name, message);
+        self.sender.try_send((topic_name, message)).unwrap();
     }
-    fn push_trade_message(&mut self, trade: &Trade) -> SimpleResult {
-        let message = serde_json::to_string(&trade)?;
-        self.push_message(&message, DEALS_TOPIC)
+    pub fn is_block(&self) -> bool {
+        self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
     }
-    fn push_balance_message(&mut self, balance: &BalanceMessage) -> SimpleResult {
-        let message = serde_json::to_string(&balance)?;
-        self.push_message(&message, BALANCES_TOPIC)
+}
+
+impl MessageManager for ChannelMessageManager {
+    fn push_order_message(&mut self, order: &OrderMessage) {
+        let message = serde_json::to_string(&order).unwrap();
+        self.push_message(message, ORDERS_TOPIC)
     }
+    fn push_trade_message(&mut self, trade: &Trade) {
+        let message = serde_json::to_string(&trade).unwrap();
+        self.push_message(message, TRADES_TOPIC)
+    }
+    fn push_balance_message(&mut self, balance: &BalanceMessage) {
+        let message = serde_json::to_string(&balance).unwrap();
+        self.push_message(message, BALANCES_TOPIC)
+    }
+}
+
+pub struct DummyMessageManager;
+impl MessageManager for DummyMessageManager {
+    fn push_order_message(&mut self, _order: &OrderMessage) {}
+    fn push_trade_message(&mut self, _trade: &Trade) {}
+    fn push_balance_message(&mut self, _balance: &BalanceMessage) {}
+}
+
+pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMessageManager> {
+    let (sender, receiver) = crossbeam_channel::bounded(100);
+    let kafka_sender = KafkaMessageSender::new(brokers, receiver)?;
+    // TODO: join handle?
+    std::thread::spawn(move || kafka_sender.start());
+    Ok(ChannelMessageManager { sender })
 }

@@ -18,7 +18,7 @@ use types::{ConnectionType, SimpleResult};
 use crate::dto::*;
 
 use crate::database::DatabaseWriterConfig;
-use crate::message::KafkaMessageSender;
+use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager};
 
 use crate::history::DatabaseHistoryWriter;
 use crate::history::HistoryWriter;
@@ -50,7 +50,7 @@ pub struct Controller {
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
     pub history_writer: Rc<RefCell<DatabaseHistoryWriter>>,
-    pub message_sender: Rc<RefCell<KafkaMessageSender>>,
+    pub message_manager: Rc<RefCell<ChannelMessageManager>>,
 
     #[cfg(debug_assertions)]
     pub stw_notifier: Rc<RefCell<Option<oneshot::Sender<DebugRunTask>>>>,
@@ -64,7 +64,7 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
         let balance_manager = Rc::new(RefCell::new(BalanceManager::new(&settings.assets).unwrap()));
-        let message_sender = Rc::new(RefCell::new(KafkaMessageSender::new(&settings.brokers).unwrap()));
+        let message_manager = Rc::new(RefCell::new(new_message_manager_with_kafka_backend(&settings.brokers).unwrap()));
         let history_writer = Rc::new(RefCell::new(
             DatabaseHistoryWriter::new(&DatabaseWriterConfig {
                 database_url: settings.db_history.clone(),
@@ -75,7 +75,7 @@ impl Controller {
         ));
         let update_controller = Rc::new(RefCell::new(BalanceUpdateController::new(
             balance_manager.clone(),
-            message_sender.clone(),
+            message_manager.clone(),
             history_writer.clone(),
         )));
         let asset_manager = AssetManager::new(&settings.assets).unwrap();
@@ -88,7 +88,7 @@ impl Controller {
                 balance_manager.clone(),
                 sequencer.clone(),
                 history_writer.clone(),
-                message_sender.clone(),
+                message_manager.clone(),
             )
             .unwrap();
             markets.insert(entry.name.clone(), market);
@@ -108,7 +108,7 @@ impl Controller {
             markets,
             log_handler,
             history_writer,
-            message_sender,
+            message_manager,
 
             #[cfg(debug_assertions)]
             stw_notifier: Rc::new(RefCell::new(None)),
@@ -281,8 +281,8 @@ impl Controller {
             log::warn!("log_handler full");
             return false;
         }
-        if self.message_sender.borrow_mut().is_block() {
-            log::warn!("message_sender full");
+        if self.message_manager.borrow_mut().is_block() {
+            log::warn!("message_manager full");
             return false;
         }
         if self.history_writer.borrow_mut().is_block() {
