@@ -62,4 +62,4 @@ jobs:
           BIN_NAME: dingir-exchange
 
       - name: Run trading tests
-        run: cd ./examples/js/ && node trade.js
+        run: cd ./examples/js/ && node trade.js && node trade.js

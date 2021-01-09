@@ -213,6 +213,7 @@ impl Market {
         Ok(market)
     }
     pub fn reset(&mut self) {
+        log::debug!("market {} reset", self.name);
         self.bids.clear();
         self.asks.clear();
         self.users.clear();
