@@ -4,8 +4,6 @@ use tonic::{self, Request, Response, Status};
 pub use crate::dto::*;
 
 //use crate::me_history::HistoryWriter;
-
-use crate::controller;
 use crate::controller::G_STUB;
 
 pub struct GrpcHandler {}
@@ -14,6 +12,26 @@ macro_rules! get_stub {
     () => {
         unsafe { G_STUB.as_mut().unwrap() }
     };
+}
+
+fn run_blocking_the_world_task<F, G>(f: G) -> Result<(), Status>
+where
+    G: FnOnce() -> F + Send + 'static, //We need additional wrapping to send the using of controller into another thread
+    F: std::future::Future<Output = Result<(), Status>> + 'static,
+{
+    println!("We start a handling with block-the-world (grpc) mode");
+    let handle = get_stub!().rt.clone();
+
+    let thr_handle = std::thread::spawn(move || -> Result<(), Status> {
+        //            just for verification
+        //            std::thread::sleep(std::time::Duration::from_secs(10));
+        handle.block_on(f())
+    });
+
+    //simply block the thread in a crude way ...
+    let ret = thr_handle.join();
+    println!("Block-the-world task done, continue running");
+    ret.unwrap()
 }
 
 #[tonic::async_trait]
@@ -75,47 +93,61 @@ impl Matchengine for GrpcHandler {
     // This is the only blocking call of the server
     #[cfg(debug_assertions)]
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
-        let stub = get_stub!();
-        match stub.stw_notifier.replace(None) {
-            Some(chn) => {
-                let f = Box::pin(stub.debug_dump(request.into_inner()));
-                let fs: Box<dyn controller::DebugRunner<DebugDumpResponse>> = Box::new(f);
-                chn.send(controller::DebugRunTask::Dump(fs))
-                    .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugDumpResponse {}))
-            }
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
-        }
+        run_blocking_the_world_task(|| async {
+            let stub = get_stub!();
+            stub.debug_dump(request.into_inner()).await.map(|_| ())
+        })
+        .map(|_| Response::new(DebugDumpResponse {}))
+
+        // match stub.stw_notifier.replace(None) {
+        //     Some(chn) => {
+        //         let f = Box::pin(stub.debug_dump(request.into_inner()));
+        //         let fs: Box<dyn controller::DebugRunner<DebugDumpResponse>> = Box::new(f);
+        //         chn.send(controller::DebugRunTask::Dump(fs))
+        //             .map_err(|_| Status::unknown("Can not send the task out"))?;
+        //         Ok(Response::new(DebugDumpResponse {}))
+        //     }
+        //     _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
+        // }
     }
 
     #[cfg(debug_assertions)]
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
-        let stub = get_stub!();
-        match stub.stw_notifier.replace(None) {
-            Some(chn) => {
-                let f = Box::pin(stub.debug_reset(request.into_inner()));
-                let fs: Box<dyn controller::DebugRunner<DebugResetResponse>> = Box::new(f);
-                chn.send(controller::DebugRunTask::Reset(fs))
-                    .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugResetResponse {}))
-            }
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
-        }
+        run_blocking_the_world_task(|| async {
+            let stub = get_stub!();
+            stub.debug_reset(request.into_inner()).await.map(|_| ())
+        })
+        .map(|_| Response::new(DebugResetResponse {}))
+
+        // match stub.stw_notifier.replace(None) {
+        //     Some(chn) => {
+        //         let f = Box::pin(stub.debug_reset(request.into_inner()));
+        //         let fs: Box<dyn controller::DebugRunner<DebugResetResponse>> = Box::new(f);
+        //         chn.send(controller::DebugRunTask::Reset(fs))
+        //             .map_err(|_| Status::unknown("Can not send the task out"))?;
+        //         Ok(Response::new(DebugResetResponse {}))
+        //     }
+        //     _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
+        // }
     }
 
     #[cfg(debug_assertions)]
     async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
-        let stub = get_stub!();
-        match stub.stw_notifier.replace(None) {
-            Some(chn) => {
-                let f = Box::pin(stub.debug_reload(request.into_inner()));
-                let fs: Box<dyn controller::DebugRunner<DebugReloadResponse>> = Box::new(f);
-                chn.send(controller::DebugRunTask::Reload(fs))
-                    .map_err(|_| Status::unknown("Can not send the task out"))?;
-                Ok(Response::new(DebugReloadResponse {}))
-            }
-            _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
-        }
+        run_blocking_the_world_task(|| async {
+            let stub = get_stub!();
+            stub.debug_reload(request.into_inner()).await.map(|_| ())
+        })
+        .map(|_| Response::new(DebugReloadResponse {}))
+        // match stub.stw_notifier.replace(None) {
+        //     Some(chn) => {
+        //         let f = Box::pin(stub.debug_reload(request.into_inner()));
+        //         let fs: Box<dyn controller::DebugRunner<DebugReloadResponse>> = Box::new(f);
+        //         chn.send(controller::DebugRunTask::Reload(fs))
+        //             .map_err(|_| Status::unknown("Can not send the task out"))?;
+        //         Ok(Response::new(DebugReloadResponse {}))
+        //     }
+        //     _ => Err(Status::unknown("No channel for Stop the world, may be occupied?")),
+        // }
     }
 
     #[cfg(not(debug_assertions))]

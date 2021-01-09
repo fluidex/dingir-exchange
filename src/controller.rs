@@ -7,7 +7,6 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use std::cell::RefCell;
 use std::rc::Rc;
-use tokio::sync::oneshot;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
@@ -31,16 +30,6 @@ use sqlx::Executor;
 use serde::Serialize;
 use std::str::FromStr;
 
-pub trait DebugRunner<T>: std::future::Future<Output = Result<T, Status>> + Unpin {}
-
-impl<T, U> DebugRunner<T> for U where U: std::future::Future<Output = Result<T, Status>> + Unpin {}
-
-pub enum DebugRunTask {
-    Dump(Box<dyn DebugRunner<DebugDumpResponse>>),
-    Reset(Box<dyn DebugRunner<DebugResetResponse>>),
-    Reload(Box<dyn DebugRunner<DebugReloadResponse>>),
-}
-
 pub struct Controller {
     pub settings: config::Settings,
     pub sequencer: Rc<RefCell<Sequencer>>,
@@ -51,9 +40,7 @@ pub struct Controller {
     pub log_handler: OperationLogSender,
     pub history_writer: Rc<RefCell<DatabaseHistoryWriter>>,
     pub message_manager: Rc<RefCell<ChannelMessageManager>>,
-
-    #[cfg(debug_assertions)]
-    pub stw_notifier: Rc<RefCell<Option<oneshot::Sender<DebugRunTask>>>>,
+    pub(crate) rt: tokio::runtime::Handle,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -109,11 +96,17 @@ impl Controller {
             log_handler,
             history_writer,
             message_manager,
-
-            #[cfg(debug_assertions)]
-            stw_notifier: Rc::new(RefCell::new(None)),
+            rt: tokio::runtime::Handle::current(),
         }
     }
+    pub(super) fn prepare_stub(self) {
+        unsafe { G_STUB = Some(self) };
+    }
+
+    pub(super) fn release_stub() {
+        unsafe { G_STUB = None };
+    }
+
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
         let result = AssetListResponse {
             asset_lists: self
@@ -476,4 +469,5 @@ fn sqlverf_clear_slice() {
     sqlx::query!("drop table if exists balance_history, balance_slice");
 }
 
-pub(crate) static mut G_STUB: *mut Controller = std::ptr::null_mut();
+//use the ownership should make us has no dangling pointer
+pub(crate) static mut G_STUB: Option<Controller> = None;
