@@ -146,6 +146,7 @@ impl KafkaMessageSender {
         let timeout_interval = std::time::Duration::from_millis(100);
         loop {
             if self.is_block() {
+                log::warn!("kafka sender buffer is full");
                 // skip receiving from channel, so main server can know something goes wrong
                 // sleep to avoid cpu 100% usage
                 thread::sleep(flush_interval);

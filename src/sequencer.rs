@@ -43,6 +43,6 @@ impl Sequencer {
     }
     pub fn set_order_id(&mut self, id: u64) {
         log::debug!("set order id {}", id);
-        self.operation_log_id = id;
+        self.order_id = id;
     }
 }

@@ -279,13 +279,7 @@ function checkMessages(messages) {
 }
 
 async function mainTest(withMQ) {
-  // TODO: something seems to go wrong... after the `mainTest`, the db is empty??!!
-  // https://github.com/Fluidex/dingir-exchange/issues/29
-  if (process.platform != "darwin") {
-    // just skip the wrong debugXXX to make system behavior reasonable...
-    await debugReset();
-    // await sleep(5000);
-  }
+  await debugReset();
 
   let kafkaConsumer;
   if (withMQ) {
