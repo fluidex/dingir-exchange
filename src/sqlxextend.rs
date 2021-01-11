@@ -252,7 +252,7 @@ impl InsertTableBatch {
 
         let mut qr_vm = qr_v;
 
-        if true {
+        if false {
             Self::sql_query(&qr_vm, &mut *conn).await?;
         } else {
             //we split the whole array into a group arrys with lengh = 2^n (or less 8)

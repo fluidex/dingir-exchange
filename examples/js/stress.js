@@ -67,7 +67,7 @@ async function stressTest({ parallel, interval, repeat }) {
 
 async function main() {
   try {
-    await stressTest({ parallel: 100, interval: 100, repeat: 500 });
+    await stressTest({ parallel: 100, interval: 50, repeat: 1000 });
   } catch (error) {
     console.error("Catched error:", error);
   }
