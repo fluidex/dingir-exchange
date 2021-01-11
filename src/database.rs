@@ -126,9 +126,11 @@ where
 
             if !entries.is_empty() {
                 //print the insert sql statement
-                println!("{} (by batch for {} entries)", 
+                println!(
+                    "{} (by batch for {} entries)",
                     <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement(),
-                    entries.len());
+                    entries.len()
+                );
                 loop {
                     match rt.block_on(InsertTableBatch::sql_query_fine(entries.as_slice(), &mut conn)) {
                         Ok(_) => {
@@ -148,7 +150,7 @@ where
                             std::thread::sleep(std::time::Duration::from_secs(1));
                         }
                     }
-                }                
+                }
             }
         }
 
