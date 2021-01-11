@@ -56,7 +56,7 @@ impl Controller {
             DatabaseHistoryWriter::new(&DatabaseWriterConfig {
                 database_url: settings.db_history.clone(),
                 run_daemon: true,
-                inner_buffer_size: 1000,
+                inner_buffer_size: 8192,
             })
             .unwrap(),
         ));
@@ -83,7 +83,7 @@ impl Controller {
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             database_url: settings.db_log.clone(),
             run_daemon: true,
-            inner_buffer_size: 1000,
+            inner_buffer_size: 8192,
         })
         .unwrap();
         Controller {

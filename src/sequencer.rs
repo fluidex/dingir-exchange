@@ -13,7 +13,7 @@ impl Sequencer {
     }
     pub fn next_order_id(&mut self) -> u64 {
         self.order_id += 1;
-        log::debug!("next_order_id {}", self.order_id);
+        //log::debug!("next_order_id {}", self.order_id);
         self.order_id
     }
     pub fn next_trade_id(&mut self) -> u64 {

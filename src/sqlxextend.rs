@@ -267,7 +267,7 @@ impl InsertTableBatch {
         }
 
         if !qr_vm.is_empty() {
-            println!("batch {} queries", qr_vm.len());
+            log::debug!("batch {} queries", qr_vm.len());
             Self::sql_query(qr_vm, &mut *conn).await?;
         }
 

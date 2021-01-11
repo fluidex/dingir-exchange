@@ -67,12 +67,12 @@ where
         let thread_config: ThreadConfig<U> = ThreadConfig {
             conn_str: config.database_url.clone(),
             channel_receiver: receiver,
-            entry_limit: 1000,
+            entry_limit: 1024,
             timer_interval: std::time::Duration::from_millis(100),
         };
 
         let mut writer = DatabaseWriter {
-            thread_num: 1,
+            thread_num: 4,
             sender,
             threads: Vec::new(),
             thread_config,
@@ -84,7 +84,7 @@ where
         Ok(writer)
     }
 
-    pub fn run(config: ThreadConfig<U>) {
+    pub fn run(idx: usize, config: ThreadConfig<U>) {
         let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
             .enable_all()
             .basic_scheduler()
@@ -104,6 +104,7 @@ where
                 }
                 match config.channel_receiver.recv_timeout(timeout.unwrap()) {
                     Ok(entry) => {
+                        //log::debug!("db writer {} get item, now queue len {}", U::table_name(), config.channel_receiver.len());
                         if entries.is_empty() {
                             // Message should have a worst delivery time
                             deadline = Instant::now() + config.timer_interval;
@@ -117,7 +118,7 @@ where
                         break;
                     }
                     Err(RecvTimeoutError::Disconnected) => {
-                        println!("sql consumer for {}  \tdisconnected", U::table_name());
+                        log::info!("db writer thread {} for {}  \texit", idx, U::table_name());
                         running = false;
                         break;
                     }
@@ -126,11 +127,12 @@ where
 
             if !entries.is_empty() {
                 //print the insert sql statement
-                println!(
+                log::debug!(
                     "{} (by batch for {} entries)",
                     <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement(),
                     entries.len()
                 );
+                let insert_start = Instant::now();
                 loop {
                     match rt.block_on(InsertTableBatch::sql_query_fine(entries.as_slice(), &mut conn)) {
                         Ok(_) => {
@@ -151,6 +153,12 @@ where
                         }
                     }
                 }
+                log::debug!(
+                    "insert {} items into {} takes {}",
+                    entries.len(),
+                    U::table_name(),
+                    insert_start.elapsed().as_secs_f32()
+                );
             }
         }
 
@@ -162,11 +170,11 @@ where
         let thread_num = self.thread_num;
         let thread_config = self.thread_config.clone();
         // thread_num is 1 now
-        for _ in 0..thread_num {
+        for idx in 0..thread_num {
             let config = thread_config.clone();
             let thread_handle: std::thread::JoinHandle<()> = std::thread::spawn(move || {
-                println!("config: {:?}", config.conn_str);
-                Self::run(config);
+                log::info!("db writer config: {:?}", config.conn_str);
+                Self::run(idx, config);
             });
             threads.push(thread_handle);
         }
@@ -175,12 +183,20 @@ where
     }
 
     pub fn is_block(&self) -> bool {
-        self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
+        let l = self.sender.len();
+        let full = l >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize;
+        if l > 20 {
+            log::debug!("db queue size {} for {}", self.sender.len(), U::table_name());
+        }
+        if full {
+            log::warn!("db queue is full for {}", U::table_name());
+        }
+        full
     }
 
     pub fn append(&self, item: U) {
         // must not block
-        println!("append item done {:?}", item);
+        //log::debug!("append item done {:?}", item);
         self.sender.try_send(item).unwrap();
     }
 

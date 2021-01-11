@@ -19,7 +19,7 @@ async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await marketSummary()).find(
     item => item.name == market
   ).trade_count;
-  await depositAssets({ BTC: "100000", ETH: "50000" });
+  await depositAssets({ BTC: "1000000", ETH: "500000" });
 
   await printBalance();
   const startTime = new Date();
@@ -67,7 +67,7 @@ async function stressTest({ parallel, interval, repeat }) {
 
 async function main() {
   try {
-    await stressTest({ parallel: 10, interval: 1000, repeat: 10 });
+    await stressTest({ parallel: 100, interval: 50, repeat: 1000 });
   } catch (error) {
     console.error("Catched error:", error);
   }
