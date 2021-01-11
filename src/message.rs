@@ -157,7 +157,7 @@ impl KafkaMessageSender {
                     }
                     Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => {
-                        println!("kafka producer disconnected");
+                        log::info!("kafka producer disconnected");
                         break;
                     }
                 }
@@ -199,8 +199,8 @@ pub struct ChannelMessageManager {
 
 impl ChannelMessageManager {
     fn push_message(&self, message: String, topic_name: &'static str) {
-        println!("KAFKA: push {} message: {}", topic_name, message);
-        self.sender.try_send((topic_name, message)).unwrap();
+        //log::debug!("KAFKA: push {} message: {}", topic_name, message);
+        //self.sender.try_send((topic_name, message)).unwrap();
     }
     pub fn is_block(&self) -> bool {
         self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize

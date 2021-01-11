@@ -138,7 +138,7 @@ impl BalanceManager {
     pub fn set_by_key(&mut self, key: BalanceMapKey, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prev(&key.asset));
-        log::debug!("set balance: {:?}, {}", key, amount);
+        //log::debug!("set balance: {:?}, {}", key, amount);
         self.balances.insert(key, amount);
     }
     pub fn add(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) -> Decimal {
