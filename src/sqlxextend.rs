@@ -50,7 +50,7 @@ pub trait FinalQuery {
     fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error>;
 }
 
-pub trait SqlxAction<'a, QT, DB>: TableSchemas + BindQueryArg<'a, DB>
+pub trait SqlxAction<'a, QT, DB>: BindQueryArg<'a, DB>
 where
     QT: CommonSQLQuery<Self, DB> + FinalQuery,
     DB: CommonSQLQueryWithBind,
@@ -85,7 +85,7 @@ where
         'a: 'e,
         'c: 'e,
     {
-        qr.sql_query(conn)
+        SqlxAction::<'a, Self, DB>::sql_query(qr, conn)
     }
 }
 
@@ -141,11 +141,16 @@ where
     }
 }
 
-fn expand_argsn(inp: (i32, Vec<i32>)) -> Vec<Option<i32>> {
-    let t1 = 1..(inp.0 + 1);
-    let mut t2 = inp.1.into_iter();
+fn expand_argsn_gen(inp1: (i32, i32), inp2 : Vec<i32>) -> Vec<Option<i32>> {
+    let t1 = inp1.0..inp1.1;
+    let mut t2 = inp2.into_iter();
     let init = t2.next();
     IterHelper(t1, t2, (0, init)).collect()
+}
+
+fn expand_argsn(inp: (i32, Vec<i32>)) -> Vec<Option<i32>> {
+    let inp1 = (1, inp.0 + 1);
+    expand_argsn_gen(inp1, match inp {(_, v) => v})
 }
 
 impl<T : TableSchemas> CommonSQLQuery<T, sqlx::Postgres> for InsertTable {
@@ -174,11 +179,80 @@ impl<T : TableSchemas> CommonSQLQuery<T, sqlx::Postgres> for InsertTable {
 }
 
 
+pub struct InsertTableBatch {}
+
+impl<'a, T, DB> BindQueryArg<'a, DB> for Vec<T>
+where 
+    DB: sqlx::Database,
+    T: BindQueryArg<'a, DB>,
+{
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DB>)
+    where
+        'a: 'q
+    {
+        self.iter().for_each(move |t| {t.bind_args(arg)})
+    }    
+}
+
+impl FinalQuery for InsertTableBatch {
+    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+        Ok(SqlResultExt::Done)
+    }
+}
+
+impl<T : TableSchemas> CommonSQLQuery<Vec<T>, sqlx::Postgres> for InsertTableBatch {
+    fn sql_statement() -> String { <InsertTable as CommonSQLQuery::<T, sqlx::Postgres>>::sql_statement() }
+    fn sql_statement_rt(t: &Vec<T>) -> String
+    {
+        let s = <Self as CommonSQLQuery<Vec<T>, sqlx::Postgres>>::sql_statement();
+        (1..(t.len() as i32))
+        .map(|i| (i * T::ARGN + 1, (i + 1) * T::ARGN + 1) )
+        .fold(s, |acc, rg|{
+            acc + ",(" + &expand_argsn_gen(rg, T::default_argsn())
+                .iter()
+                .map(|i| match i {
+                    Some(i) => format!("${}", i),
+                    None => String::from("DEFAULT"),
+                })
+                .fold(String::new(), |acc, s| {
+                    if acc.is_empty() {
+                        s
+                    } else {
+                        acc + "," + &s
+                    }
+                })
+            + ")"
+        })
+        
+    }
+
+}
+
+pub trait CommonSQLQueryBatch<T: Sized, DB: sqlx::Database> : CommonSQLQuery<Vec<T>, DB> + FinalQuery
+{
+    type ElementQueryType : CommonSQLQuery<T, DB> + FinalQuery;
+}
+
+impl<T: Sized + TableSchemas> CommonSQLQueryBatch<T, sqlx::Postgres> for InsertTableBatch
+{
+    type ElementQueryType = InsertTable;
+}
+
+impl<'a, U, QT, DB> SqlxAction<'a, QT, DB> for Vec<U>
+where 
+    QT: CommonSQLQueryBatch<U, DB>,
+    U: SqlxAction<'a, <QT as CommonSQLQueryBatch<U, DB>>::ElementQueryType, DB>,
+    DB: CommonSQLQueryWithBind,
+{}
+
+
 #[cfg(test)]
 mod tests {
 
+    use super::*;
+
     fn gen_insert_str(i: (i32, Vec<i32>)) -> String {
-        super::expand_argsn(i)
+        expand_argsn(i)
             .iter()
             .map(|i| match i {
                 Some(i) => format!("${}", i),
@@ -196,4 +270,27 @@ mod tests {
         assert_eq!(gen_insert_str((1, vec![1, 2, 3])), "DEFAULT,DEFAULT,DEFAULT,$1");
         assert_eq!(gen_insert_str((1, vec![1, 2, 4])), "DEFAULT,DEFAULT,$1,DEFAULT");
     }
+
+    struct TestSchema {}
+
+    impl TableSchemas for TestSchema {
+        const ARGN: i32 = 3;
+        fn table_name() -> &'static str {
+            "just_test"
+        }        
+    }
+
+    #[test]
+    fn table_statement() {
+        assert_eq!(<InsertTable as CommonSQLQuery<TestSchema, sqlx::Postgres>>::sql_statement(),
+        "INSERT INTO just_test VALUES ($1,$2,$3)");
+
+        assert_eq!(<InsertTable as CommonSQLQuery<TestSchema, sqlx::Postgres>>::sql_statement_rt(&TestSchema {}),
+        "INSERT INTO just_test VALUES ($1,$2,$3)");
+
+        let testvec = vec![TestSchema {}, TestSchema {}];
+
+        assert_eq!(<InsertTableBatch as CommonSQLQuery<Vec<TestSchema>, sqlx::Postgres>>::sql_statement_rt(&testvec),
+        "INSERT INTO just_test VALUES ($1,$2,$3),($4,$5,$6)");        
+    }    
 }
