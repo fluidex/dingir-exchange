@@ -77,7 +77,7 @@ pub trait CommonSqlxAction<DB>: FinalQuery
 where
     DB: CommonSQLQueryWithBind,
 {
-    fn sql_query<'c, 'a, 'e, Q, C>(qr: &'a Q, conn: C) -> Pin<Box<dyn Future<Output=Result<SqlResultExt, sqlx::Error>> + 'e + Send>>
+    fn sql_query<'c, 'a, 'e, Q: ?Sized, C>(qr: &'a Q, conn: C) -> Pin<Box<dyn Future<Output=Result<SqlResultExt, sqlx::Error>> + 'e + Send>>
     where
         C: sqlx::Executor<'c, Database = DB> + 'c,
         Self: CommonSQLQuery<Q, DB>,
@@ -181,7 +181,7 @@ impl<T : TableSchemas> CommonSQLQuery<T, sqlx::Postgres> for InsertTable {
 
 pub struct InsertTableBatch {}
 
-impl<'a, T, DB> BindQueryArg<'a, DB> for Vec<T>
+impl<'a, T, DB> BindQueryArg<'a, DB> for [T]
 where 
     DB: sqlx::Database,
     T: BindQueryArg<'a, DB>,
@@ -195,16 +195,16 @@ where
 }
 
 impl FinalQuery for InsertTableBatch {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+    fn query_final<T: sqlx::Done>(_res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
         Ok(SqlResultExt::Done)
     }
 }
 
-impl<T : TableSchemas> CommonSQLQuery<Vec<T>, sqlx::Postgres> for InsertTableBatch {
+impl<T : TableSchemas> CommonSQLQuery<[T], sqlx::Postgres> for InsertTableBatch {
     fn sql_statement() -> String { <InsertTable as CommonSQLQuery::<T, sqlx::Postgres>>::sql_statement() }
-    fn sql_statement_rt(t: &Vec<T>) -> String
+    fn sql_statement_rt(t: &[T]) -> String
     {
-        let s = <Self as CommonSQLQuery<Vec<T>, sqlx::Postgres>>::sql_statement();
+        let s = <Self as CommonSQLQuery<[T], sqlx::Postgres>>::sql_statement();
         (1..(t.len() as i32))
         .map(|i| (i * T::ARGN + 1, (i + 1) * T::ARGN + 1) )
         .fold(s, |acc, rg|{
@@ -228,7 +228,7 @@ impl<T : TableSchemas> CommonSQLQuery<Vec<T>, sqlx::Postgres> for InsertTableBat
 
 }
 
-pub trait CommonSQLQueryBatch<T: Sized, DB: sqlx::Database> : CommonSQLQuery<Vec<T>, DB> + FinalQuery
+pub trait CommonSQLQueryBatch<T: Sized, DB: sqlx::Database> : CommonSQLQuery<[T], DB> + FinalQuery
 {
     type ElementQueryType : CommonSQLQuery<T, DB> + FinalQuery;
 }
@@ -238,13 +238,50 @@ impl<T: Sized + TableSchemas> CommonSQLQueryBatch<T, sqlx::Postgres> for InsertT
     type ElementQueryType = InsertTable;
 }
 
-impl<'a, U, QT, DB> SqlxAction<'a, QT, DB> for Vec<U>
+impl<'a, U, QT, DB> SqlxAction<'a, QT, DB> for [U]
 where 
     QT: CommonSQLQueryBatch<U, DB>,
     U: SqlxAction<'a, <QT as CommonSQLQueryBatch<U, DB>>::ElementQueryType, DB>,
     DB: CommonSQLQueryWithBind,
 {}
 
+impl InsertTableBatch 
+{
+    pub async fn sql_query_fine<'c, 'a, Q, C>(qr_v: &'a [Q], conn: &'c mut C) -> Result<SqlResultExt, sqlx::Error>
+    where
+        for<'r> &'r mut C: sqlx::Executor<'r, Database = C::Database>,
+        C: sqlx::Connection + std::borrow::BorrowMut<C>, 
+        C::Database: CommonSQLQueryWithBind,
+        [Q]: SqlxAction<'a, Self, C::Database>,
+        Self: CommonSQLQuery<[Q], C::Database>,
+    {
+        if qr_v.is_empty() {return Ok(SqlResultExt::Issue((0, "No element for insert")));}
+        //recursive in async is more difficult so put it in the loop
+
+        let mut qr_vm = qr_v;
+
+        //we split the whole array into a group arrys with lengh = 2^n (or less 8)
+        //to reduce the number of cached prepare statement (which is default)
+        while qr_vm.len() >= 8 {
+            for n in (3..11).rev()  {
+                if qr_vm.len() >= (1<<n) {
+                    let qr_used = &qr_vm[..(1<<n)];
+                    qr_vm = &qr_vm[(1<<n)..];
+                    println!("batch {} queries", qr_used.len());
+                    Self::sql_query(qr_used, &mut *conn).await?;
+                    break;
+                }
+            }
+        }
+
+        if !qr_vm.is_empty() {
+            println!("batch {} queries", qr_vm.len());
+            Self::sql_query(qr_vm, &mut *conn).await?;
+        }
+
+        Ok(SqlResultExt::Done)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -288,9 +325,13 @@ mod tests {
         assert_eq!(<InsertTable as CommonSQLQuery<TestSchema, sqlx::Postgres>>::sql_statement_rt(&TestSchema {}),
         "INSERT INTO just_test VALUES ($1,$2,$3)");
 
-        let testvec = vec![TestSchema {}, TestSchema {}];
+        let testvec = [TestSchema {}, TestSchema {}];
 
-        assert_eq!(<InsertTableBatch as CommonSQLQuery<Vec<TestSchema>, sqlx::Postgres>>::sql_statement_rt(&testvec),
-        "INSERT INTO just_test VALUES ($1,$2,$3),($4,$5,$6)");        
+        assert_eq!(<InsertTableBatch as CommonSQLQuery<[TestSchema], sqlx::Postgres>>::sql_statement_rt(&testvec),
+        "INSERT INTO just_test VALUES ($1,$2,$3),($4,$5,$6)");
+        
+        let testsingle = [TestSchema {}];
+        assert_eq!(<InsertTableBatch as CommonSQLQuery<[TestSchema], sqlx::Postgres>>::sql_statement_rt(&testsingle),
+        "INSERT INTO just_test VALUES ($1,$2,$3)");         
     }    
 }
