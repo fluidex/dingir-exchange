@@ -252,27 +252,23 @@ impl InsertTableBatch {
 
         let mut qr_vm = qr_v;
 
-        if false {
-            Self::sql_query(&qr_vm, &mut *conn).await?;
-        } else {
-            //we split the whole array into a group arrys with lengh = 2^n (or less 8)
-            //to reduce the number of cached prepare statement (which is default)
-            while qr_vm.len() >= 8 {
-                for n in (3..11).rev() {
-                    if qr_vm.len() >= (1 << n) {
-                        let qr_used = &qr_vm[..(1 << n)];
-                        qr_vm = &qr_vm[(1 << n)..];
-                        println!("batch {} queries", qr_used.len());
-                        Self::sql_query(qr_used, &mut *conn).await?;
-                        break;
-                    }
+        //we split the whole array into a group arrys with lengh = 2^n (or less 8)
+        //to reduce the number of cached prepare statement (which is default)
+        while qr_vm.len() >= 8 {
+            for n in (3..11).rev() {
+                if qr_vm.len() >= (1 << n) {
+                    let qr_used = &qr_vm[..(1 << n)];
+                    qr_vm = &qr_vm[(1 << n)..];
+                    println!("batch {} queries", qr_used.len());
+                    Self::sql_query(qr_used, &mut *conn).await?;
+                    break;
                 }
             }
+        }
 
-            if !qr_vm.is_empty() {
-                println!("batch {} queries", qr_vm.len());
-                Self::sql_query(qr_vm, &mut *conn).await?;
-            }
+        if !qr_vm.is_empty() {
+            log::debug!("batch {} queries", qr_vm.len());
+            Self::sql_query(qr_vm, &mut *conn).await?;
         }
 
         Ok(SqlResultExt::Done)

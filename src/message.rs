@@ -80,7 +80,7 @@ impl KafkaMessageSender {
         })
     }
     pub fn on_message(&self, topic_name: &str, message: &str) -> SimpleResult {
-        println!("KAFKA: push {} message: {}", topic_name, message);
+        log::debug!("KAFKA: push {} message: {}", topic_name, message);
         let mut list = match topic_name {
             BALANCES_TOPIC => self.balances_list.borrow_mut(),
             TRADES_TOPIC => self.trades_list.borrow_mut(),
@@ -96,12 +96,12 @@ impl KafkaMessageSender {
         let record = BaseRecord::to(topic_name).key("").payload(message);
         let result = self.producer.send(record);
         if result.is_err() {
-            println!("fail to push message {} to {}", message, topic_name);
+            log::error!("fail to push message {} to {}", message, topic_name);
             if let Err((KafkaError::MessageProduction(RDKafkaError::QueueFull), _)) = result {
                 list.push_back(message.to_string());
                 return Ok(());
             }
-            return Err(anyhow!("kafka push err"));
+            return Err(anyhow!("kafka push err {}", result));
         }
         Ok(())
     }
@@ -200,7 +200,7 @@ pub struct ChannelMessageManager {
 impl ChannelMessageManager {
     fn push_message(&self, message: String, topic_name: &'static str) {
         //log::debug!("KAFKA: push {} message: {}", topic_name, message);
-        //self.sender.try_send((topic_name, message)).unwrap();
+        self.sender.try_send((topic_name, message)).unwrap();
     }
     pub fn is_block(&self) -> bool {
         self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
