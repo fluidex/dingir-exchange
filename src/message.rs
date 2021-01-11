@@ -101,7 +101,7 @@ impl KafkaMessageSender {
                 list.push_back(message.to_string());
                 return Ok(());
             }
-            return Err(anyhow!("kafka push err {}", result));
+            return Err(anyhow!("kafka push err"));
         }
         Ok(())
     }
