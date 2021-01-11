@@ -263,6 +263,7 @@ impl Controller {
                     ask_amount: status.ask_amount.to_string(),
                     bid_count: status.bid_count as i32,
                     bid_amount: status.bid_amount.to_string(),
+                    trade_count: status.trade_count,
                 }
             })
             .collect();

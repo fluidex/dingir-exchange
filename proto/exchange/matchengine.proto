@@ -219,6 +219,7 @@ message MarketSummaryResponse {
     string ask_amount = 3;
     int32 bid_count = 4;
     string bid_amount = 5;
+    uint64 trade_count = 6;
   }
   repeated MarketSummary market_summaries = 1;
 }

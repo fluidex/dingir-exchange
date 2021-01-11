@@ -104,8 +104,7 @@ impl Order {
 pub type OrderRc = Rc<RefCell<Order>>;
 
 pub fn is_order_ask(order: &Order) -> bool {
-    let side: OrderSide = order.side;
-    side == OrderSide::ASK
+    order.side == OrderSide::ASK
 }
 
 pub struct Market {
@@ -122,6 +121,8 @@ pub struct Market {
 
     pub asks: BTreeMap<MarketKeyAsk, OrderRc>,
     pub bids: BTreeMap<MarketKeyBid, OrderRc>,
+
+    pub trade_count: u64,
 
     pub sequencer: Rc<RefCell<Sequencer>>,
     balance_manager: BalanceManagerWrapper,
@@ -206,6 +207,7 @@ impl Market {
             users: BTreeMap::new(),
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
+            trade_count: 0,
             balance_manager: BalanceManagerWrapper { inner: balance_manager },
             history_writer,
             message_manager: MessageManagerWrapper { inner: message_manager },
@@ -376,6 +378,7 @@ impl Market {
                 };
                 self.history_writer.borrow_mut().append_trade_history(&trade);
                 self.message_manager.push_trade_message(&trade);
+                self.trade_count += 1;
             }
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
@@ -593,6 +596,7 @@ impl Market {
             ask_amount: self.asks.values().map(|item| item.borrow_mut().remain).sum(),
             bid_count: self.bids.len(),
             bid_amount: self.bids.values().map(|item| item.borrow_mut().remain).sum(),
+            trade_count: self.trade_count,
         }
     }
     pub fn depth(&self, limit: usize, interval: &Decimal) -> MarketDepth {
@@ -635,6 +639,7 @@ pub struct MarketStatus {
     pub ask_amount: Decimal,
     pub bid_count: usize,
     pub bid_amount: Decimal,
+    pub trade_count: u64,
 }
 
 pub struct PriceInfo {

@@ -1,4 +1,4 @@
-import "./config.mjs"; // dotenv
+import { market } from "./config.mjs"; // dotenv
 import {
   balanceQuery,
   orderPut,
@@ -16,6 +16,9 @@ import {
 import { depositAssets, printBalance, putRandOrder, sleep } from "./util.mjs";
 
 async function stressTest({ parallel, interval, repeat }) {
+  const tradeCountBefore = (await marketSummary()).find(
+    item => item.name == market
+  ).trade_count;
   await depositAssets({ BTC: "100000", ETH: "50000" });
 
   await printBalance();
@@ -37,7 +40,7 @@ async function stressTest({ parallel, interval, repeat }) {
     }
     count += 1;
     console.log(
-      "avg op/s:",
+      "avg orders/s:",
       (parallel * count) / elapsedSecs(),
       "orders",
       parallel * count,
@@ -49,15 +52,22 @@ async function stressTest({ parallel, interval, repeat }) {
     }
     //await printBalance();
   }
+  const totalTime = elapsedSecs();
   await printBalance();
-  const endTime = new Date();
-  console.log("avg op/s:", (parallel * repeat) / elapsedSecs());
+  const tradeCountAfter = (await marketSummary()).find(
+    item => item.name == market
+  ).trade_count;
+  console.log("avg orders/s:", (parallel * repeat) / totalTime);
+  console.log(
+    "avg trades/s:",
+    (tradeCountAfter - tradeCountBefore) / totalTime
+  );
   console.log("stressTest done");
 }
 
 async function main() {
   try {
-    await stressTest({ parallel: 10, interval: 1000, repeat: 30 });
+    await stressTest({ parallel: 10, interval: 1000, repeat: 10 });
   } catch (error) {
     console.error("Catched error:", error);
   }
