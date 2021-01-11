@@ -1,3 +1,6 @@
+use std::pin::Pin;
+use std::future::Future;
+
 pub enum SqlResultExt {
     Done,
     Issue((i32, &'static str)),
@@ -19,7 +22,7 @@ pub trait TableSchemas: 'static {
     }
 }
 
-pub trait BindQueryArg<'a, DB>: Sized
+pub trait BindQueryArg<'a, DB>
 where
     DB: sqlx::Database,
 {
@@ -30,59 +33,73 @@ where
         'a: 'q;
 }
 
-pub trait CommonSQLQuery<DB: sqlx::Database>: 'static {
-    fn sql_statement<T: TableSchemas>() -> String;
+pub trait CommonSQLQuery<T: ?Sized, DB: sqlx::Database>: 'static + Sized {
+    fn sql_statement() -> String;
+    fn sql_statement_rt(_t: &T) -> String
+    {
+        Self::sql_statement()
+    }
 }
 
-pub trait CommonSQLQueryWithBind<DB>: CommonSQLQuery<DB>
-where
-    DB: sqlx::Database,
+pub trait CommonSQLQueryWithBind : sqlx::Database
 {
-    type DefaultArg: for<'r> sqlx::Arguments<'r, Database = DB> + for<'r> sqlx::IntoArguments<'r, DB>;
+    type DefaultArg: for<'r> sqlx::Arguments<'r, Database = Self> + for<'r> sqlx::IntoArguments<'r, Self>;
 }
 
 pub trait FinalQuery {
     fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error>;
 }
 
-#[tonic::async_trait]
-pub trait CommonSqlxAction<DB>: CommonSQLQueryWithBind<DB> + FinalQuery
+pub trait SqlxAction<'a, QT, DB>: TableSchemas + BindQueryArg<'a, DB>
 where
-    DB: sqlx::Database,
+    QT: CommonSQLQuery<Self, DB> + FinalQuery,
+    DB: CommonSQLQueryWithBind,
 {
-    async fn sql_query<'c, 'a, Q, C>(qr: Q, conn: C) -> Result<SqlResultExt, sqlx::Error>
+    fn sql_query<'c, 'e, C>(&'a self, conn: C) -> Pin<Box<dyn Future<Output=Result<SqlResultExt, sqlx::Error>> + 'e + Send>>
     where
-        C: sqlx::Executor<'c, Database = DB>,
-        Q: TableSchemas + BindQueryArg<'a, DB> + Send,
+        C: sqlx::Executor<'c, Database = DB> + 'c,
+        'a: 'e,
+        'c: 'e,
     {
-        let mut arg: Self::DefaultArg = Default::default();
-        qr.bind_args(&mut arg);
-
-        let ret = sqlx::query_with(&Self::sql_statement::<Q>(), arg).execute(conn).await;
-        Self::query_final(ret)
-    }
-}
-
-#[tonic::async_trait]
-pub trait SqlxAction<'a, QT, DB>: TableSchemas + BindQueryArg<'a, DB> + Sized
-where
-    QT: CommonSQLQueryWithBind<DB> + FinalQuery,
-    DB: sqlx::Database,
-{
-    async fn sql_query<'c, C>(&'a self, conn: C) -> Result<SqlResultExt, sqlx::Error>
-    where
-        C: sqlx::Executor<'c, Database = DB>,
-    {
-        let mut arg: QT::DefaultArg = Default::default();
+        let mut arg: <DB as CommonSQLQueryWithBind>::DefaultArg = Default::default();
         self.bind_args(&mut arg);
+        let sql_stat = <QT as CommonSQLQuery<Self, DB>>::sql_statement_rt(self);
 
-        let sqlstate = QT::sql_statement::<Self>();
-        let ret = sqlx::query_with(&sqlstate, arg).execute(conn).await;
-        QT::query_final(ret)
+        Box::pin(async move {
+    
+            let ret = sqlx::query_with(&sql_stat, arg).execute(conn).await;
+            QT::query_final(ret)    
+        })
     }
 }
 
-/* -------- Define for common sql query, now only insert ------------------ */
+pub trait CommonSqlxAction<DB>: FinalQuery
+where
+    DB: CommonSQLQueryWithBind,
+{
+    fn sql_query<'c, 'a, 'e, Q, C>(qr: &'a Q, conn: C) -> Pin<Box<dyn Future<Output=Result<SqlResultExt, sqlx::Error>> + 'e + Send>>
+    where
+        C: sqlx::Executor<'c, Database = DB> + 'c,
+        Self: CommonSQLQuery<Q, DB>,
+        Q: SqlxAction<'a, Self, DB>,
+        'a: 'e,
+        'c: 'e,
+    {
+        qr.sql_query(conn)
+    }
+}
+
+impl<U: FinalQuery, DB: CommonSQLQueryWithBind> CommonSqlxAction<DB> for U {}
+
+/* ------- Implement for our default db (postgresql) ---------------------- */
+
+
+impl CommonSQLQueryWithBind for sqlx::Postgres
+{
+    type DefaultArg = sqlx::postgres::PgArguments;
+}
+
+/* -------- Define for common sql query, insert and insertbatch ------------------ */
 
 pub struct InsertTable {}
 
@@ -95,8 +112,6 @@ impl FinalQuery for InsertTable {
         Ok(SqlResultExt::Done)
     }
 }
-
-/* ------- Implement for our default db (postgresql) ---------------------- */
 
 struct IterHelper<T1, T2>(T1, T2, (i32, Option<i32>));
 
@@ -133,15 +148,8 @@ fn expand_argsn(inp: (i32, Vec<i32>)) -> Vec<Option<i32>> {
     IterHelper(t1, t2, (0, init)).collect()
 }
 
-impl<U> CommonSQLQueryWithBind<sqlx::Postgres> for U
-where
-    U: CommonSQLQuery<sqlx::Postgres>,
-{
-    type DefaultArg = sqlx::postgres::PgArguments;
-}
-
-impl CommonSQLQuery<sqlx::Postgres> for InsertTable {
-    fn sql_statement<T: TableSchemas>() -> String {
+impl<T : TableSchemas> CommonSQLQuery<T, sqlx::Postgres> for InsertTable {
+    fn sql_statement() -> String {
         //not good, sql statements can be cached or formed by marco in advance
         //fix it later ...
         let sql = format!(
@@ -164,6 +172,7 @@ impl CommonSQLQuery<sqlx::Postgres> for InsertTable {
         sql
     }
 }
+
 
 #[cfg(test)]
 mod tests {

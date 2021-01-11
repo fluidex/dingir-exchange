@@ -126,7 +126,7 @@ where
 
             if !entries.is_empty() {
                 //print the insert sql statement
-                println!("{}", sqlxextend::InsertTable::sql_statement::<U>());
+                println!("{}", <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement());
                 for u in entries.drain(0..) {
                     loop {
                         match rt.block_on(u.sql_query(&mut conn)) {
