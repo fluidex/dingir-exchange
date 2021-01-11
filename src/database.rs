@@ -24,7 +24,7 @@ pub struct DatabaseWriterStatus {
 pub struct DatabaseWriter<TableTarget, U = TableTarget>
 where
     TableTarget: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
-    TableTarget: From<U>,
+    TableTarget: From<U> + TableSchemas,
     U: std::clone::Clone + Send,
 {
     pub sender: crossbeam_channel::Sender<U>,
@@ -54,7 +54,7 @@ where
 impl<U> DatabaseWriter<U, U>
 where
     U: Send + std::marker::Sync + std::fmt::Debug + std::clone::Clone,
-    U: 'static,
+    U: 'static + TableSchemas,
     U: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
 {
     pub fn new(config: &DatabaseWriterConfig) -> Result<DatabaseWriter<U, U>> {
@@ -126,26 +126,28 @@ where
 
             if !entries.is_empty() {
                 //print the insert sql statement
-                println!("{}", sqlxextend::InsertTable::sql_statement::<U>());
-                for u in entries.drain(0..) {
-                    loop {
-                        match rt.block_on(u.sql_query(&mut conn)) {
-                            Ok(_) => {
-                                break;
-                            }
-                            Err(sqlx::Error::Database(dberr)) => {
-                                if let Some(code) = dberr.code() {
-                                    if code == "23505" {
-                                        println!("Warning, exec sql duplicated entry, break");
-                                        break;
-                                    }
+                println!(
+                    "{} (by batch for {} entries)",
+                    <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement(),
+                    entries.len()
+                );
+                loop {
+                    match rt.block_on(InsertTableBatch::sql_query_fine(entries.as_slice(), &mut conn)) {
+                        Ok(_) => {
+                            break;
+                        }
+                        Err(sqlx::Error::Database(dberr)) => {
+                            if let Some(code) = dberr.code() {
+                                if code == "23505" {
+                                    println!("Warning, exec sql duplicated entry, break");
+                                    break;
                                 }
-                                println!("exec sql: db fail: {}. retry.", dberr.message());
                             }
-                            Err(e) => {
-                                println!("exec sql:  fail: {}. retry.", e.to_string());
-                                std::thread::sleep(std::time::Duration::from_secs(1));
-                            }
+                            println!("exec sql: db fail: {}. retry.", dberr.message());
+                        }
+                        Err(e) => {
+                            println!("exec sql:  fail: {}. retry.", e.to_string());
+                            std::thread::sleep(std::time::Duration::from_secs(1));
                         }
                     }
                 }
