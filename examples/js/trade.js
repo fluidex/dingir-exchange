@@ -1,5 +1,14 @@
-import "./config.mjs"; // dotenv
-import * as process from "process";
+import {
+  userId,
+  base,
+  quote,
+  market,
+  fee,
+  ORDER_SIDE_BID,
+  ORDER_SIDE_ASK,
+  ORDER_TYPE_MARKET,
+  ORDER_TYPE_LIMIT
+} from "./config.mjs"; // dotenv
 import {
   balanceQuery,
   orderPut,
@@ -13,147 +22,34 @@ import {
   debugReset,
   debugReload
 } from "./client.mjs";
+import { depositAssets, printBalance, sleep, floatEqual } from "./util.mjs";
 import { KafkaConsumer } from "./kafka_client.mjs";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
 
-import { inspect } from "util";
-inspect.defaultOptions.depth = null;
-
-const ORDER_SIDE_ASK = 0;
-const ORDER_SIDE_BID = 1;
-const ORDER_TYPE_LIMIT = 0;
-const ORDER_TYPE_MARKET = 1;
-
-const userId = 3;
-let depositId = Math.floor(Date.now() / 1000);
-const base = "ETH";
-const quote = "BTC";
-const market = `${base}_${quote}`;
-const fee = "0";
-
-async function prettyPrint(obj) {
-  console.dir(await obj, { depth: null });
+async function infoList() {
+  console.log(await assetList([]));
+  console.log(await marketList([]));
 }
 
-function floatEqual(result, gt) {
-  assert(new Decimal(result).equals(new Decimal(gt)), `${result} != ${gt}`);
-}
-
-async function printBalance(printList = ["BTC", "ETH"]) {
-  const balances = await balanceQuery(userId);
-  console.log("\nasset\tsum\tavaiable\tfrozen");
-  for (const asset of printList) {
-    const balance = balances[asset];
-    console.log(
-      asset,
-      "\t",
-      new Decimal(balance.available).add(new Decimal(balance.frozen)),
-      "\t",
-      balance.available,
-      "\t",
-      balance.frozen
-    );
-  }
-  //console.log('\n');
-}
-
-async function ensureAssetValid() {
-  const balance2 = await balanceQuery(userId);
-  floatEqual(balance2.BTC.available, "100");
-  floatEqual(balance2.BTC.frozen, "0");
-  floatEqual(balance2.ETH.available, "50");
-  floatEqual(balance2.ETH.frozen, "0");
-}
-
-async function ensureAssetZero() {
+async function setupAsset() {
+  // check balance is zero
   const balance1 = await balanceQuery(userId);
   floatEqual(balance1.BTC.available, "0");
   floatEqual(balance1.BTC.frozen, "0");
   floatEqual(balance1.ETH.available, "0");
   floatEqual(balance1.ETH.frozen, "0");
-}
 
-async function depositAssets(assets) {
-  for (const [asset, amount] of Object.entries(assets)) {
-    console.log("deposit", amount, asset);
-    await balanceUpdate(userId, asset, "deposit", depositId, amount, {
-      key: "value"
-    });
-    depositId++;
-  }
-}
+  await depositAssets({ BTC: "100.0", ETH: "50.0" });
 
-async function putLimitOrder(side, amount, price) {
-  return await orderPut(
-    userId,
-    market,
-    side,
-    ORDER_TYPE_LIMIT,
-    amount,
-    price,
-    fee,
-    fee
-  );
-}
-
-async function putRandOrder() {
-  // TODO: market order?
-  function getRandomArbitrary(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-  function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min)) + min;
-  }
-  const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
-  const price = getRandomArbitrary(1, 50);
-  const amount = getRandomArbitrary(1, 7);
-  const order = await putLimitOrder(side, amount, price);
-  console.log("order put", order.id.toString(), { side, price, amount });
-}
-
-async function stressTest({ parallel, interval, repeat }) {
-  await depositAssets({ BTC: "100000", ETH: "50000" });
-
-  await printBalance();
-  const startTime = new Date();
-  function elapsedSecs() {
-    return (new Date() - startTime) / 1000;
-  }
-  let count = 0;
-  // TODO: check balance before and after stress test
-  // depends https://github.com/Fluidex/dingir-exchange/issues/30
-  while (true) {
-    let promises = [];
-    for (let i = 0; i < parallel; i++) {
-      promises.push(putRandOrder());
-    }
-    await Promise.all(promises);
-    if (interval > 0) {
-      await sleep(interval);
-    }
-    count += 1;
-    console.log(
-      "avg op/s:",
-      (parallel * count) / elapsedSecs(),
-      "orders",
-      parallel * count,
-      "secs",
-      elapsedSecs()
-    );
-    if (repeat != 0 && count >= repeat) {
-      break;
-    }
-    //await printBalance();
-  }
-  await printBalance();
-  const endTime = new Date();
-  console.log("avg op/s:", (parallel * repeat) / elapsedSecs());
-  console.log("stressTest done");
+  // check deposit success
+  const balance2 = await balanceQuery(userId);
+  floatEqual(balance2.BTC.available, "100");
+  floatEqual(balance2.BTC.frozen, "0");
+  floatEqual(balance2.ETH.available, "50");
+  floatEqual(balance2.ETH.frozen, "0");
 }
 
 // Test order put and cancel
@@ -189,11 +85,6 @@ async function orderTest() {
   floatEqual(balance4.BTC.frozen, "0");
 
   console.log("orderTest passed");
-}
-
-async function info_list() {
-  console.log(await assetList([]));
-  console.log(await marketList([]));
 }
 
 // Test order trading
@@ -253,22 +144,9 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
 }
 
 async function simpleTest() {
-  await ensureAssetZero();
-  await depositAssets({ BTC: "100.0", ETH: "50.0" });
-  await ensureAssetValid();
+  await setupAsset();
   await orderTest();
   return await tradeTest();
-}
-
-async function naiveExample() {
-  console.log(await assetList());
-  console.log(await balanceQuery(1));
-  console.log(await balanceUpdate(1, "BTC", "deposit", depositId, 15, {}));
-  console.log(await balanceQuery(1));
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function checkMessages(messages) {
@@ -298,10 +176,7 @@ async function mainTest(withMQ) {
 
 async function main() {
   try {
-    //await stressTest({ parallel: 100, interval: 1000, repeat: 100 });
     await mainTest(false);
-    //await debugReload();
-    //await testStatusAfterTrade(askOrderId, bidOrderId);
   } catch (error) {
     console.error("Catched error:", error);
   }
