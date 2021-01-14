@@ -23,6 +23,14 @@ mod sequencer;
 mod server;
 mod utils;
 
+// TODO: refactor create & workspace & folders
+mod restapi {
+    mod errors;
+    mod mock;
+    mod tradingview;
+    mod types;
+}
+
 use controller::Controller;
 use server::{GrpcHandler, MatchengineServer};
 
