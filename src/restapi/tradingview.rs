@@ -43,7 +43,7 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
     if symbol.is_none() {
         return Err(RpcError::bad_request("no `symbol` param"));
     };
-    let _market = symbol.unwrap().split(":").last().unwrap();
+    let _market = symbol.unwrap().split(':').last().unwrap();
     log::debug!("kline get symbol {:?}", symbol);
     Ok(json!(
         {
