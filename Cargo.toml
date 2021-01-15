@@ -37,13 +37,16 @@ dotenv = "0.15.0"
 num_enum = "0.5.1"
 tonic = "0.3.1"
 actix-web = "3.3.2"
+qstring = "0.7.2"
+thiserror = "1.0.23"
+rand = "0.8.2"
 
 [build-dependencies]
 prost = "0.6.1"
 tonic-build = "0.3.1"
 [[bin]]
-name = "rest_api"
-path = "src/rest_api.rs"
+name = "restapi"
+path = "src/restapi/main.rs"
 
 [features]
 windows_build = ["rdkafka/dynamic_linking"]
