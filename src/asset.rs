@@ -198,7 +198,12 @@ impl BalanceManager {
             asset: asset.to_owned(),
         };
         let old_frozen_value = self.get_by_key(&key);
-        debug_assert!(old_frozen_value.ge(&amount));
+        debug_assert!(
+            old_frozen_value.ge(&amount),
+            "unfreeze larger than frozen {} > {}",
+            amount,
+            old_frozen_value
+        );
         self.add(user_id, BalanceType::AVAILABLE, asset, &amount);
         self.sub(user_id, BalanceType::FREEZE, asset, &amount);
     }

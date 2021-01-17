@@ -34,6 +34,12 @@ service Matchengine {
       body : "*"
     };
   }
+  rpc OrderCancelAll(OrderCancelAllRequest) returns (OrderCancelAllResponse) {
+    option (google.api.http) = {
+      post : "/cancelorders/{market}/{user_id}"
+      body : "*"
+    };
+  }
 
   // rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
   rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {
@@ -167,6 +173,11 @@ message OrderCancelRequest {
   string market = 2;
   uint64 order_id = 3;
 }
+message OrderCancelAllRequest {
+  uint32 user_id = 1;
+  string market = 2;
+}
+message OrderCancelAllResponse { uint32 total = 1; }
 
 // why not both side
 message OrderBookRequest {

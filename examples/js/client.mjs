@@ -80,6 +80,10 @@ export async function orderCancel(user_id, market, order_id) {
   return await client.OrderCancel({ user_id, market, order_id });
 }
 
+export async function orderCancelAll(user_id, market) {
+  return await client.OrderCancelAll({ user_id, market });
+}
+
 export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
