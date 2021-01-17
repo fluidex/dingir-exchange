@@ -464,7 +464,6 @@ impl Market {
             return simple_err!("invalid amount");
         }
         // TODO: refactor this
-        //let order_input = *order_input.clone();
         let base_prec = self.base_prec;
         let quote_prec = self.quote_prec;
         let amount = order_input.amount.round_dp(base_prec);
@@ -584,13 +583,7 @@ impl Market {
     }
     pub fn cancel_all_for_user(&mut self, real: bool, user_id: u32) -> usize {
         // TODO: can we mutate while iterate?
-        let order_ids: Vec<u64> = self
-            .users
-            .get(&user_id)
-            .unwrap_or(&BTreeMap::new())
-            .keys()
-            .map(|order_id| *order_id)
-            .collect();
+        let order_ids: Vec<u64> = self.users.get(&user_id).unwrap_or(&BTreeMap::new()).keys().copied().collect();
         let total = order_ids.len();
         for order_id in order_ids {
             self.cancel(real, order_id);
