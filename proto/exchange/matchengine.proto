@@ -23,7 +23,11 @@ service Matchengine {
       body : "*"
     };
   }
-  rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {}
+  rpc OrderQuery(OrderQueryRequest) returns (OrderQueryResponse) {
+    option (google.api.http) = {
+      get : "/orders/{market}/{user_id}"
+    };
+  }
   rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
   // rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
   rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {
@@ -149,7 +153,7 @@ message OrderQueryResponse {
   int32 offset = 1;
   int32 limit = 2;
   int32 total = 3;
-  repeated OrderInfo records = 4;
+  repeated OrderInfo orders = 4;
 }
 
 message OrderCancelRequest {

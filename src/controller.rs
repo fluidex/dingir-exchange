@@ -158,18 +158,32 @@ impl Controller {
         if !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
+        if req.user_id == 0 {
+            return Err(Status::invalid_argument("invalid user_id"));
+        }
+        // TODO: magic number
+        let max_order_num = 100;
+        let default_order_num = 10;
+        let limit = if req.limit <= 0 {
+            default_order_num
+        } else if req.limit > max_order_num {
+            max_order_num
+        } else {
+            req.limit
+        };
         let market = self
             .markets
             .get(&req.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
+        let total_order_count = market.users.get(&req.user_id).map(|order_map| order_map.len()).unwrap_or(0);
         let orders = market
             .users
             .get(&req.user_id)
-            .map(|orders| {
-                orders
+            .map(|order_map| {
+                order_map
                     .values()
                     .skip(req.offset as usize)
-                    .take(req.limit as usize)
+                    .take(limit as usize)
                     .map(|order_rc| {
                         let order = *order_rc.borrow_mut();
                         order_to_proto(&order)
@@ -179,9 +193,9 @@ impl Controller {
             .unwrap_or_else(Vec::new);
         let result = OrderQueryResponse {
             offset: req.offset,
-            limit: req.limit,
-            total: orders.len() as i32,
-            records: orders,
+            limit,
+            total: total_order_count as i32,
+            orders,
         };
         Ok(result)
     }
