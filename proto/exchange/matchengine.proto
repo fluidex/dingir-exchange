@@ -28,7 +28,13 @@ service Matchengine {
       get : "/orders/{market}/{user_id}"
     };
   }
-  rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
+  rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {
+    option (google.api.http) = {
+      post : "/cancelorder/{market}/{user_id}/{order_id}"
+      body : "*"
+    };
+  }
+
   // rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
   rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {
     option (google.api.http) = {
