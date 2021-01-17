@@ -1,6 +1,12 @@
 import caller from "grpc-caller";
 const file = "../../proto/exchange/matchengine.proto";
-const load = { keepCase: "true", defaults: "true" };
+const load = {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true
+};
 const server = process.env.GRPC_SERVER || "localhost:50051";
 console.log("using grpc", server);
 const client = caller(`${server}`, { file, load }, "Matchengine");
