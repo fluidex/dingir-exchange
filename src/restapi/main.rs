@@ -9,6 +9,8 @@
 use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use sqlx::Pool;
+use sqlx::postgres::Postgres;
 
 mod errors;
 mod mock;
@@ -17,8 +19,9 @@ mod types;
 use tradingview::{chart_config, history, symbols, unix_timestamp};
 use types::UserInfo;
 
-struct AppState {
+pub(crate) struct AppState {
     user_addr_map: Mutex<HashMap<String, UserInfo>>,
+    db: sqlx::pool::Pool<Postgres>,
 }
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
@@ -44,9 +47,19 @@ async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
+
+    let mut conf = config_rs::Config::new();
+    let config_file = dotenv::var("CONFIG_FILE").unwrap();
+    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
+
+    let dburl = conf.get_str("db_history").unwrap();
+
     let user_map = web::Data::new(AppState {
         user_addr_map: Mutex::new(HashMap::new()),
+        db: Pool::<Postgres>::connect(&dburl).await.unwrap(),
     });
+
+    log::debug!("Prepared db connection: {}", &dburl);
 
     HttpServer::new(move || {
         App::new().app_data(user_map.clone()).service(

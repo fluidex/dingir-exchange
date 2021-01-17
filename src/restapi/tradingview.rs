@@ -1,4 +1,5 @@
-use actix_web::{web, HttpRequest, Responder};
+use actix_web::web::{self, Json, Data};
+use actix_web::{HttpRequest, Responder};
 use serde_json::json;
 use std::{
     time::{SystemTime, UNIX_EPOCH},
@@ -6,9 +7,11 @@ use std::{
 };
 
 use super::errors::RpcError;
-use super::types::KlineReq;
+use super::types::{KlineReq, KlineResult};
 
 use super::mock;
+
+const TRADERECORD: &str = "trade_record";
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
@@ -68,8 +71,27 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
     .to_string())
 }
 
-pub async fn history(req: web::Query<KlineReq>) -> Result<String, RpcError> {
+use sqlx::types::chrono::NaiveDateTime;
+use rust_decimal::{prelude::*, Decimal};
+use futures::TryStreamExt;
+
+#[derive(sqlx::FromRow, Debug, Clone)]
+struct KlineItem {
+    ts: NaiveDateTime,
+    first: Decimal,
+    last: Decimal,
+    max: Decimal,
+    min: Decimal,
+    sum: Decimal,
+}
+
+pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, RpcError> {
+    let req : web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
+    let req = req.into_inner();
+    let app_state = req_origin.app_data::<Data<crate::AppState>>().expect("App state not found");
     log::debug!("kline req {:?}", req);
+
+/*
     let no_data = false;
     if no_data {
         return Ok(json!({
@@ -78,5 +100,51 @@ pub async fn history(req: web::Query<KlineReq>) -> Result<String, RpcError> {
         .to_string());
     } else {
         return serde_json::to_string(&mock::fake_kline_result(&req)).map_err(|_e| RpcError::unknown("failed to serialize"));
+    }*/
+    if let Some(_) = req.usemock {
+        log::debug!("Use mock mode");
+        return Ok(Json(mock::fake_kline_result(&req)));
     }
+
+    let core_query = format!("select time_bucket($1, time) as ts, first(price, time), 
+    last(price, time), max(price), min(price), sum(amount) from {} 
+    where market = $2 and time > $3 and time < $4
+    group by ts order by ts desc", 
+    TRADERECORD);
+
+    let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
+        .bind(std::time::Duration::new(req.resolution as u64, 0))
+        .bind(&req.symbol)
+        .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
+        .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
+        .fetch(&app_state.db);
+
+    let mut resp_t : Vec<i32> = Vec::new();
+    let mut resp_c : Vec<f32> = Vec::new();
+    let mut resp_o : Vec<f32> = Vec::new();
+    let mut resp_h : Vec<f32> = Vec::new();
+    let mut resp_l : Vec<f32> = Vec::new();
+    let mut resp_v : Vec<f32> = Vec::new();
+
+    while let Some(item) = query_rows.try_next().await? {
+        resp_t.push(item.ts.timestamp() as i32);
+        resp_c.push(item.last.to_f32().unwrap_or(0.0));
+        resp_o.push(item.first.to_f32().unwrap_or(0.0));
+        resp_h.push(item.max.to_f32().unwrap_or(0.0));
+        resp_l.push(item.min.to_f32().unwrap_or(0.0));
+        resp_v.push(item.sum.to_f32().unwrap_or(0.0));
+    }
+
+    log::debug!("Query {} results", resp_t.len());
+
+    if resp_t.is_empty() {
+        return Ok(Json(KlineResult{s: String::from("no_data"), 
+            t: resp_t, c: resp_c, o: resp_o, h: resp_h, l: resp_l, v: resp_v,}));
+    }
+
+    Ok(Json(KlineResult{s: String::from("ok"), 
+    t: resp_t, c: resp_c, o: resp_o, h: resp_h, l: resp_l, v: resp_v,}))
+
+    //let next_query = format!("select time from {} where time < $1 order by time desc limit 1", TRADERECORD);
+
 }

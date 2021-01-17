@@ -2,7 +2,8 @@ use serde::Serialize;
 use std::fmt;
 use thiserror::Error;
 
-use actix_web::{error::ResponseError, http::StatusCode, HttpResponse};
+use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::error::{ResponseError, QueryPayloadError};
 
 // It is better to use strong typed error for APIs.
 // Use thiserror rather than anyhow if you are a library or service that wants to design your own dedicated error type(s)
@@ -52,4 +53,17 @@ impl ResponseError for RpcError {
         // all http response are 200. we handle the error inside json
         HttpResponse::build(StatusCode::OK).json(self)
     }
+}
+
+impl From<QueryPayloadError> for RpcError {
+    fn from(original: QueryPayloadError) -> RpcError{
+        RpcError::bad_request(&original.to_string())
+    }
+}
+
+impl From<sqlx::Error> for RpcError {
+    fn from(original: sqlx::Error) -> RpcError{
+        RpcError::unknown(&original.to_string())
+    }
+
 }

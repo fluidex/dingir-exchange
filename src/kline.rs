@@ -9,7 +9,7 @@ use rdkafka::consumer::StreamConsumer;
 use rdkafka::Message;
 
 // use crate::config;
-use crate::message::DEALS_TOPIC;
+use crate::message::TRADES_TOPIC;
 use crate::types::Trade;
 
 fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
@@ -20,11 +20,11 @@ fn init_kafka_fetcher(brokers: &str) -> Result<StreamConsumer> {
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
         .create()?;
-    consumer.subscribe(&[DEALS_TOPIC])?;
+    consumer.subscribe(&[TRADES_TOPIC])?;
 
     // kafka server health check
     consumer
-        .fetch_metadata(Some(DEALS_TOPIC), Duration::from_millis(2000u64))
+        .fetch_metadata(Some(TRADES_TOPIC), Duration::from_millis(2000u64))
         .map_err(|e| format_err!("kafka server health check: {}", e))?;
 
     Ok(consumer)

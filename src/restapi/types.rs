@@ -6,8 +6,9 @@ pub struct KlineReq {
     pub to: i32,
     pub symbol: String,
     pub resolution: i32,
+    pub usemock: Option<bool>,
 }
-#[derive(Serialize, Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct KlineResult {
     pub s: String,   // status, 'ok' or 'no_data' etc
     pub t: Vec<i32>, // timestamp
