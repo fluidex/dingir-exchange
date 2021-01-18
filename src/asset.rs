@@ -1,8 +1,8 @@
-use crate::config;
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageManager};
 use crate::models;
 use crate::utils;
+use crate::{config, utils::FTimestamp};
 use models::BalanceHistory;
 
 use anyhow::Result;
@@ -301,7 +301,7 @@ impl BalanceUpdateController {
         if real {
             detail["id"] = serde_json::Value::from(business_id);
             let balance_history = BalanceHistory {
-                time: utils::current_naive_time(),
+                time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
                 business: business.clone(),
@@ -312,7 +312,7 @@ impl BalanceUpdateController {
             self.history_writer.borrow_mut().append_balance_history(balance_history);
 
             let message = BalanceMessage {
-                timestamp: utils::current_timestamp(),
+                timestamp: FTimestamp(utils::current_timestamp()).into(),
                 user_id,
                 asset: asset.to_string(),
                 business,

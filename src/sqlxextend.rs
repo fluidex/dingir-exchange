@@ -193,7 +193,8 @@ where
 }
 
 impl FinalQuery for InsertTableBatch {
-    fn query_final<T: sqlx::Done>(_res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+        res?;
         Ok(SqlResultExt::Done)
     }
 }
