@@ -10,8 +10,6 @@ use sqlx::postgres::Postgres;
 use sqlx::Pool;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use sqlx::Pool;
-use sqlx::postgres::Postgres;
 
 use dingir_exchange::restapi;
 

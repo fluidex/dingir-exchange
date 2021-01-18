@@ -118,7 +118,7 @@ impl actix_web::error::ResponseError for TradeViewError {
 pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, TradeViewError> {
     let req : web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
     let req = req.into_inner();
-    let app_state = req_origin.app_data::<Data<crate::AppState>>().expect("App state not found");
+    let app_state = req_origin.app_data::<Data<crate::restapi::state::AppState>>().expect("App state not found");
     log::debug!("kline req {:?}", req);
 
     if let Some(_) = req.usemock {
