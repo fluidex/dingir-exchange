@@ -259,7 +259,7 @@ impl InsertTableBatch {
                 if qr_vm.len() >= (1 << n) {
                     let qr_used = &qr_vm[..(1 << n)];
                     qr_vm = &qr_vm[(1 << n)..];
-                    println!("batch {} queries", qr_used.len());
+                    //log::debug!("batch {} queries", qr_used.len());
                     Self::sql_query(qr_used, &mut *conn).await?;
                     break;
                 }

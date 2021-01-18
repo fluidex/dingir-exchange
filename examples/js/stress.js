@@ -1,4 +1,4 @@
-import { market } from "./config.mjs"; // dotenv
+import { market, userId } from "./config.mjs"; // dotenv
 import {
   balanceQuery,
   orderPut,
@@ -8,19 +8,36 @@ import {
   orderDetail,
   marketSummary,
   orderCancel,
+  orderCancelAll,
   orderDepth,
   debugReset,
   debugReload
 } from "./client.mjs";
 
-import { depositAssets, printBalance, putRandOrder, sleep } from "./util.mjs";
+import {
+  depositAssets,
+  printBalance,
+  putRandOrder,
+  sleep,
+  decimalAdd,
+  decimalEqual
+} from "./util.mjs";
 
 async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await marketSummary()).find(
     item => item.name == market
   ).trade_count;
-  await depositAssets({ BTC: "1000000", ETH: "500000" });
-
+  console.log(await orderCancelAll(userId, market));
+  await depositAssets({ USDT: "10000000", ETH: "10000" });
+  const balancesBefore = await balanceQuery(userId);
+  const USDTBefore = decimalAdd(
+    balancesBefore.USDT.available,
+    balancesBefore.USDT.frozen
+  );
+  const ETHBefore = decimalAdd(
+    balancesBefore.USDT.available,
+    balancesBefore.USDT.frozen
+  );
   await printBalance();
   const startTime = new Date();
   function elapsedSecs() {
@@ -54,6 +71,17 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   const totalTime = elapsedSecs();
   await printBalance();
+  const balancesAfter = await balanceQuery(userId);
+  const USDTAfter = decimalAdd(
+    balancesAfter.USDT.available,
+    balancesAfter.USDT.frozen
+  );
+  const ETHAfter = decimalAdd(
+    balancesAfter.USDT.available,
+    balancesAfter.USDT.frozen
+  );
+  decimalEqual(USDTAfter, USDTBefore);
+  decimalEqual(ETHAfter, ETHBefore);
   const tradeCountAfter = (await marketSummary()).find(
     item => item.name == market
   ).trade_count;
@@ -67,7 +95,7 @@ async function stressTest({ parallel, interval, repeat }) {
 
 async function main() {
   try {
-    await stressTest({ parallel: 100, interval: 50, repeat: 1000 });
+    await stressTest({ parallel: 50, interval: 500, repeat: 50 });
   } catch (error) {
     console.error("Catched error:", error);
   }

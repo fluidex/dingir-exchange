@@ -5,7 +5,7 @@ use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType, Trade};
 use crate::utils;
 use crate::{config, message};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -131,15 +131,6 @@ pub struct Market {
     message_manager: MessageManagerWrapper,
 }
 
-// FIXME
-pub fn asset_exist(_asset: &str) -> bool {
-    true
-}
-// FIXME
-pub fn asset_prec(_asset: &str) -> u32 {
-    100
-}
-
 const MAP_INIT_CAPACITY: usize = 1024;
 
 struct MessageManagerWrapper {
@@ -174,6 +165,9 @@ impl BalanceManagerWrapper {
     pub fn balance_unfrozen(&self, user_id: u32, asset: &str, amount: &Decimal) {
         self.inner.borrow_mut().unfrozen(user_id, asset, amount)
     }
+    pub fn asset_prec(&self, asset: &str) -> u32 {
+        self.inner.borrow_mut().asset_manager.asset_prec(asset)
+    }
 }
 // TODO: is it ok to match with oneself's order?
 // TODO: precision
@@ -185,14 +179,17 @@ impl Market {
         history_writer: Rc<RefCell<dyn HistoryWriter>>,
         message_manager: Rc<RefCell<dyn MessageManager>>,
     ) -> Result<Market> {
+        let asset_exist = |asset: &str| -> bool { balance_manager.borrow_mut().asset_manager.asset_exist(asset) };
+        let asset_prec = |asset: &str| -> u32 { balance_manager.borrow_mut().asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
-            return simple_err!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name);
+            return Err(anyhow!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name));
         }
+
         if market_conf.base.prec + market_conf.quote.prec > asset_prec(&market_conf.quote.name)
             || market_conf.base.prec + market_conf.fee_prec > asset_prec(&market_conf.base.name)
             || market_conf.quote.prec + market_conf.fee_prec > asset_prec(&market_conf.quote.name)
         {
-            return simple_err!("invalid precision");
+            return Err(anyhow!("invalid precision"));
         }
 
         let market = Market {
@@ -298,6 +295,7 @@ impl Market {
     // it indicates the `quote` balance of the user,
     // so the sum of all the trades' quote amount cannot exceed this value
     pub fn execute_order(&mut self, real: bool, taker: OrderRc, quote_limit: &Decimal) {
+        log::debug!("execute_order {:?}", taker);
         let taker_is_ask = taker.borrow_mut().side == OrderSide::ASK;
         let taker_is_bid = !taker_is_ask;
         let maker_is_bid = taker_is_ask;
@@ -345,6 +343,9 @@ impl Market {
                     // to be traded, then all `quote_limit` will be consumed.
                     // But division is prone to bugs in financial decimal calculation,
                     // so we will not adapt tis method.
+                    // TODO: maybe another method is to make:
+                    // trade_base_amount = round_down(quote_limit - old_quote_sum / price)
+                    // so quote_limit will be `almost` fulfilled
                     break;
                 }
             }
@@ -462,20 +463,31 @@ impl Market {
         }
     }
 
-    pub fn put_order(&mut self, real: bool, order_input: &OrderInput) -> Result<Order> {
+    pub fn put_order(&mut self, real: bool, order_input: OrderInput) -> Result<Order> {
         if order_input.amount.lt(&self.min_amount) {
-            return simple_err!("invalid amount");
+            return Err(anyhow!("invalid amount"));
         }
+        // TODO: refactor this
+        let base_prec = self.base_prec;
+        let quote_prec = self.quote_prec;
+        let amount = order_input.amount.round_dp(base_prec);
+        let price = order_input.price.round_dp(quote_prec);
+        //println!("decimal {} {} {} {} ", self.base, base_prec, self.quote, quote_prec);
+        let order_input = OrderInput {
+            price,
+            amount,
+            ..order_input
+        };
         if order_input.type_ == OrderType::MARKET {
             if !order_input.price.is_zero() {
-                return simple_err!("market order should not have a price");
+                return Err(anyhow!("market order should not have a price"));
             }
             if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
-                return simple_err!("no counter orders");
+                return Err(anyhow!("no counter orders"));
             }
         } else {
             if order_input.price.is_zero() {
-                return simple_err!("invalid price for limit order");
+                return Err(anyhow!("invalid price for limit order"));
             }
         }
         if order_input.side == OrderSide::ASK {
@@ -484,7 +496,7 @@ impl Market {
                 .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
                 .lt(&order_input.amount)
             {
-                return simple_err!("balance not enough");
+                return Err(anyhow!("balance not enough"));
             }
         } else {
             let balance = self
@@ -493,12 +505,12 @@ impl Market {
 
             if order_input.type_ == OrderType::LIMIT {
                 if balance.lt(&(order_input.amount * order_input.price)) {
-                    return simple_err!(
+                    return Err(anyhow!(
                         "balance not enough: balance({}) < amount({}) * price({})",
                         &balance,
                         &order_input.amount,
                         &order_input.price
-                    );
+                    ));
                 }
             } else {
                 // We have already checked that counter order book is not empty,
@@ -508,7 +520,7 @@ impl Market {
                 // will be marked as `canceled(finished)`.
                 let top_counter_order_price = self.asks.values().next().unwrap().borrow_mut().price;
                 if balance.lt(&(order_input.amount * top_counter_order_price)) {
-                    return simple_err!("balance not enough");
+                    return Err(anyhow!("balance not enough"));
                 }
             }
         }
@@ -572,6 +584,15 @@ impl Market {
         let order_struct = *order.borrow_mut();
         self.order_finish(real, &order_struct);
         order_struct
+    }
+    pub fn cancel_all_for_user(&mut self, real: bool, user_id: u32) -> usize {
+        // TODO: can we mutate while iterate?
+        let order_ids: Vec<u64> = self.users.get(&user_id).unwrap_or(&BTreeMap::new()).keys().copied().collect();
+        let total = order_ids.len();
+        for order_id in order_ids {
+            self.cancel(real, order_id);
+        }
+        total
     }
     pub fn get(&self, order_id: u64) -> Option<Order> {
         self.orders.get(&order_id).map(|o| *o.borrow_mut())
@@ -691,9 +712,9 @@ mod tests {
 
     fn get_simple_market_config() -> config::Market {
         config::Market {
-            name: String::from("eth/btc"),
-            base: config::MarketUnit { name: eth(), prec: 6 },
-            quote: config::MarketUnit { name: btc(), prec: 4 },
+            name: String::from("ETH_USDT"),
+            base: config::MarketUnit { name: eth(), prec: 4 },   // amount: xx.xxxx
+            quote: config::MarketUnit { name: usdt(), prec: 2 }, // price xx.xx
             fee_prec: 3,
             min_amount: dec!(0.01),
         }
@@ -701,7 +722,7 @@ mod tests {
     fn get_simple_asset_config() -> Vec<config::Asset> {
         vec![
             config::Asset {
-                name: btc(),
+                name: usdt(),
                 prec_save: 8,
                 prec_show: 8,
             },
@@ -712,8 +733,8 @@ mod tests {
             },
         ]
     }
-    fn btc() -> String {
-        String::from("BTC")
+    fn usdt() -> String {
+        String::from("USDT")
     }
     fn eth() -> String {
         String::from("ETH")
@@ -725,8 +746,8 @@ mod tests {
         BalanceManager::new(&get_simple_asset_config()).unwrap()
     }
     fn init_balance(balance_manager: &mut BalanceManager) {
-        balance_manager.add(101, BalanceType::AVAILABLE, &btc(), &dec!(300));
-        balance_manager.add(102, BalanceType::AVAILABLE, &btc(), &dec!(300));
+        balance_manager.add(101, BalanceType::AVAILABLE, &usdt(), &dec!(300));
+        balance_manager.add(102, BalanceType::AVAILABLE, &usdt(), &dec!(300));
         balance_manager.add(101, BalanceType::AVAILABLE, &eth(), &dec!(1000));
         balance_manager.add(102, BalanceType::AVAILABLE, &eth(), &dec!(1000));
     }
@@ -757,7 +778,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
         };
-        let ask_order = market.put_order(false, &ask_order_input).unwrap();
+        let ask_order = market.put_order(false, ask_order_input).unwrap();
         assert_eq!(ask_order.id, 1);
         assert_eq!(ask_order.remain, dec!(20.0));
 
@@ -772,7 +793,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
         };
-        let bid_order = market.put_order(false, &bid_order_input).unwrap();
+        let bid_order = market.put_order(false, bid_order_input).unwrap();
         // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
         assert_eq!(bid_order.remain, dec!(0));
@@ -793,13 +814,13 @@ mod tests {
         assert_eq!(balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &eth()), dec!(980));
         assert_eq!(balance_manager.get(ask_user_id, BalanceType::FREEZE, &eth()), dec!(10));
 
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &btc()), dec!(300.999));
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::FREEZE, &btc()), dec!(0));
+        assert_eq!(balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &usdt()), dec!(300.999));
+        assert_eq!(balance_manager.get(ask_user_id, BalanceType::FREEZE, &usdt()), dec!(0));
 
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &eth()), dec!(1009.99));
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &eth()), dec!(0));
 
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &btc()), dec!(299));
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &btc()), dec!(0));
+        assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &usdt()), dec!(299));
+        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &usdt()), dec!(0));
     }
 }

@@ -33,7 +33,7 @@ pub async fn chart_config(_req: HttpRequest) -> impl Responder {
                 "desc": ""
             }
         ],
-        "symbols_types": [{"name": "ETH_BTC", "value": "ETH_BTC"}],
+        "symbols_types": [{"name": "ETH_USDT", "value": "ETH_USDT"}],
         "supported_resolutions": [1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080] // minutes
     });
     value.to_string()
@@ -50,9 +50,9 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
     log::debug!("kline get symbol {:?}", symbol);
     Ok(json!(
         {
-            "name": "ETH_BTC",
-            "ticker": "ETH_BTC",
-            "description": "ETH_BTC",
+            "name": "ETH_USDT",
+            "ticker": "ETH_USDT",
+            "description": "ETH_USDT",
             "type": "btc",
             "session": "24x7",
             "exchange": "STOCK",

@@ -4,6 +4,7 @@ use crate::kline::KlineUpdater;
 use crate::market;
 use crate::sequencer::Sequencer;
 use crate::{config, utils};
+use anyhow::anyhow;
 use rust_decimal::Decimal;
 use serde_json::json;
 use std::cell::RefCell;
@@ -47,6 +48,7 @@ pub struct Controller {
 const ORDER_LIST_MAX_LEN: usize = 100;
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
+const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
@@ -104,11 +106,11 @@ impl Controller {
             rt: tokio::runtime::Handle::current(),
         }
     }
-    pub(super) fn prepare_stub(self) {
+    pub fn prepare_stub(self) {
         unsafe { G_STUB = Some(self) };
     }
 
-    pub(super) fn release_stub() {
+    pub fn release_stub() {
         unsafe { G_STUB = None };
     }
 
@@ -312,7 +314,7 @@ impl Controller {
         if !self.asset_manager.asset_exist(&req.asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let prec = self.asset_manager.asset_prev_show(&req.asset);
+        let prec = self.asset_manager.asset_prec_show(&req.asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
         let change = change_result.round_dp(prec);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
@@ -342,14 +344,14 @@ impl Controller {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
+        if !self.markets.contains_key(&req.market) {
+            return Err(Status::invalid_argument("invalid market"));
+        }
+        let market = self.markets.get_mut(&req.market).unwrap();
+
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
-        let order = self
-            .markets
-            .get_mut(&order_input.market)
-            .ok_or_else(|| Status::invalid_argument("invalid market"))?
-            .put_order(real, &order_input)
-            .map_err(|e| Status::unknown(format!("{}", e)))?;
+        let order = market.put_order(real, order_input).map_err(|e| Status::unknown(format!("{}", e)))?;
         if real {
             self.append_operation_log(OPERATION_ORDER_PUT, &req);
         }
@@ -375,6 +377,21 @@ impl Controller {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
         }
         Ok(order_to_proto(&order))
+    }
+
+    pub fn order_cancel_all(&mut self, real: bool, req: OrderCancelAllRequest) -> Result<OrderCancelAllResponse, tonic::Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
+        let market = self
+            .markets
+            .get_mut(&req.market)
+            .ok_or_else(|| Status::invalid_argument("invalid market"))?;
+        let total = market.cancel_all_for_user(real, req.user_id) as u32;
+        if real {
+            self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
+        }
+        Ok(OrderCancelAllResponse { total })
     }
 
     pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
@@ -462,10 +479,13 @@ impl Controller {
             OPERATION_ORDER_CANCEL => {
                 self.order_cancel(false, serde_json::from_str(params)?)?;
             }
+            OPERATION_ORDER_CANCEL_ALL => {
+                self.order_cancel_all(false, serde_json::from_str(params)?)?;
+            }
             OPERATION_ORDER_PUT => {
                 self.order_put(false, serde_json::from_str(params)?)?;
             }
-            _ => return simple_err!("invalid operation {}", method),
+            _ => return Err(anyhow!("invalid operation {}", method)),
         }
         Ok(())
     }

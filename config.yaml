@@ -2,38 +2,21 @@ debug: true
 db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
 db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
 assets:
-  - name: BCH
-    prec_save: 20
-    prec_show: 8
-  - name: BTC
-    prec_save: 12
-    prec_show: 8
-  - name: LTC
-    prec_save: 12
-    prec_show: 8
   - name: ETH
-    prec_save: 12
-    prec_show: 8
-  - name: ETC
-    prec_save: 12
-    prec_show: 8
-  - name: ZEC
-    prec_save: 12
-    prec_show: 8
-  - name: XMR
-    prec_save: 12
-    prec_show: 8
-  - name: DSH
-    prec_save: 12
-    prec_show: 8
+    prec_save: 6
+    prec_show: 6
+  - name: USDT
+    prec_save: 6
+    prec_show: 6
 markets:
-  - name: ETH_BTC
+  - name: ETH_USDT
     base:
       name: ETH
-      prec: 8
+      prec: 4
     quote:
-      name: BTC
-      prec: 8
+      name: USDT
+      prec: 2
+    fee_prec: 2
     min_amount: '0.001'
 brokers: '127.0.0.1:9092'
 slice_interval: 3600

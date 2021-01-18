@@ -46,7 +46,10 @@ prost = "0.6.1"
 tonic-build = "0.3.1"
 [[bin]]
 name = "restapi"
-path = "src/restapi/main.rs"
+path = "src/bin/restapi.rs"
+[[bin]]
+name = "matchengine"
+path = "src/bin/matchengine.rs"
 
 [features]
 windows_build = ["rdkafka/dynamic_linking"]

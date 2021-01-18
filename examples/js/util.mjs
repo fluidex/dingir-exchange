@@ -30,11 +30,15 @@ function depositId() {
   return Date.now();
 }
 
-export function floatEqual(result, gt) {
+export function decimalEqual(result, gt) {
   assert(new Decimal(result).equals(new Decimal(gt)), `${result} != ${gt}`);
 }
 
-export async function printBalance(printList = ["BTC", "ETH"]) {
+export function decimalAdd(a, b) {
+  return new Decimal(a).add(new Decimal(b));
+}
+
+export async function printBalance(printList = ["USDT", "ETH"]) {
   const balances = await balanceQuery(userId);
   console.log("\nasset\tsum\tavaiable\tfrozen");
   for (const asset of printList) {
@@ -85,8 +89,8 @@ export async function putRandOrder() {
     return Math.floor(Math.random() * (max - min)) + min;
   }
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
-  const price = getRandomArbitrary(1, 50);
-  const amount = getRandomArbitrary(1, 7);
+  const price = getRandomArbitrary(200, 1200);
+  const amount = getRandomArbitrary(1, 5);
   const order = await putLimitOrder(side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }

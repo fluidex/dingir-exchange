@@ -35,8 +35,8 @@ pub struct BalanceMapKey {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct AssetInfo {
-    pub prev_save: u32,
-    pub prev_show: u32,
+    pub prec_save: u32,
+    pub prec_show: u32,
 }
 
 #[derive(Clone)]
@@ -52,8 +52,8 @@ impl AssetManager {
             assets.insert(
                 item.name.clone(),
                 AssetInfo {
-                    prev_save: item.prec_save,
-                    prev_show: item.prec_show,
+                    prec_save: item.prec_save,
+                    prec_show: item.prec_show,
                 },
             );
         }
@@ -65,11 +65,11 @@ impl AssetManager {
     pub fn asset_get(&self, name: &str) -> Option<&AssetInfo> {
         self.assets.get(name)
     }
-    pub fn asset_prev(&self, name: &str) -> u32 {
-        self.asset_get(name).unwrap().prev_save
+    pub fn asset_prec(&self, name: &str) -> u32 {
+        self.asset_get(name).unwrap().prec_save
     }
-    pub fn asset_prev_show(&self, name: &str) -> u32 {
-        self.asset_get(name).unwrap().prev_show
+    pub fn asset_prec_show(&self, name: &str) -> u32 {
+        self.asset_get(name).unwrap().prec_show
     }
 }
 
@@ -108,12 +108,12 @@ impl BalanceManager {
     }
     pub fn get_with_round(&self, user_id: u32, balance_type: BalanceType, asset: &str) -> Decimal {
         let balance: Decimal = self.get(user_id, balance_type, asset);
-        let prec_save = self.asset_manager.asset_prev(asset);
-        let prev_show = self.asset_manager.asset_prev_show(asset);
-        let balance_show = if prec_save == prev_show {
+        let prec_save = self.asset_manager.asset_prec(asset);
+        let prec_show = self.asset_manager.asset_prec_show(asset);
+        let balance_show = if prec_save == prec_show {
             balance
         } else {
-            balance.round_dp(prev_show)
+            balance.round_dp(prec_show)
         };
         balance_show
     }
@@ -137,13 +137,13 @@ impl BalanceManager {
     }
     pub fn set_by_key(&mut self, key: BalanceMapKey, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
-        let amount = amount.round_dp(self.asset_manager.asset_prev(&key.asset));
+        let amount = amount.round_dp(self.asset_manager.asset_prec(&key.asset));
         //log::debug!("set balance: {:?}, {}", key, amount);
         self.balances.insert(key, amount);
     }
     pub fn add(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) -> Decimal {
         debug_assert!(amount.is_sign_positive());
-        let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
+        let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
             user_id,
             balance_type,
@@ -156,7 +156,7 @@ impl BalanceManager {
     }
     pub fn sub(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) -> Decimal {
         debug_assert!(amount.is_sign_positive());
-        let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
+        let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
             user_id,
             balance_type,
@@ -178,7 +178,7 @@ impl BalanceManager {
     }
     pub fn frozen(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
-        let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
+        let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
             user_id,
             balance_type: BalanceType::AVAILABLE,
@@ -191,14 +191,19 @@ impl BalanceManager {
     }
     pub fn unfrozen(&mut self, user_id: u32, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
-        let amount = amount.round_dp(self.asset_manager.asset_prev(asset));
+        let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
             user_id,
             balance_type: BalanceType::FREEZE,
             asset: asset.to_owned(),
         };
         let old_frozen_value = self.get_by_key(&key);
-        debug_assert!(old_frozen_value.ge(&amount));
+        debug_assert!(
+            old_frozen_value.ge(&amount),
+            "unfreeze larger than frozen {} > {}",
+            amount,
+            old_frozen_value
+        );
         self.add(user_id, BalanceType::AVAILABLE, asset, &amount);
         self.sub(user_id, BalanceType::FREEZE, asset, &amount);
     }

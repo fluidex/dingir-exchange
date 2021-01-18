@@ -28,7 +28,19 @@ service Matchengine {
       get : "/orders/{market}/{user_id}"
     };
   }
-  rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {}
+  rpc OrderCancel(OrderCancelRequest) returns (OrderInfo) {
+    option (google.api.http) = {
+      post : "/cancelorder/{market}/{user_id}/{order_id}"
+      body : "*"
+    };
+  }
+  rpc OrderCancelAll(OrderCancelAllRequest) returns (OrderCancelAllResponse) {
+    option (google.api.http) = {
+      post : "/cancelorders/{market}/{user_id}"
+      body : "*"
+    };
+  }
+
   // rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}
   rpc OrderBookDepth(OrderBookDepthRequest) returns (OrderBookDepthResponse) {
     option (google.api.http) = {
@@ -118,7 +130,7 @@ message OrderPutRequest {
   string market = 2;
   OrderSide order_side = 3;
   OrderType order_type = 4;
-  string amount = 5;
+  string amount = 5; // always amount for base, even for market bid
   string price = 6; // should be empty or zero for market order
   string taker_fee = 7;
   string maker_fee = 8;
@@ -161,6 +173,11 @@ message OrderCancelRequest {
   string market = 2;
   uint64 order_id = 3;
 }
+message OrderCancelAllRequest {
+  uint32 user_id = 1;
+  string market = 2;
+}
+message OrderCancelAllResponse { uint32 total = 1; }
 
 // why not both side
 message OrderBookRequest {
