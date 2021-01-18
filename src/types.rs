@@ -1,10 +1,10 @@
-#![macro_use]
+//#![macro_use]
 
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 pub type SimpleResult = anyhow::Result<()>;
-
+/*
 macro_rules! simple_err {
     ($msg:literal $(,)?) => {
         std::result::Result::Err(anyhow::anyhow!($msg))
@@ -16,6 +16,7 @@ macro_rules! simple_err {
         std::result::Result::Err(anyhow::anyhow!($fmt, $($arg)*))
     };
 }
+*/
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(i16)]

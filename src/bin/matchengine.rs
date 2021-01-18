@@ -1,41 +1,17 @@
 #![allow(dead_code)]
-//#![allow(unused_imports)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::single_char_pattern)]
 #![allow(clippy::await_holding_refcell_ref)] // FIXME
 
-mod types;
+use dingir_exchange::config;
+use dingir_exchange::controller::Controller;
+use dingir_exchange::persist;
+use dingir_exchange::server::{GrpcHandler, MatchengineServer};
 
-mod asset;
-mod config;
-mod controller;
-mod database;
-mod dto;
-mod history;
-mod market;
-mod message;
-mod models;
-mod persist;
-mod sqlxextend;
-//mod schema;
-mod sequencer;
-mod server;
-mod utils;
-
-// TODO: refactor create & workspace & folders
-mod restapi {
-    mod errors;
-    mod mock;
-    mod tradingview;
-    mod types;
-}
-
-use controller::Controller;
-use server::{GrpcHandler, MatchengineServer};
-
+use dingir_exchange::types::ConnectionType;
 use sqlx::Connection;
-use types::ConnectionType;
 
 fn main() {
     dotenv::dotenv().ok();

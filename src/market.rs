@@ -5,7 +5,7 @@ use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType, Trade};
 use crate::utils;
 use crate::{config, message};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -181,14 +181,14 @@ impl Market {
         let asset_exist = |asset: &str| -> bool { balance_manager.borrow_mut().asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.borrow_mut().asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
-            return simple_err!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name);
+            return Err(anyhow!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name));
         }
 
         if market_conf.base.prec + market_conf.quote.prec > asset_prec(&market_conf.quote.name)
             || market_conf.base.prec + market_conf.fee_prec > asset_prec(&market_conf.base.name)
             || market_conf.quote.prec + market_conf.fee_prec > asset_prec(&market_conf.quote.name)
         {
-            return simple_err!("invalid precision");
+            return Err(anyhow!("invalid precision"));
         }
 
         let market = Market {
@@ -342,6 +342,9 @@ impl Market {
                     // to be traded, then all `quote_limit` will be consumed.
                     // But division is prone to bugs in financial decimal calculation,
                     // so we will not adapt tis method.
+                    // TODO: maybe another method is to make:
+                    // trade_base_amount = round_down(quote_limit - old_quote_sum / price)
+                    // so quote_limit will be `almost` fulfilled
                     break;
                 }
             }
@@ -461,7 +464,7 @@ impl Market {
 
     pub fn put_order(&mut self, real: bool, order_input: OrderInput) -> Result<Order> {
         if order_input.amount.lt(&self.min_amount) {
-            return simple_err!("invalid amount");
+            return Err(anyhow!("invalid amount"));
         }
         // TODO: refactor this
         let base_prec = self.base_prec;
@@ -476,14 +479,14 @@ impl Market {
         };
         if order_input.type_ == OrderType::MARKET {
             if !order_input.price.is_zero() {
-                return simple_err!("market order should not have a price");
+                return Err(anyhow!("market order should not have a price"));
             }
             if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
-                return simple_err!("no counter orders");
+                return Err(anyhow!("no counter orders"));
             }
         } else {
             if order_input.price.is_zero() {
-                return simple_err!("invalid price for limit order");
+                return Err(anyhow!("invalid price for limit order"));
             }
         }
         if order_input.side == OrderSide::ASK {
@@ -492,7 +495,7 @@ impl Market {
                 .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
                 .lt(&order_input.amount)
             {
-                return simple_err!("balance not enough");
+                return Err(anyhow!("balance not enough"));
             }
         } else {
             let balance = self
@@ -501,12 +504,12 @@ impl Market {
 
             if order_input.type_ == OrderType::LIMIT {
                 if balance.lt(&(order_input.amount * order_input.price)) {
-                    return simple_err!(
+                    return Err(anyhow!(
                         "balance not enough: balance({}) < amount({}) * price({})",
                         &balance,
                         &order_input.amount,
                         &order_input.price
-                    );
+                    ));
                 }
             } else {
                 // We have already checked that counter order book is not empty,
@@ -516,7 +519,7 @@ impl Market {
                 // will be marked as `canceled(finished)`.
                 let top_counter_order_price = self.asks.values().next().unwrap().borrow_mut().price;
                 if balance.lt(&(order_input.amount * top_counter_order_price)) {
-                    return simple_err!("balance not enough");
+                    return Err(anyhow!("balance not enough"));
                 }
             }
         }

@@ -221,7 +221,7 @@ where
 pub fn check_sql_conn(conn_str: &str) -> SimpleResult {
     match ConnectionType::connect(conn_str) {
         Ok(_) => Ok(()),
-        Err(e) => simple_err!("invalid conn {} {}", conn_str, e),
+        Err(e) => Err(anyhow!("invalid conn {} {}", conn_str, e)),
     }
 }
 */
