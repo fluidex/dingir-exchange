@@ -1,6 +1,12 @@
 import caller from "grpc-caller";
 const file = "../../proto/exchange/matchengine.proto";
-const load = { keepCase: "true", defaults: "true" };
+const load = {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true
+};
 const server = process.env.GRPC_SERVER || "localhost:50051";
 console.log("using grpc", server);
 const client = caller(`${server}`, { file, load }, "Matchengine");
@@ -72,6 +78,10 @@ export async function marketSummary(market) {
 
 export async function orderCancel(user_id, market, order_id) {
   return await client.OrderCancel({ user_id, market, order_id });
+}
+
+export async function orderCancelAll(user_id, market) {
+  return await client.OrderCancelAll({ user_id, market });
 }
 
 export async function orderDepth(market, limit, interval) {

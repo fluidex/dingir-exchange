@@ -90,6 +90,14 @@ impl Matchengine for GrpcHandler {
         let stub = get_stub!();
         Ok(Response::new(stub.order_cancel(true, request.into_inner())?))
     }
+    async fn order_cancel_all(
+        &self,
+        request: tonic::Request<OrderCancelAllRequest>,
+    ) -> Result<tonic::Response<OrderCancelAllResponse>, tonic::Status> {
+        let stub = get_stub!();
+        Ok(Response::new(stub.order_cancel_all(true, request.into_inner())?))
+    }
+
     // This is the only blocking call of the server
     #[cfg(debug_assertions)]
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
