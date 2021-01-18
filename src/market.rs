@@ -164,8 +164,8 @@ impl BalanceManagerWrapper {
     pub fn balance_unfrozen(&self, user_id: u32, asset: &str, amount: &Decimal) {
         self.inner.borrow_mut().unfrozen(user_id, asset, amount)
     }
-    pub fn asset_prev(&self, asset: &str) -> u32 {
-        self.inner.borrow_mut().asset_manager.asset_prev(asset)
+    pub fn asset_prec(&self, asset: &str) -> u32 {
+        self.inner.borrow_mut().asset_manager.asset_prec(asset)
     }
 }
 // TODO: is it ok to match with oneself's order?
@@ -179,7 +179,7 @@ impl Market {
         message_manager: Rc<RefCell<dyn MessageManager>>,
     ) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.borrow_mut().asset_manager.asset_exist(asset) };
-        let asset_prec = |asset: &str| -> u32 { balance_manager.borrow_mut().asset_manager.asset_prev(asset) };
+        let asset_prec = |asset: &str| -> u32 { balance_manager.borrow_mut().asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
             return simple_err!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name);
         }

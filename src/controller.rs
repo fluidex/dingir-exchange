@@ -308,7 +308,7 @@ impl Controller {
         if !self.asset_manager.asset_exist(&req.asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let prec = self.asset_manager.asset_prev_show(&req.asset);
+        let prec = self.asset_manager.asset_prec_show(&req.asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
         let change = change_result.round_dp(prec);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
