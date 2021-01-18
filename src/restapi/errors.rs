@@ -56,13 +56,13 @@ impl ResponseError for RpcError {
 }
 
 impl From<QueryPayloadError> for RpcError {
-    fn from(original: QueryPayloadError) -> RpcError{
+    fn from(original: QueryPayloadError) -> RpcError {
         RpcError::bad_request(&original.to_string())
     }
 }
 
 impl From<sqlx::Error> for RpcError {
-    fn from(original: sqlx::Error) -> RpcError{
+    fn from(original: sqlx::Error) -> RpcError {
         RpcError::unknown(&original.to_string())
     }
 }

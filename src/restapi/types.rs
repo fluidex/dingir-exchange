@@ -10,7 +10,7 @@ pub struct KlineReq {
 }
 #[derive(Serialize, Deserialize, Default)]
 pub struct KlineResult {
-    pub s: String,   // status, 'ok' or 'no_data' etc
+    pub s: String, // status, 'ok' or 'no_data' etc
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub t: Vec<i32>, // timestamp
     #[serde(skip_serializing_if = "Vec::is_empty")]

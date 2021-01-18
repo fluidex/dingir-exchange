@@ -1,4 +1,4 @@
-use actix_web::web::{self, Json, Data};
+use actix_web::web::{self, Data, Json};
 use actix_web::{HttpRequest, Responder};
 use serde_json::json;
 use std::{
@@ -71,9 +71,9 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
     .to_string())
 }
 
-use sqlx::types::chrono::NaiveDateTime;
-use rust_decimal::{prelude::*, Decimal};
 use futures::TryStreamExt;
+use rust_decimal::{prelude::*, Decimal};
+use sqlx::types::chrono::NaiveDateTime;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct KlineItem {
@@ -86,17 +86,23 @@ struct KlineItem {
 }
 
 #[derive(serde::Serialize, Clone, Debug)]
-pub struct TradeViewError (RpcError);
+pub struct TradeViewError(RpcError);
 
-impl<T> From<T> for TradeViewError where T : Into<RpcError>
+impl<T> From<T> for TradeViewError
+where
+    T: Into<RpcError>,
 {
-    fn from(original: T) -> TradeViewError{TradeViewError(Into::into(original))}    
+    fn from(original: T) -> TradeViewError {
+        TradeViewError(Into::into(original))
+    }
 }
 
 use actix_web::{http::StatusCode, HttpResponse};
 
 impl std::fmt::Display for TradeViewError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {self.0.fmt(f)}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 impl actix_web::error::ResponseError for TradeViewError {
@@ -107,30 +113,33 @@ impl actix_web::error::ResponseError for TradeViewError {
     fn error_response(&self) -> HttpResponse {
         // all http response are 200. we handle the error inside json
         HttpResponse::build(StatusCode::OK).json(json!(
-            {
-                "s": "error",
-                "errmsg": &self.0.message,
-            })
-        )
+        {
+            "s": "error",
+            "errmsg": &self.0.message,
+        }))
     }
 }
 
 pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, TradeViewError> {
-    let req : web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
+    let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
     let req = req.into_inner();
-    let app_state = req_origin.app_data::<Data<crate::restapi::state::AppState>>().expect("App state not found");
+    let app_state = req_origin
+        .app_data::<Data<crate::restapi::state::AppState>>()
+        .expect("App state not found");
     log::debug!("kline req {:?}", req);
 
-    if let Some(_) = req.usemock {
+    if req.usemock.is_some() {
         log::debug!("Use mock mode");
         return Ok(Json(mock::fake_kline_result(&req)));
     }
 
-    let core_query = format!("select time_bucket($1, time) as ts, first(price, time), 
+    let core_query = format!(
+        "select time_bucket($1, time) as ts, first(price, time), 
     last(price, time), max(price), min(price), sum(amount) from {} 
     where market = $2 and time > $3 and time < $4
-    group by ts order by ts desc", 
-    TRADERECORD);
+    group by ts order by ts desc",
+        TRADERECORD
+    );
 
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
         .bind(std::time::Duration::new(req.resolution as u64, 0))
@@ -139,34 +148,52 @@ pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, Trade
         .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
         .fetch(&app_state.db);
 
-    let mut t : Vec<i32> = Vec::new();
-    let mut c : Vec<f32> = Vec::new();
-    let mut o : Vec<f32> = Vec::new();
-    let mut h : Vec<f32> = Vec::new();
-    let mut l : Vec<f32> = Vec::new();
-    let mut v : Vec<f32> = Vec::new();
+    let mut out_t: Vec<i32> = Vec::new();
+    let mut out_c: Vec<f32> = Vec::new();
+    let mut out_o: Vec<f32> = Vec::new();
+    let mut out_h: Vec<f32> = Vec::new();
+    let mut out_l: Vec<f32> = Vec::new();
+    let mut out_v: Vec<f32> = Vec::new();
 
     while let Some(item) = query_rows.try_next().await? {
-        t.push(item.ts.timestamp() as i32);
-        c.push(item.last.to_f32().unwrap_or(0.0));
-        o.push(item.first.to_f32().unwrap_or(0.0));
-        h.push(item.max.to_f32().unwrap_or(0.0));
-        l.push(item.min.to_f32().unwrap_or(0.0));
-        v.push(item.sum.to_f32().unwrap_or(0.0));
+        out_t.push(item.ts.timestamp() as i32);
+        out_c.push(item.last.to_f32().unwrap_or(0.0));
+        out_o.push(item.first.to_f32().unwrap_or(0.0));
+        out_h.push(item.max.to_f32().unwrap_or(0.0));
+        out_l.push(item.min.to_f32().unwrap_or(0.0));
+        out_v.push(item.sum.to_f32().unwrap_or(0.0));
     }
 
-    log::debug!("Query {} results", t.len());
+    log::debug!("Query {} results", out_t.len());
 
-    if t.is_empty() {
-
+    if out_t.is_empty() {
         let next_query = format!("select time from {} where time < $1 order by time desc limit 1", TRADERECORD);
         let nxt = sqlx::query_scalar(&next_query)
             .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
-            .fetch_optional(&app_state.db).await?.map(|x : NaiveDateTime| x.timestamp() as i32);
+            .fetch_optional(&app_state.db)
+            .await?
+            .map(|x: NaiveDateTime| x.timestamp() as i32);
 
-        return Ok(Json(KlineResult{s: String::from("no_data"), t, c, o, h, l, v, nxt}));
+        return Ok(Json(KlineResult {
+            s: String::from("no_data"),
+            t: out_t,
+            c: out_c,
+            o: out_o,
+            h: out_h,
+            l: out_l,
+            v: out_v,
+            nxt,
+        }));
     }
 
-    Ok(Json(KlineResult{s: String::from("ok"), t, c, o, h, l, v, nxt: None}))
-
+    Ok(Json(KlineResult {
+        s: String::from("ok"),
+        t: out_t,
+        c: out_c,
+        o: out_o,
+        h: out_h,
+        l: out_l,
+        v: out_v,
+        nxt: None,
+    }))
 }
