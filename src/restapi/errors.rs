@@ -23,8 +23,8 @@ pub enum ErrorType {
 
 #[derive(Serialize, Clone, Debug)]
 pub struct RpcError {
-    error: ErrorType,
-    message: String,
+    pub error: ErrorType,
+    pub message: String,
 }
 
 impl RpcError {
@@ -65,5 +65,4 @@ impl From<sqlx::Error> for RpcError {
     fn from(original: sqlx::Error) -> RpcError{
         RpcError::unknown(&original.to_string())
     }
-
 }

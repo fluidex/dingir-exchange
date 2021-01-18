@@ -85,22 +85,42 @@ struct KlineItem {
     sum: Decimal,
 }
 
-pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, RpcError> {
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct TradeViewError (RpcError);
+
+impl<T> From<T> for TradeViewError where T : Into<RpcError>
+{
+    fn from(original: T) -> TradeViewError{TradeViewError(Into::into(original))}    
+}
+
+use actix_web::{http::StatusCode, HttpResponse};
+
+impl std::fmt::Display for TradeViewError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {self.0.fmt(f)}
+}
+
+impl actix_web::error::ResponseError for TradeViewError {
+    fn status_code(&self) -> StatusCode {
+        StatusCode::OK
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        // all http response are 200. we handle the error inside json
+        HttpResponse::build(StatusCode::OK).json(json!(
+            {
+                "s": "error",
+                "errmsg": &self.0.message,
+            })
+        )
+    }
+}
+
+pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, TradeViewError> {
     let req : web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
     let req = req.into_inner();
     let app_state = req_origin.app_data::<Data<crate::AppState>>().expect("App state not found");
     log::debug!("kline req {:?}", req);
 
-/*
-    let no_data = false;
-    if no_data {
-        return Ok(json!({
-            "s": "no_data"
-        })
-        .to_string());
-    } else {
-        return serde_json::to_string(&mock::fake_kline_result(&req)).map_err(|_e| RpcError::unknown("failed to serialize"));
-    }*/
     if let Some(_) = req.usemock {
         log::debug!("Use mock mode");
         return Ok(Json(mock::fake_kline_result(&req)));
@@ -119,32 +139,34 @@ pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, RpcEr
         .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
         .fetch(&app_state.db);
 
-    let mut resp_t : Vec<i32> = Vec::new();
-    let mut resp_c : Vec<f32> = Vec::new();
-    let mut resp_o : Vec<f32> = Vec::new();
-    let mut resp_h : Vec<f32> = Vec::new();
-    let mut resp_l : Vec<f32> = Vec::new();
-    let mut resp_v : Vec<f32> = Vec::new();
+    let mut t : Vec<i32> = Vec::new();
+    let mut c : Vec<f32> = Vec::new();
+    let mut o : Vec<f32> = Vec::new();
+    let mut h : Vec<f32> = Vec::new();
+    let mut l : Vec<f32> = Vec::new();
+    let mut v : Vec<f32> = Vec::new();
 
     while let Some(item) = query_rows.try_next().await? {
-        resp_t.push(item.ts.timestamp() as i32);
-        resp_c.push(item.last.to_f32().unwrap_or(0.0));
-        resp_o.push(item.first.to_f32().unwrap_or(0.0));
-        resp_h.push(item.max.to_f32().unwrap_or(0.0));
-        resp_l.push(item.min.to_f32().unwrap_or(0.0));
-        resp_v.push(item.sum.to_f32().unwrap_or(0.0));
+        t.push(item.ts.timestamp() as i32);
+        c.push(item.last.to_f32().unwrap_or(0.0));
+        o.push(item.first.to_f32().unwrap_or(0.0));
+        h.push(item.max.to_f32().unwrap_or(0.0));
+        l.push(item.min.to_f32().unwrap_or(0.0));
+        v.push(item.sum.to_f32().unwrap_or(0.0));
     }
 
-    log::debug!("Query {} results", resp_t.len());
+    log::debug!("Query {} results", t.len());
 
-    if resp_t.is_empty() {
-        return Ok(Json(KlineResult{s: String::from("no_data"), 
-            t: resp_t, c: resp_c, o: resp_o, h: resp_h, l: resp_l, v: resp_v,}));
+    if t.is_empty() {
+
+        let next_query = format!("select time from {} where time < $1 order by time desc limit 1", TRADERECORD);
+        let nxt = sqlx::query_scalar(&next_query)
+            .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
+            .fetch_optional(&app_state.db).await?.map(|x : NaiveDateTime| x.timestamp() as i32);
+
+        return Ok(Json(KlineResult{s: String::from("no_data"), t, c, o, h, l, v, nxt}));
     }
 
-    Ok(Json(KlineResult{s: String::from("ok"), 
-    t: resp_t, c: resp_c, o: resp_o, h: resp_h, l: resp_l, v: resp_v,}))
-
-    //let next_query = format!("select time from {} where time < $1 order by time desc limit 1", TRADERECORD);
+    Ok(Json(KlineResult{s: String::from("ok"), t, c, o, h, l, v, nxt: None}))
 
 }
