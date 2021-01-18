@@ -130,7 +130,7 @@ message OrderPutRequest {
   string market = 2;
   OrderSide order_side = 3;
   OrderType order_type = 4;
-  string amount = 5;
+  string amount = 5; // always amount for base, even for market bid
   string price = 6; // should be empty or zero for market order
   string taker_fee = 7;
   string maker_fee = 8;

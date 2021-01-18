@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-//#![allow(unused_imports)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
@@ -7,19 +6,17 @@
 #![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 use actix_web::{web, App, HttpRequest, HttpServer, Responder};
+use sqlx::postgres::Postgres;
+use sqlx::Pool;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-mod errors;
-mod mock;
-mod tradingview;
-mod types;
-use tradingview::{chart_config, history, symbols, unix_timestamp};
-use types::UserInfo;
+use dingir_exchange::restapi;
 
-struct AppState {
-    user_addr_map: Mutex<HashMap<String, UserInfo>>,
-}
+use restapi::public_history::recent_trades;
+use restapi::state::AppState;
+use restapi::tradingview::{chart_config, history, symbols, unix_timestamp};
+use restapi::types::UserInfo;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
     "pong"
@@ -44,15 +41,24 @@ async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
+    let mut conf = config_rs::Config::new();
+    let config_file = dotenv::var("CONFIG_FILE").unwrap();
+    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
+
+    let dburl = conf.get_str("db_history").unwrap();
     let user_map = web::Data::new(AppState {
         user_addr_map: Mutex::new(HashMap::new()),
+        db: Pool::<Postgres>::connect(&dburl).await.unwrap(),
     });
+
+    log::debug!("Prepared db connection: {}", &dburl);
 
     HttpServer::new(move || {
         App::new().app_data(user_map.clone()).service(
             web::scope("/restapi")
                 .route("/ping", web::get().to(ping))
                 .route("/user/{id_or_addr}", web::get().to(get_user))
+                .route("/recenttrades/{market}/{limit}", web::get().to(recent_trades))
                 .service(
                     web::scope("/tradingview")
                         .route("/time", web::get().to(unix_timestamp))

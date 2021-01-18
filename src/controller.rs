@@ -3,6 +3,7 @@ use crate::database::OperationLogSender;
 use crate::market;
 use crate::sequencer::Sequencer;
 use crate::{config, utils};
+use anyhow::anyhow;
 use rust_decimal::Decimal;
 use serde_json::json;
 use std::cell::RefCell;
@@ -100,11 +101,11 @@ impl Controller {
             rt: tokio::runtime::Handle::current(),
         }
     }
-    pub(super) fn prepare_stub(self) {
+    pub fn prepare_stub(self) {
         unsafe { G_STUB = Some(self) };
     }
 
-    pub(super) fn release_stub() {
+    pub fn release_stub() {
         unsafe { G_STUB = None };
     }
 
@@ -479,7 +480,7 @@ impl Controller {
             OPERATION_ORDER_PUT => {
                 self.order_put(false, serde_json::from_str(params)?)?;
             }
-            _ => return simple_err!("invalid operation {}", method),
+            _ => return Err(anyhow!("invalid operation {}", method)),
         }
         Ok(())
     }

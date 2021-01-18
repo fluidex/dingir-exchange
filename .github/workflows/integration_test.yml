@@ -59,7 +59,7 @@ jobs:
       - name: Start exchange server daemon
         run: nohup ./target/debug/$BIN_NAME &
         env:
-          BIN_NAME: dingir-exchange
+          BIN_NAME: matchengine
 
       - name: Run trading tests
         run: cd ./examples/js/ && node trade.js
