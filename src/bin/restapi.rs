@@ -13,6 +13,7 @@ use std::sync::Mutex;
 
 use dingir_exchange::restapi;
 
+use restapi::personal_history::my_orders;
 use restapi::public_history::recent_trades;
 use restapi::state::AppState;
 use restapi::tradingview::{chart_config, history, symbols, unix_timestamp};
@@ -58,7 +59,8 @@ async fn main() -> std::io::Result<()> {
             web::scope("/restapi")
                 .route("/ping", web::get().to(ping))
                 .route("/user/{id_or_addr}", web::get().to(get_user))
-                .route("/recenttrades/{market}/{limit}", web::get().to(recent_trades))
+                .route("/recenttrades/{market}", web::get().to(recent_trades))
+                .route("/closedorders/{market}/{user_id}", web::get().to(my_orders))
                 .service(
                     web::scope("/tradingview")
                         .route("/time", web::get().to(unix_timestamp))

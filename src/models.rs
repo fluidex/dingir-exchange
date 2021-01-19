@@ -1,8 +1,9 @@
-#![allow(unused_imports)]
-#![allow(clippy::single_component_path_imports)]
-
+use chrono::NaiveDateTime;
+use serde::Serialize;
 pub type DecimalDbType = rust_decimal::Decimal;
-pub type TimestampDbType = sqlx::types::chrono::NaiveDateTime;
+// https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
+// pub type TimestampDbType = DateTime<Utc>;
+pub type TimestampDbType = NaiveDateTime;
 
 pub mod tablenames {
     pub const BALANCEHISTORY: &str = "balance_history";
@@ -31,14 +32,14 @@ pub struct BalanceHistory {
     pub detail: String,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
 pub struct OrderHistory {
     pub id: i64,
     pub create_time: TimestampDbType,
     pub finish_time: TimestampDbType,
     pub user_id: i32,
     pub market: String,
-    // Type enum: MARKET or LIMIT
+    // TODO: Type enum: MARKET or LIMIT
     pub t: i16,
     pub side: i16,
     pub price: DecimalDbType,
