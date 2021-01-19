@@ -17,10 +17,12 @@ pub struct OrderResponse {
 pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<OrderResponse>, RpcError> {
     let market = req.match_info().get("market").unwrap();
     let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
-    if user_id.is_err() {
-        return Err(RpcError::bad_request("invalid user_id"));
-    }
-    let user_id = user_id.unwrap();
+    let user_id = match user_id {
+        Err(_) => {
+            return Err(RpcError::bad_request("invalid user_id"));
+        }
+        _ => user_id.unwrap()
+    };
     let qstring = qstring::QString::from(req.query_string());
     let limit = min(100, qstring.get("limit").unwrap_or_default().parse::<usize>().unwrap_or(20));
     let offset = qstring.get("offset").unwrap_or_default().parse::<usize>().unwrap_or(0);
