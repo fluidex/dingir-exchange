@@ -21,7 +21,7 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
         Err(_) => {
             return Err(RpcError::bad_request("invalid user_id"));
         }
-        _ => user_id.unwrap()
+        _ => user_id.unwrap(),
     };
     let qstring = qstring::QString::from(req.query_string());
     let limit = min(100, qstring.get("limit").unwrap_or_default().parse::<usize>().unwrap_or(20));
