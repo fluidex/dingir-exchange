@@ -18,7 +18,7 @@ pub async fn recent_trades(req: HttpRequest, _data: web::Data<AppState>) -> impl
     if !check_market_exists(market) {
         return Err(RpcError::bad_request("invalid market"));
     }
-    // TODO: this API result should be catched, either in-process or using redis
+    // TODO: this API result should be cached, either in-memory or using redis
     // TODO: check market valid
     // TODO: finish this after kline is done.
     // models::TradeHistory is more user-centric,
