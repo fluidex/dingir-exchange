@@ -133,7 +133,6 @@ pub struct SliceHistory {
     pub end_trade_id: i64,
 }
 
-
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct TradeRecord {
     pub time: TimestampDbType,
@@ -336,7 +335,6 @@ impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
 }
 
 impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for SliceHistory {}
-
 
 /* --------------------- models::TradeRecord -----------------------------*/
 impl sqlxextend::TableSchemas for TradeRecord {
