@@ -79,7 +79,7 @@ dependencies = [
  "serde_urlencoded",
  "sha-1 0.9.2",
  "slab",
- "time 0.2.23",
+ "time 0.2.24",
 ]
 
 [[package]]
@@ -245,7 +245,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "socket2",
- "time 0.2.23",
+ "time 0.2.24",
  "tinyvec 1.1.0",
  "url",
 ]
@@ -579,6 +579,7 @@ checksum = "942f72db697d8767c22d46a598e01f2d3b475501ea43d0db4f16d90259182d0b"
 dependencies = [
  "num-integer",
  "num-traits 0.2.12",
+ "serde 1.0.116",
  "time 0.1.44",
 ]
 
@@ -620,7 +621,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784ad0fbab4f3e9cef09f20e0aea6000ae08d2cb98ac4c0abc53df18803d702f"
 dependencies = [
  "percent-encoding",
- "time 0.2.23",
+ "time 0.2.24",
  "version_check",
 ]
 
@@ -2774,9 +2775,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.2.23"
+version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcdaeea317915d59b2b4cd3b5efcd156c309108664277793f5351700c02ce98b"
+checksum = "273d3ed44dca264b0d6b3665e8d48fb515042d42466fad93d2a45b90ec4058f7"
 dependencies = [
  "const_fn",
  "libc",

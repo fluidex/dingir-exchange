@@ -27,7 +27,7 @@ rdkafka = "0.24.0"
 nix = "0.18.0"
 anyhow = "1.0.32"
 sqlx = { version = "0.4.2", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ] }
-chrono = "0.4.15"
+chrono = { version = "0.4.15", features = ["serde"] }
 rust_decimal = { version = "1.8.1", features = ["postgres", "diesel", "bytes", "byteorder"] }
 rust_decimal_macros = "1.8.1"
 

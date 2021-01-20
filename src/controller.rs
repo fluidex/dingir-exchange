@@ -3,6 +3,7 @@ use crate::database::OperationLogSender;
 //use crate::kline::KlineUpdater;
 use crate::market;
 use crate::sequencer::Sequencer;
+use crate::utils::FTimestamp;
 use crate::{config, utils};
 use anyhow::anyhow;
 use rust_decimal::Decimal;
@@ -496,7 +497,7 @@ impl Controller {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
             id: self.sequencer.borrow_mut().next_operation_log_id() as i64,
-            time: utils::current_naive_time(),
+            time: FTimestamp(utils::current_timestamp()).into(),
             method: method.to_owned(),
             params,
         };

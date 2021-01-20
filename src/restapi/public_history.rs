@@ -12,10 +12,13 @@ fn check_market_exists(_market: &str) -> bool {
 }
 pub async fn recent_trades(req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
     let market = req.match_info().get("market").unwrap();
-    let limit = min(100, req.match_info().query("limit").parse::<usize>().unwrap_or(20));
+    let qstring = qstring::QString::from(req.query_string());
+    let limit = min(100, qstring.get("limit").unwrap_or_default().parse::<usize>().unwrap_or(20));
+    log::debug!("recent_trades market {} limit {}", market, limit);
     if !check_market_exists(market) {
         return Err(RpcError::bad_request("invalid market"));
     }
+    // TODO: this API result should be cached, either in-memory or using redis
     // TODO: check market valid
     // TODO: finish this after kline is done.
     // models::TradeHistory is more user-centric,
