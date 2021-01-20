@@ -133,7 +133,7 @@ pub struct SliceHistory {
     pub end_trade_id: i64,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
 pub struct TradeRecord {
     pub time: TimestampDbType,
     pub market: String,

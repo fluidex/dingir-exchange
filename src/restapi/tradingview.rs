@@ -137,7 +137,7 @@ pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, Trade
         "select time_bucket($1, time) as ts, first(price, time), 
     last(price, time), max(price), min(price), sum(amount) from {} 
     where market = $2 and time > $3 and time < $4
-    group by ts order by ts desc",
+    group by ts order by ts asc",
         TRADERECORD
     );
 
