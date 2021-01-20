@@ -10,6 +10,8 @@ use types::ConnectionType;
 
 use rdkafka::consumer::{stream_consumer, ConsumerContext, DefaultConsumerContext, StreamConsumer};
 
+use message::persist::MIGRATOR;
+
 //use sqlx::Connection;
 struct AppliedConsumer<C: ConsumerContext + 'static = DefaultConsumerContext>(stream_consumer::StreamConsumer<C>);
 
@@ -21,9 +23,7 @@ impl<C: ConsumerContext + 'static> message::consumer::RdConsumerExt for AppliedC
     }
 }
 
-use sqlx::migrate::Migrator;
 use sqlx::Connection;
-pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations/ts");
 
 fn main() {
     dotenv::dotenv().ok();

@@ -5,27 +5,26 @@ use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType, Trade};
 use crate::utils;
 use crate::{config, message};
+
+use std::cell::RefCell;
+use std::cmp::{min, Ordering};
+use std::collections::BTreeMap;
+use std::iter::Iterator;
+use std::rc::Rc;
+
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
-use std::iter::Iterator;
-
-use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::cmp::{min, Ordering};
 
-use std::collections::BTreeMap;
-
-use std::rc::Rc;
+pub use types::{OrderSide, OrderType};
 
 #[derive(PartialEq, PartialOrd, Eq, Ord)]
 pub struct MarketKeyAsk {
     pub order_price: Decimal,
     pub order_id: u64,
 }
-
 pub type MarketKey = MarketKeyAsk;
 
 #[derive(PartialEq, Eq)]
@@ -49,21 +48,6 @@ impl PartialOrd for MarketKeyBid {
     fn partial_cmp(&self, other: &MarketKeyBid) -> Option<Ordering> {
         Some(self.cmp(other))
     }
-}
-
-// TODO: store as string or int?
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(i16)]
-pub enum OrderType {
-    LIMIT,
-    MARKET,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(i16)]
-pub enum OrderSide {
-    ASK,
-    BID,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]

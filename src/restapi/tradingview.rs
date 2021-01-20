@@ -137,12 +137,12 @@ pub async fn history(req_origin: HttpRequest) -> Result<Json<KlineResult>, Trade
         "select time_bucket($1, time) as ts, first(price, time), 
     last(price, time), max(price), min(price), sum(amount) from {} 
     where market = $2 and time > $3 and time < $4
-    group by ts order by ts desc",
+    group by ts order by ts asc",
         TRADERECORD
     );
 
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
-        .bind(std::time::Duration::new(req.resolution as u64, 0))
+        .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // TODO: remove this magic number
         .bind(&req.symbol)
         .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
         .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
