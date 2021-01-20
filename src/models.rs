@@ -13,6 +13,8 @@ pub mod tablenames {
     pub const ORDERSLICE: &str = "order_slice";
     pub const BALANCESLICE: &str = "balance_slice";
     pub const SLICEHISTORY: &str = "slice_history";
+    //TODO: should rename to another one which is better distinguished with trade_history?
+    pub const TRADERECORD: &str = "trade_record";
 }
 
 use tablenames::*;
@@ -129,6 +131,15 @@ pub struct SliceHistory {
     pub end_operation_log_id: i64,
     pub end_order_id: i64,
     pub end_trade_id: i64,
+}
+
+#[derive(sqlx::FromRow, Debug, Clone)]
+pub struct TradeRecord {
+    pub time: TimestampDbType,
+    pub market: String,
+    pub trade_id: i64,
+    pub price: DecimalDbType,
+    pub amount: DecimalDbType,
 }
 
 /*
@@ -324,3 +335,23 @@ impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
 }
 
 impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for SliceHistory {}
+
+/* --------------------- models::TradeRecord -----------------------------*/
+impl sqlxextend::TableSchemas for TradeRecord {
+    fn table_name() -> &'static str {
+        TRADERECORD
+    }
+    const ARGN: i32 = 5;
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for TradeRecord {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.time);
+        arg.add(&self.market);
+        arg.add(self.trade_id);
+        arg.add(self.price);
+        arg.add(self.amount);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for TradeRecord {}

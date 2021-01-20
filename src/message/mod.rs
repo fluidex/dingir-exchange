@@ -16,6 +16,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+pub mod consumer;
+pub mod persist;
+
 pub struct SimpleProducerContext;
 impl ClientContext for SimpleProducerContext {}
 impl ProducerContext for SimpleProducerContext {
@@ -27,9 +30,9 @@ impl ProducerContext for SimpleProducerContext {
         }
     }
 }
-pub(crate) const ORDERS_TOPIC: &str = "orders";
-pub(crate) const TRADES_TOPIC: &str = "trades";
-pub(crate) const BALANCES_TOPIC: &str = "balances";
+pub const ORDERS_TOPIC: &str = "orders";
+pub const TRADES_TOPIC: &str = "trades";
+pub const BALANCES_TOPIC: &str = "balances";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BalanceMessage {

@@ -23,8 +23,7 @@ pub struct DatabaseWriterStatus {
 }
 pub struct DatabaseWriter<TableTarget, U = TableTarget>
 where
-    TableTarget: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
-    TableTarget: From<U> + TableSchemas,
+    TableTarget: From<U>,
     U: std::clone::Clone + Send,
 {
     pub sender: crossbeam_channel::Sender<U>,
@@ -49,6 +48,18 @@ where
     pub channel_receiver: crossbeam_channel::Receiver<U>,
     pub timer_interval: Duration,
     pub entry_limit: usize,
+}
+
+impl<U, T> DatabaseWriter<T, U>
+where
+    T: From<U>,
+    U: std::clone::Clone + Send,
+{
+    pub fn append(&self, item: U) {
+        // must not block
+        //log::debug!("append item done {:?}", item);
+        self.sender.try_send(item).unwrap();
+    }
 }
 
 impl<U> DatabaseWriter<U, U>
@@ -192,12 +203,6 @@ where
             log::warn!("db queue is full for {}", U::table_name());
         }
         full
-    }
-
-    pub fn append(&self, item: U) {
-        // must not block
-        //log::debug!("append item done {:?}", item);
-        self.sender.try_send(item).unwrap();
     }
 
     pub fn finish(self) -> types::SimpleResult {

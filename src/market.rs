@@ -58,6 +58,7 @@ pub enum OrderType {
     LIMIT,
     MARKET,
 }
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(i16)]
 pub enum OrderSide {
@@ -667,6 +668,7 @@ pub struct PriceInfo {
     pub price: Decimal,
     pub amount: Decimal,
 }
+
 pub struct MarketDepth {
     pub asks: Vec<PriceInfo>,
     pub bids: Vec<PriceInfo>,

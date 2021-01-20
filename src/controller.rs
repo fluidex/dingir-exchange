@@ -71,7 +71,6 @@ impl Controller {
         let asset_manager = AssetManager::new(&settings.assets).unwrap();
         let sequencer = Rc::new(RefCell::new(Sequencer::default()));
         let mut markets = HashMap::new();
-
         for entry in &settings.markets {
             let market = market::Market::new(
                 entry,
