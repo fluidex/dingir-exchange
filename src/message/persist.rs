@@ -3,6 +3,10 @@ use crate::{database, models, types, utils};
 use serde::Deserialize;
 use std::marker::PhantomData;
 use tonic::async_trait;
+use types::OrderSide;
+
+use sqlx::migrate::Migrator;
+pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations/ts");
 
 pub struct MsgDataPersistor<'a, U: Clone + Send, UM> {
     pub writer: &'a database::DatabaseWriter<U>,
@@ -32,6 +36,12 @@ impl From<types::Trade> for models::TradeRecord {
             trade_id: origin.id as i64,
             price: origin.price,
             amount: origin.amount,
+            quote_amount: origin.quote_amount,
+            taker_side: if origin.ask_order_id < origin.bid_order_id {
+                OrderSide::BID
+            } else {
+                OrderSide::ASK
+            },
         }
     }
 }

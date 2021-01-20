@@ -156,6 +156,9 @@ where
                                     break;
                                 }
                             }
+                            // TODO: looping here may make ctrl-c cannot stop the process!!
+                            // Deadloop without sleep Should almost never show up. It is too dangerous...
+                            std::thread::sleep(std::time::Duration::from_millis(10));
                             println!("exec sql: db fail: {}. retry.", dberr.message());
                         }
                         Err(e) => {
@@ -208,10 +211,13 @@ where
     pub fn finish(self) -> types::SimpleResult {
         drop(self.sender);
         for handle in self.threads {
+            //join should have timeout.
+            log::info!("joining threads in db writer");
             if let Err(e) = handle.join() {
-                println!("join threads err {:?} ", e);
+                log::error!("join threads failed: {:?} ", e);
             }
         }
+        log::debug!("db writer finished");
         Ok(())
     }
     pub fn status(&self) -> DatabaseWriterStatus {

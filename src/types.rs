@@ -4,25 +4,32 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 pub type SimpleResult = anyhow::Result<()>;
-/*
-macro_rules! simple_err {
-    ($msg:literal $(,)?) => {
-        std::result::Result::Err(anyhow::anyhow!($msg))
-    };
-    ($err:expr $(,)?) => ({
-        std::result::Result::Err(anyhow::anyhow!($err))
-    });
-    ($fmt:expr, $($arg:tt)*) => {
-        std::result::Result::Err(anyhow::anyhow!($fmt, $($arg)*))
-    };
-}
-*/
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(i16)]
 pub enum MarketRole {
     MAKER = 1,
     TAKER = 2,
+}
+
+// https://stackoverflow.com/questions/4848964/difference-between-text-and-varchar-character-varying
+// It seems we don't need varchar(n), text is enough?
+// https://github.com/launchbadge/sqlx/issues/237#issuecomment-610696905 must use 'varchar'!!!
+// text is more readable than #[repr(i16)] and TryFromPrimitive
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
+#[sqlx(rename = "varchar")]
+#[sqlx(rename_all = "lowercase")]
+pub enum OrderSide {
+    ASK,
+    BID,
+}
+// TryFromPrimitive
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
+#[sqlx(rename = "varchar")]
+#[sqlx(rename_all = "lowercase")]
+pub enum OrderType {
+    LIMIT,
+    MARKET,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

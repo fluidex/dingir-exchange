@@ -2,7 +2,6 @@ use crate::asset;
 use crate::asset::BalanceManager;
 use crate::controller::{Controller, G_STUB};
 use crate::database;
-use crate::market;
 use crate::models;
 use crate::types::SimpleResult;
 use crate::utils;
@@ -139,8 +138,8 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             let market = controller.markets.get_mut(&order.market).unwrap();
             let order_rc = Rc::new(RefCell::new(Order {
                 id: order.id as u64,
-                type_: market::OrderType::try_from(order.t).unwrap(),
-                side: market::OrderSide::try_from(order.side).unwrap(),
+                type_: order.order_type,
+                side: order.order_side,
                 create_time: FTimestamp::from(&order.create_time).0,
                 update_time: FTimestamp::from(&order.update_time).0,
                 market: market.name,
@@ -274,8 +273,8 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
             let record = OrderSlice {
                 id: order.id as i64,
                 slice_id,
-                t: order.type_ as i16,
-                side: order.side as i16,
+                order_type: order.type_,
+                order_side: order.side,
                 create_time: FTimestamp(order.create_time).into(),
                 update_time: FTimestamp(order.update_time).into(),
                 user_id: order.user as i32,

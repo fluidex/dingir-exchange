@@ -10,8 +10,8 @@ CREATE TABLE balance_slice (
 CREATE TABLE order_slice (
     id BIGINT CHECK (id >= 0) NOT NULL,
     slice_id BIGINT NOT NULL,
-    t SMALLINT CHECK (t >= 0) NOT NULL,
-    side SMALLINT CHECK (side >= 0) NOT NULL,
+    order_type VARCHAR(30) NOT NULL,
+    order_side VARCHAR(30) NOT NULL,
     create_time TIMESTAMP(0) NOT NULL,
     update_time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,

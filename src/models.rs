@@ -1,5 +1,7 @@
+use crate::types::OrderSide;
 use chrono::NaiveDateTime;
 use serde::Serialize;
+
 pub type DecimalDbType = rust_decimal::Decimal;
 // https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
 // pub type TimestampDbType = DateTime<Utc>;
@@ -41,9 +43,8 @@ pub struct OrderHistory {
     pub finish_time: TimestampDbType,
     pub user_id: i32,
     pub market: String,
-    // TODO: Type enum: MARKET or LIMIT
-    pub t: i16,
-    pub side: i16,
+    pub order_type: types::OrderType,
+    pub order_side: types::OrderSide,
     pub price: DecimalDbType,
     pub amount: DecimalDbType,
     pub taker_fee: DecimalDbType,
@@ -106,8 +107,8 @@ pub struct OrderSlice {
     pub id: i64,
     pub slice_id: i64,
     // Type enum: MARKET or LIMIT
-    pub t: i16,
-    pub side: i16,
+    pub order_type: types::OrderType,
+    pub order_side: types::OrderSide,
     pub create_time: TimestampDbType,
     pub update_time: TimestampDbType,
     pub user_id: i32,
@@ -140,6 +141,8 @@ pub struct TradeRecord {
     pub trade_id: i64,
     pub price: DecimalDbType,
     pub amount: DecimalDbType,
+    pub quote_amount: DecimalDbType,
+    pub taker_side: OrderSide,
 }
 
 /*
@@ -222,8 +225,8 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
         arg.add(self.finish_time);
         arg.add(self.user_id);
         arg.add(&self.market);
-        arg.add(self.t);
-        arg.add(self.side);
+        arg.add(self.order_type);
+        arg.add(self.order_side);
         arg.add(&self.price);
         arg.add(&self.amount);
         arg.add(&self.taker_fee);
@@ -269,8 +272,8 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.id);
         arg.add(self.slice_id);
-        arg.add(self.t);
-        arg.add(self.side);
+        arg.add(self.order_type);
+        arg.add(self.order_side);
         arg.add(self.create_time);
         arg.add(self.update_time);
         arg.add(self.user_id);
@@ -341,7 +344,7 @@ impl sqlxextend::TableSchemas for TradeRecord {
     fn table_name() -> &'static str {
         TRADERECORD
     }
-    const ARGN: i32 = 5;
+    const ARGN: i32 = 7;
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for TradeRecord {
@@ -351,6 +354,8 @@ impl sqlxextend::BindQueryArg<'_, DbType> for TradeRecord {
         arg.add(self.trade_id);
         arg.add(self.price);
         arg.add(self.amount);
+        arg.add(self.quote_amount);
+        arg.add(self.taker_side);
     }
 }
 

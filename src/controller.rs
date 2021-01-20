@@ -414,8 +414,8 @@ impl Controller {
         async {
             println!("do full reset: memory and db");
             self.reset_state();
+            // waiting for pending db writes
             tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
-            let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
             /*
             notice: migration in sqlx is rather crude. It simply add operating records into
             _sqlx_migrations table and once an operating is recorded, it never try to reapply
@@ -442,11 +442,18 @@ impl Controller {
                 tablenames::TRADEHISTORY,
                 tablenames::ORDERSLICE);
             */
-            let drop_cmd = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;";
-            // cannot insert multiple commands into a prepared statement
-            connection.execute(drop_cmd).await?;
-            // sqlx::query(drop_cmd).execute(&mut connection).await?;
-            crate::persist::MIGRATOR.run(&mut connection).await
+            // sqlx::query seems unable to handle multi statements, so `execute` is used here
+            let db_str = &self.settings.db_log;
+            let down_cmd = include_str!("../migrations/reset/down.sql");
+            let up_cmd = include_str!("../migrations/reset/up.sql");
+            let mut connection = ConnectionType::connect(db_str).await?;
+            connection.execute(down_cmd).await?;
+            let mut connection = ConnectionType::connect(db_str).await?;
+            connection.execute(up_cmd).await?;
+
+            let mut connection = ConnectionType::connect(db_str).await?;
+            crate::persist::MIGRATOR.run(&mut connection).await?;
+            crate::message::persist::MIGRATOR.run(&mut connection).await
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
