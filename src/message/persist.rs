@@ -1,18 +1,40 @@
-use crate::database;
-use super::consumer; //crate::message::consumer
-use rdkafka::consumer::Consumer;
+use crate::{database, types, models, utils};
+use super::consumer::{self, RdConsumerExt}; //crate::message::consumer
 use serde::Deserialize;
+use tonic::async_trait;
+use std::marker::PhantomData;
+
+pub struct MsgDataPersistor<'a, U : Clone + Send, UM> 
+{
+    pub writer: &'a database::DatabaseWriter<U>,
+    pub phantom: PhantomData<UM>,
+}
 
 //An simple handler, just persist it by DatabaseWriter
-impl<'a, 'c, C, U> TypedMessageHandler<'c, C> for &'a database::DatabaseWriter<U>
+#[async_trait]
+impl<'a, 'c, C, U, UM> consumer::TypedMessageHandler<'c, C> for MsgDataPersistor<'a, U, UM>
 where 
-    U: 'static + std::fmt::Debug + Clone + Send + for<'de> Deserialize<'de>,
-    C: Consumer + Sync,
+    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
+    U: Clone + Send + Sync + From<UM>,
+    C: RdConsumerExt + 'static,
 {
-    type DataType = U;
-    async fn on_message(&self, msg : U, _cr :&'c C)
+    type DataType = UM;
+    async fn on_message(&self, msg : UM, _cr :&'c C::SelfType)
     {
-        self.append(U);
+        self.writer.append(From::from(msg));
     }
-    async fn on_no_msg(&self, _cr: &'c C){} //do nothing
+    async fn on_no_msg(&self, _cr: &'c C::SelfType){} //do nothing
+}
+
+impl From<types::Trade> for models::TradeRecord
+{
+    fn from(origin : types::Trade) -> models::TradeRecord {
+        models::TradeRecord{
+            time: utils::FTimestamp(origin.timestamp).into(),
+            market: origin.market.clone(),
+            trade_id: origin.id as i64,
+            price: origin.price,
+            amount: origin.amount,
+        }
+    }
 }

@@ -4,85 +4,85 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::single_char_pattern)]
 
-use dingir_exchange::config;
-use dingir_exchange::controller::Controller;
-use dingir_exchange::persist;
-use dingir_exchange::server::{GrpcHandler, MatchengineServer};
+use dingir_exchange::{config, types, database, message, models};
+use database::{DatabaseWriter, DatabaseWriterConfig};
+use types::ConnectionType;
 
-use dingir_exchange::types::ConnectionType;
+use rdkafka::consumer::{StreamConsumer, DefaultConsumerContext, ConsumerContext, stream_consumer};
+
+//use sqlx::Connection;
+struct AppliedConsumer<C : ConsumerContext + 'static = DefaultConsumerContext> (stream_consumer::StreamConsumer<C>);
+
+impl<C: ConsumerContext + 'static> message::consumer::RdConsumerExt for AppliedConsumer<C>
+{
+    type CTXType = stream_consumer::StreamConsumerContext<C>;
+    type SelfType = stream_consumer::StreamConsumer<C>;
+    fn to_self(&self) -> &Self::SelfType{&self.0}
+}
+
+use sqlx::migrate::Migrator;
 use sqlx::Connection;
+pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations/ts"); 
 
 fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
-    //simple_logger::init().unwrap();
+
+    let mut conf = config_rs::Config::new();
+    let config_file = dotenv::var("CONFIG_FILE").unwrap();
+    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
+    let settings: config::Settings = conf.try_into().unwrap();
+    log::debug!("Settings: {:?}", settings);    
+
     let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
         .enable_all()
         .threaded_scheduler()
         .build()
         .expect("build runtime");
 
-    rt.block_on(async {
-        let stub = prepare().await.expect("Init state error");
-        stub.prepare_stub();
+    let consumer : StreamConsumer = rdkafka::config::ClientConfig::new()
+        .set("bootstrap.servers", &settings.brokers)
+        .set("group.id", "kline_data_fetcher")
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .create().unwrap();
+    let consumer = AppliedConsumer(consumer);
 
-        let rpc_thread = std::thread::spawn(move || {
-            let mut aux_rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
-                .enable_all()
-                .basic_scheduler()
-                .build()
-                .expect("build auxiliary runtime");
+    rt.block_on(async move {
 
-            println!("start grpc under single-thread runtime");
-            aux_rt.block_on(grpc_run()).unwrap()
-        });
+        MIGRATOR.run(&mut ConnectionType::connect(&settings.db_history).await.unwrap()).await.ok();
 
-        tokio::runtime::Handle::current()
-            .spawn_blocking(|| rpc_thread.join())
-            .await
-            .unwrap()
+        let persistor : DatabaseWriter<models::TradeRecord> = 
+            DatabaseWriter::new(&DatabaseWriterConfig {
+                database_url: settings.db_history.clone(),
+                run_daemon: true,
+                inner_buffer_size: 8192,
+            }).unwrap();
+        
+        loop {
+
+            let cr_main = message::consumer::SimpleConsumer::new(&consumer)        
+            .add_topic(message::TRADES_TOPIC, 
+                message::persist::MsgDataPersistor::<models::TradeRecord, types::Trade>{
+                    writer: &persistor,
+                    phantom: std::marker::PhantomData,
+                })
+            .unwrap();
+
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    log::info!("Ctrl-c received, shutting down");
+                    break;
+                },
+    
+                err = cr_main.run_stream(|cr|cr.start()) => {
+                    log::error!("Kafka consumer error: {}", err);
+                }
+            }
+        }
+
+        tokio::task::spawn_blocking(move || persistor.finish()).await.unwrap().unwrap();
     })
-    .unwrap();
 
-    Controller::release_stub();
-}
-
-async fn prepare() -> anyhow::Result<Controller> {
-    let mut conf = config_rs::Config::new();
-    let config_file = dotenv::var("CONFIG_FILE")?;
-    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
-    let settings: config::Settings = conf.try_into().unwrap();
-    println!("Settings: {:?}", settings);
-
-    let mut conn = ConnectionType::connect(&settings.db_log).await?;
-    persist::MIGRATOR.run(&mut conn).await?;
-    let mut grpc_stub = Controller::new(settings);
-    persist::init_from_db(&mut conn, &mut grpc_stub).await?;
-    Ok(grpc_stub)
-}
-
-async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
-    persist::init_persist_timer();
-
-    let addr = "0.0.0.0:50051".parse().unwrap();
-    let grpc = GrpcHandler {};
-    println!("Starting gprc service");
-
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        println!("Ctrl-c received, shutting down");
-        tx.send(()).ok();
-    });
-
-    tonic::transport::Server::builder()
-        .add_service(MatchengineServer::new(grpc))
-        .serve_with_shutdown(addr, async {
-            rx.await.ok();
-        })
-        .await?;
-
-    println!("Shutted down");
-    Ok(())
 }
