@@ -20,7 +20,7 @@ CREATE TABLE order_history (
     user_id INT CHECK (user_id >= 0) NOT NULL,
     market VARCHAR(30) NOT NULL,
     order_type VARCHAR(30) NOT NULL,
-    ordeer_side VARCHAR(30) NOT NULL,
+    order_side VARCHAR(30) NOT NULL,
     price DECIMAL(30, 8) NOT NULL,
     amount DECIMAL(30, 8) NOT NULL,
     taker_fee DECIMAL(30, 4) NOT NULL,
