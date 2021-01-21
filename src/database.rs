@@ -127,7 +127,7 @@ where
     U: 'static + TableSchemas,
     U: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
 {
-    async fn execute(self, mut conn : sqlx::pool::PoolConnection<DbType>, mut ret : sync::mpsc::Sender<WriterMsg<U>>)
+    async fn execute(mut self, mut conn : sqlx::pool::PoolConnection<DbType>, mut ret : sync::mpsc::Sender<WriterMsg<U>>)
     {
         let entries = &self.data;
 
@@ -148,7 +148,8 @@ where
                 }
                 ret.send(WriterMsg::Done(self)).await
             }
-            Err(e) => {
+            Err((resident, e)) => {
+                self.data = resident;
                 ret.send(WriterMsg::Fail(e, self)).await
             }      
         };

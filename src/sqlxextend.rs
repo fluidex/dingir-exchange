@@ -103,11 +103,25 @@ pub struct InsertTable {}
 
 impl FinalQuery for InsertTable {
     fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
-        let maydone = res?;
-        if maydone.rows_affected() != 1 {
-            return Ok(SqlResultExt::Issue((0, "Insert no line")));
+        //omit duplicate error
+        match res {
+            Err(sqlx::Error::Database(dberr)) => {
+                if let Some(code) = dberr.code() {
+                    if code == "23505" {
+                        return Ok(SqlResultExt::Issue((0, "Insert no line")));
+                    }        
+                }
+                Err(sqlx::Error::Database(dberr))
+            },
+            Err(any) => Err(any),
+            Ok(done) => {
+                if done.rows_affected() != 1 {
+                    Ok(SqlResultExt::Issue((0, "Insert no line")))
+                }else{
+                    Ok(SqlResultExt::Done)
+                }
+            }
         }
-        Ok(SqlResultExt::Done)
     }
 }
 
@@ -218,6 +232,7 @@ impl<T: TableSchemas> CommonSQLQuery<[T], sqlx::Postgres> for InsertTableBatch {
                         .fold(String::new(), |acc, s| if acc.is_empty() { s } else { acc + "," + &s })
                     + ")"
             })
+            + " ON CONFLICT DO NOTHING"
     }
 }
 
@@ -238,11 +253,12 @@ where
 }
 
 impl InsertTableBatch {
-    pub async fn sql_query_fine<'c, 'a, Q, C, DB>(qr_v: &'a [Q], conn: &'c mut C) -> Result<SqlResultExt, sqlx::Error>
+    pub async fn sql_query_fine<'c, 'a, Q, C, DB>(qr_v: &'a [Q], conn: &'c mut C) -> Result<SqlResultExt, (Vec<Q>, sqlx::Error)>
     where
         DB: CommonSQLQueryWithBind,
         for<'r> &'r mut C: sqlx::Executor<'r, Database = DB>,
         C: std::borrow::BorrowMut<C> + Send,
+        Q: Clone,
         [Q]: SqlxAction<'a, Self, DB>,
         Self: CommonSQLQuery<[Q], DB>,
     {
@@ -259,17 +275,21 @@ impl InsertTableBatch {
             for n in (3..11).rev() {
                 if qr_vm.len() >= (1 << n) {
                     let qr_used = &qr_vm[..(1 << n)];
-                    qr_vm = &qr_vm[(1 << n)..];
                     //log::debug!("batch {} queries", qr_used.len());
-                    Self::sql_query(qr_used, &mut *conn).await?;
+                    if let Err(e) = Self::sql_query(qr_used, &mut *conn).await{
+                        return Err((qr_vm.to_vec(), e));
+                    }
+                    qr_vm = &qr_vm[(1 << n)..];
                     break;
                 }
             }
         }
 
         if !qr_vm.is_empty() {
-            log::debug!("batch {} queries", qr_vm.len());
-            Self::sql_query(qr_vm, &mut *conn).await?;
+            //log::debug!("batch {} queries", qr_vm.len());
+            if let Err(e) = Self::sql_query(qr_vm, &mut *conn).await{
+                return Err((qr_vm.to_vec(), e));
+            }            
         }
 
         Ok(SqlResultExt::Done)
@@ -326,13 +346,13 @@ mod tests {
 
         assert_eq!(
             <InsertTableBatch as CommonSQLQuery<[TestSchema], sqlx::Postgres>>::sql_statement_rt(&testvec),
-            "INSERT INTO just_test VALUES ($1,$2,$3),($4,$5,$6)"
+            "INSERT INTO just_test VALUES ($1,$2,$3),($4,$5,$6) ON CONFLICT DO NOTHING"
         );
 
         let testsingle = [TestSchema {}];
         assert_eq!(
             <InsertTableBatch as CommonSQLQuery<[TestSchema], sqlx::Postgres>>::sql_statement_rt(&testsingle),
-            "INSERT INTO just_test VALUES ($1,$2,$3)"
+            "INSERT INTO just_test VALUES ($1,$2,$3) ON CONFLICT DO NOTHING"
         );
     }
 }

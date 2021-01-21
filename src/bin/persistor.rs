@@ -43,7 +43,7 @@ fn main() {
 
     let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
         .set("bootstrap.servers", &settings.brokers)
-        .set("group.id", "kline_data_fetcher")
+        .set("group.id", &settings.consumer_group)
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
