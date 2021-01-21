@@ -4,11 +4,12 @@
     "fmt": "npx prettier --write *.js *.mjs package.json"
   },
   "dependencies": {
+    "axios": "^0.21.1",
     "decimal.js": "^10.2.0",
+    "dotenv": "^8.2.0",
     "grpc": "^1.24.2",
     "grpc-caller": "^0.13.0",
-    "kafkajs": "^1.11.0",
-    "dotenv": "^8.2.0"
+    "kafkajs": "^1.11.0"
   },
   "devDependencies": {
     "eslint": "^6.8.0",
