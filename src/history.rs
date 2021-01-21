@@ -34,11 +34,11 @@ pub struct DatabaseHistoryWriter {
 }
 
 impl DatabaseHistoryWriter {
-    pub fn new(config: &DatabaseWriterConfig) -> Result<DatabaseHistoryWriter> {
+    pub fn new(config: &DatabaseWriterConfig, pool : &sqlx::Pool<crate::types::DbType>) -> Result<DatabaseHistoryWriter> {
         Ok(DatabaseHistoryWriter {
-            balance_writer: BalanceWriter::new(config)?,
-            trade_writer: TradeWriter::new(config)?,
-            order_writer: OrderWriter::new(config)?,
+            balance_writer: BalanceWriter::new(config).start_schedule(pool)?,
+            trade_writer: TradeWriter::new(config).start_schedule(pool)?,
+            order_writer: OrderWriter::new(config).start_schedule(pool)?,
         })
     }
 }
@@ -48,7 +48,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         self.balance_writer.is_block() || self.trade_writer.is_block() || self.order_writer.is_block()
     }
     fn append_balance_history(&mut self, data: models::BalanceHistory) {
-        self.balance_writer.append(data);
+        self.balance_writer.append(data).ok();
     }
     fn append_order_history(&mut self, order: &market::Order) {
         let data = models::OrderHistory {
@@ -67,7 +67,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
             finished_quote: order.finished_quote,
             finished_fee: order.finished_fee,
         };
-        self.order_writer.append(data);
+        self.order_writer.append(data).ok();
     }
 
     fn append_trade_history(&mut self, trade: &Trade) {
@@ -101,7 +101,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
             fee: trade.bid_fee,
             counter_order_fee: trade.ask_fee, // counter order
         };
-        self.trade_writer.append(ask_trade);
-        self.trade_writer.append(bid_trade);
+        self.trade_writer.append(ask_trade).ok();
+        self.trade_writer.append(bid_trade).ok();
     }
 }

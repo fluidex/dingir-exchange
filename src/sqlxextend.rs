@@ -238,13 +238,13 @@ where
 }
 
 impl InsertTableBatch {
-    pub async fn sql_query_fine<'c, 'a, Q, C>(qr_v: &'a [Q], conn: &'c mut C) -> Result<SqlResultExt, sqlx::Error>
+    pub async fn sql_query_fine<'c, 'a, Q, C, DB>(qr_v: &'a [Q], conn: &'c mut C) -> Result<SqlResultExt, sqlx::Error>
     where
-        for<'r> &'r mut C: sqlx::Executor<'r, Database = C::Database>,
-        C: sqlx::Connection + std::borrow::BorrowMut<C>,
-        C::Database: CommonSQLQueryWithBind,
-        [Q]: SqlxAction<'a, Self, C::Database>,
-        Self: CommonSQLQuery<[Q], C::Database>,
+        DB: CommonSQLQueryWithBind,
+        for<'r> &'r mut C: sqlx::Executor<'r, Database = DB>,
+        C: std::borrow::BorrowMut<C> + Send,
+        [Q]: SqlxAction<'a, Self, DB>,
+        Self: CommonSQLQuery<[Q], DB>,
     {
         if qr_v.is_empty() {
             return Ok(SqlResultExt::Issue((0, "No element for insert")));

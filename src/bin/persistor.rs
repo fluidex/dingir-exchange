@@ -6,7 +6,7 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use types::ConnectionType;
+use types::{ConnectionType, DbType};
 
 use rdkafka::consumer::{stream_consumer, ConsumerContext, DefaultConsumerContext, StreamConsumer};
 
@@ -43,7 +43,7 @@ fn main() {
 
     let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
         .set("bootstrap.servers", &settings.brokers)
-        .set("group.id", "kline_data_fetcher2")
+        .set("group.id", "kline_data_fetcher")
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
@@ -57,21 +57,21 @@ fn main() {
             .await
             .ok();
 
+        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
+
         let persistor: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&DatabaseWriterConfig {
-            database_url: settings.db_history.clone(),
-            run_daemon: true,
-            inner_buffer_size: 8192,
+            spawn_limit: 4,
+            apply_benchmark: true,
+            channel_limit: 1024,
         })
+        .start_schedule(&pool)
         .unwrap();
 
         loop {
             let cr_main = message::consumer::SimpleConsumer::new(&consumer)
                 .add_topic(
                     message::TRADES_TOPIC,
-                    message::persist::MsgDataPersistor::<models::TradeRecord, types::Trade> {
-                        writer: &persistor,
-                        phantom: std::marker::PhantomData,
-                    },
+                    message::persist::MsgDataPersistor::<_, types::Trade>::new( &persistor),
                 )
                 .unwrap();
 
@@ -87,6 +87,6 @@ fn main() {
             }
         }
 
-        tokio::task::spawn_blocking(move || persistor.finish()).await.unwrap().unwrap();
+        persistor.finish().await.unwrap();
     })
 }

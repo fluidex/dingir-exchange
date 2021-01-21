@@ -14,7 +14,7 @@ use tonic::{self, Status};
 //use rust_decimal::Decimal;
 use crate::models::{self};
 use crate::types;
-use types::{ConnectionType, SimpleResult};
+use types::{ConnectionType, SimpleResult, DbType};
 
 use crate::dto::*;
 
@@ -26,7 +26,7 @@ use crate::history::HistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use sqlx::Connection;
+use sqlx::{Connection};
 use sqlx::Executor;
 
 use serde::Serialize;
@@ -53,14 +53,16 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
+
         let balance_manager = Rc::new(RefCell::new(BalanceManager::new(&settings.assets).unwrap()));
         let message_manager = Rc::new(RefCell::new(new_message_manager_with_kafka_backend(&settings.brokers).unwrap()));
         let history_writer = Rc::new(RefCell::new(
             DatabaseHistoryWriter::new(&DatabaseWriterConfig {
-                database_url: settings.db_history.clone(),
-                run_daemon: true,
-                inner_buffer_size: 8192,
-            })
+                spawn_limit: 4,
+                apply_benchmark: true,
+                channel_limit: 1024,
+            },
+            &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap())
             .unwrap(),
         ));
         let update_controller = Rc::new(RefCell::new(BalanceUpdateController::new(
@@ -83,10 +85,11 @@ impl Controller {
             markets.insert(entry.name.clone(), market);
         }
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
-            database_url: settings.db_log.clone(),
-            run_daemon: true,
-            inner_buffer_size: 8192,
+            spawn_limit: 4,
+            apply_benchmark: true,
+            channel_limit: 1024,
         })
+        .start_schedule(&sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap())
         .unwrap();
         Controller {
             settings,
@@ -492,7 +495,7 @@ impl Controller {
         }
         Ok(())
     }
-    fn append_operation_log<Operation>(&self, method: &str, req: &Operation)
+    fn append_operation_log<Operation>(&mut self, method: &str, req: &Operation)
     where
         Operation: Serialize,
     {
@@ -503,7 +506,7 @@ impl Controller {
             method: method.to_owned(),
             params,
         };
-        self.log_handler.append(operation_log)
+        self.log_handler.append(operation_log).ok();
     }
 }
 
