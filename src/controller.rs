@@ -184,6 +184,7 @@ impl Controller {
             .map(|order_map| {
                 order_map
                     .values()
+                    .rev()
                     .skip(req.offset as usize)
                     .take(limit as usize)
                     .map(|order_rc| {

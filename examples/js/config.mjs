@@ -1,6 +1,8 @@
 import Dotenv from "dotenv";
 Dotenv.config();
 
+export const VERBOSE = !!process.env.VERBOSE;
+
 // constants
 export const ORDER_SIDE_ASK = 0;
 export const ORDER_SIDE_BID = 1;

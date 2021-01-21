@@ -7,7 +7,8 @@ import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_MARKET,
-  ORDER_TYPE_LIMIT
+  ORDER_TYPE_LIMIT,
+  VERBOSE
 } from "./config.mjs"; // dotenv
 import {
   balanceQuery,
@@ -66,6 +67,9 @@ export async function depositAssets(assets) {
 }
 
 export async function putLimitOrder(side, amount, price) {
+  if (VERBOSE) {
+    console.log("putLimitOrder", { side, amount, price });
+  }
   return await orderPut(
     userId,
     market,
@@ -78,19 +82,24 @@ export async function putLimitOrder(side, amount, price) {
   );
 }
 
+export function getRandomFloat(min, max) {
+  return Math.random() * (max - min) + min;
+}
+export function getRandomFloatAround(value, ratio = 0.05, abs = 0) {
+  const eps1 = getRandomFloat(-abs, abs);
+  const eps2 = getRandomFloat(-value * ratio, value * ratio);
+  return value + eps1 + eps2;
+}
+export function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
 export async function putRandOrder() {
   // TODO: market order?
-  function getRandomArbitrary(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-  function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min)) + min;
-  }
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
-  const price = getRandomArbitrary(200, 1200);
-  const amount = getRandomArbitrary(1, 5);
+  const price = getRandomFloat(200, 1200);
+  const amount = getRandomFloat(1, 5);
   const order = await putLimitOrder(side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }
