@@ -21,8 +21,8 @@ pub trait RdConsumerExt {
     fn to_self(&self) -> &Self::SelfType;
 }
 
-/* 
-    Notice this trait is not easy to be implied (self cannot be involved 
+/*
+    Notice this trait is not easy to be implied (self cannot be involved
     into the return futures, that is why I abondoned the async_trait macro)
     We should provide some trait which is better understood for users
 */
@@ -30,7 +30,6 @@ pub trait MessageHandlerAsync<'c, C: RdConsumerExt>: Send {
     fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
-
 
 /*A consumer which can handle mutiple topics*/
 pub struct SimpleConsumer<'c, C: RdConsumerExt> {
@@ -115,23 +114,20 @@ pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
     fn on_no_msg(&self, cr: &'c C::SelfType);
 }
 
-impl<'c, C: RdConsumerExt, U : TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for U
-{
+impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for U {
     type DataType = <Self as TypedMessageHandler<'c, C>>::DataType;
 
-    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>
-    {
+    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         <Self as TypedMessageHandler<'c, C>>::on_message(&self, msg, cr);
-        Box::pin(async{})
+        Box::pin(async {})
     }
-    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>
-    {
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         <Self as TypedMessageHandler<'c, C>>::on_no_msg(&self, cr);
-        Box::pin(async{})
+        Box::pin(async {})
     }
 }
 
-impl<'c, C, U> MessageHandlerAsync <'c, C> for U
+impl<'c, C, U> MessageHandlerAsync<'c, C> for U
 where
     U: TypedMessageHandlerAsync<'c, C>,
     C: RdConsumerExt + 'static,
@@ -148,14 +144,13 @@ where
                 }
                 Err(e) => {
                     log::error!("{}", e);
-                    Box::pin(async{})
+                    Box::pin(async {})
                 }
             }
-        }else {
+        } else {
             log::error!("Receive empty message");
-            Box::pin(async{})            
+            Box::pin(async {})
         }
-
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         <Self as TypedMessageHandlerAsync<'c, C>>::on_no_msg(&self, cr)

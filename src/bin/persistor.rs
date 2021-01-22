@@ -71,7 +71,7 @@ fn main() {
             let cr_main = message::consumer::SimpleConsumer::new(&consumer)
                 .add_topic(
                     message::TRADES_TOPIC,
-                    message::persist::MsgDataPersistor::<_, types::Trade>::new( &persistor),
+                    message::persist::MsgDataPersistor::<_, types::Trade>::new(&persistor),
                 )
                 .unwrap();
 

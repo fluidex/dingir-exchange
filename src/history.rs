@@ -34,7 +34,7 @@ pub struct DatabaseHistoryWriter {
 }
 
 impl DatabaseHistoryWriter {
-    pub fn new(config: &DatabaseWriterConfig, pool : &sqlx::Pool<crate::types::DbType>) -> Result<DatabaseHistoryWriter> {
+    pub fn new(config: &DatabaseWriterConfig, pool: &sqlx::Pool<crate::types::DbType>) -> Result<DatabaseHistoryWriter> {
         Ok(DatabaseHistoryWriter {
             balance_writer: BalanceWriter::new(config).start_schedule(pool)?,
             trade_writer: TradeWriter::new(config).start_schedule(pool)?,

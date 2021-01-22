@@ -14,7 +14,7 @@ use tonic::{self, Status};
 //use rust_decimal::Decimal;
 use crate::models::{self};
 use crate::types;
-use types::{ConnectionType, SimpleResult, DbType};
+use types::{ConnectionType, DbType, SimpleResult};
 
 use crate::dto::*;
 
@@ -26,7 +26,7 @@ use crate::history::HistoryWriter;
 use rust_decimal::prelude::Zero;
 use std::collections::HashMap;
 
-use sqlx::{Connection};
+use sqlx::Connection;
 use sqlx::Executor;
 
 use serde::Serialize;
@@ -53,16 +53,17 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
-
         let balance_manager = Rc::new(RefCell::new(BalanceManager::new(&settings.assets).unwrap()));
         let message_manager = Rc::new(RefCell::new(new_message_manager_with_kafka_backend(&settings.brokers).unwrap()));
         let history_writer = Rc::new(RefCell::new(
-            DatabaseHistoryWriter::new(&DatabaseWriterConfig {
-                spawn_limit: 4,
-                apply_benchmark: true,
-                channel_limit: 1024,
-            },
-            &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap())
+            DatabaseHistoryWriter::new(
+                &DatabaseWriterConfig {
+                    spawn_limit: 4,
+                    apply_benchmark: true,
+                    channel_limit: 1024,
+                },
+                &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap(),
+            )
             .unwrap(),
         ));
         let update_controller = Rc::new(RefCell::new(BalanceUpdateController::new(

@@ -3,7 +3,6 @@ use crate::{database, models, types, utils};
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::marker::PhantomData;
-use tonic::async_trait;
 use types::OrderSide;
 
 use sqlx::migrate::Migrator;
@@ -14,15 +13,13 @@ pub struct MsgDataPersistor<U: Clone + Send, UM> {
     pub _phantom: PhantomData<UM>,
 }
 
-impl<U: Clone + Send, UM> MsgDataPersistor<U, UM>
-{
-    pub fn new(src : &database::DatabaseWriter<U>) -> Self {
-        MsgDataPersistor::<U, UM>{
+impl<U: Clone + Send, UM> MsgDataPersistor<U, UM> {
+    pub fn new(src: &database::DatabaseWriter<U>) -> Self {
+        MsgDataPersistor::<U, UM> {
             writer: RefCell::new(src.get_entry().unwrap()),
             _phantom: PhantomData,
-        }        
+        }
     }
-
 }
 
 //An simple handler, just persist it by DatabaseWriter

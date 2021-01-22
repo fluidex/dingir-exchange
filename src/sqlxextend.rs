@@ -109,15 +109,15 @@ impl FinalQuery for InsertTable {
                 if let Some(code) = dberr.code() {
                     if code == "23505" {
                         return Ok(SqlResultExt::Issue((0, "Insert no line")));
-                    }        
+                    }
                 }
                 Err(sqlx::Error::Database(dberr))
-            },
+            }
             Err(any) => Err(any),
             Ok(done) => {
                 if done.rows_affected() != 1 {
                     Ok(SqlResultExt::Issue((0, "Insert no line")))
-                }else{
+                } else {
                     Ok(SqlResultExt::Done)
                 }
             }
@@ -276,7 +276,7 @@ impl InsertTableBatch {
                 if qr_vm.len() >= (1 << n) {
                     let qr_used = &qr_vm[..(1 << n)];
                     //log::debug!("batch {} queries", qr_used.len());
-                    if let Err(e) = Self::sql_query(qr_used, &mut *conn).await{
+                    if let Err(e) = Self::sql_query(qr_used, &mut *conn).await {
                         return Err((qr_vm.to_vec(), e));
                     }
                     qr_vm = &qr_vm[(1 << n)..];
@@ -287,9 +287,9 @@ impl InsertTableBatch {
 
         if !qr_vm.is_empty() {
             //log::debug!("batch {} queries", qr_vm.len());
-            if let Err(e) = Self::sql_query(qr_vm, &mut *conn).await{
+            if let Err(e) = Self::sql_query(qr_vm, &mut *conn).await {
                 return Err((qr_vm.to_vec(), e));
-            }            
+            }
         }
 
         Ok(SqlResultExt::Done)
