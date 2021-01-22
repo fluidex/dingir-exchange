@@ -19,6 +19,7 @@ pub const INSERT_LIMIT: i64 = 5000;
 
 //https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=66bb75f8bb7b55d6bc8bfdb9d97ceb79
 
+//tracing the progress in a single tag
 #[derive(Debug)]
 struct ProgTracingStack(Vec<(u64, Option<u64>)>);
 
@@ -53,12 +54,12 @@ impl ProgTracingStack {
         if self.is_empty() {
             return None;
         }
-        let mut trace = *self.0.last().expect("has verified vector is not empty");
+        let mut trace = *self.last().expect("has verified vector is not empty");
 
         for trnow in self.iter_mut().rev().skip(1) {
             if n > trnow.0 {
                 trnow.1 = trace.1.or(Some(n));
-                self.0.pop();
+                self.pop();
                 return None;
             } else {
                 std::mem::swap(&mut (*trnow), &mut trace)
@@ -220,7 +221,6 @@ impl DatabaseWriterStatus {
             spawning_tasks: 0,
         }
     }
-
 }
 
 pub struct DatabaseWriterEntryImpl<'a, U: std::clone::Clone + Send>(&'a mut sync::mpsc::Sender<WriterMsg<U>>);
@@ -268,9 +268,11 @@ where
     sender: Option<sync::mpsc::Sender<WriterMsg<U>>>,
 
     status: sync::watch::Receiver<DatabaseWriterStatus>,
+    complete_notify: sync::watch::Receiver<TaskNotifyFlag>,
 
     config: DatabaseWriterConfig,
     status_send: Option<sync::watch::Sender<DatabaseWriterStatus>>,
+    complete_send: Option<sync::watch::Sender<TaskNotifyFlag>>,
 
     _phantom: PhantomData<TableTarget>,
 }
@@ -288,13 +290,16 @@ where
 {
     pub fn new(config: &DatabaseWriterConfig) -> DatabaseWriter<U> {
         let (s_tx, s_rx) = sync::watch::channel(DatabaseWriterStatus::new());
+        let (cp_tx, cp_rx) = sync::watch::channel(TaskNotifyFlag::new());
 
         DatabaseWriter::<U> {
             scheduler: None,
             sender: None,
             config: config.clone(),
             status: s_rx,
+            complete_notify: cp_rx,
             status_send: Some(s_tx),
+            complete_send: Some(cp_tx),
             _phantom: PhantomData,
         }
     }
@@ -349,6 +354,9 @@ struct DatabaseWriterScheduleCtx<T> {
     ctrl_chn: sync::mpsc::Receiver<WriterMsg<T>>,
     ctrl_notify: sync::mpsc::Sender<WriterMsg<T>>,
     pool: sqlx::Pool<DbType>,
+    complete_notify: sync::watch::Sender<TaskNotifyFlag>,
+    status_notify: sync::watch::Sender<DatabaseWriterStatus>,
+
     config: DatabaseWriterConfig,
 }
 
@@ -366,6 +374,8 @@ where
         let mut grace_down = false;
 
         loop {
+            self.status_notify.broadcast(status_tracing.clone()).ok();
+
             tokio::select! {
                 Ok(conn) = self.pool.acquire(), if !error_task_stack.is_empty() => {
                     tokio::spawn(error_task_stack.pop_back().unwrap().execute(conn, self.ctrl_notify.clone()));
@@ -376,9 +386,9 @@ where
                             if next_task_stack.is_empty() || next_task_stack.front().unwrap().is_limited(){
                                 next_task_stack.push_front(DatabaseWriterTask::new());
                             }
-
                             next_task_stack.front_mut().unwrap().add_data(data, notify);
-                            //TODO: this code block is duplicated
+                            status_tracing.pending_count += 1;
+
                             if status_tracing.spawning_tasks < self.config.spawn_limit {
                                 if let Some(conn) = self.pool.try_acquire() {
                                     status_tracing.spawning_tasks += 1;
@@ -394,9 +404,10 @@ where
                                 }
                             }
                         },
-                        WriterMsg::Done(ctx) => {
+                        WriterMsg::Done(mut ctx) => {
                             status_tracing.spawning_tasks -= 1;
                             if !next_task_stack.is_empty() {
+                                //TODO: this code block is duplicated
                                 if let Some(conn) = self.pool.try_acquire() {
                                     status_tracing.spawning_tasks += 1;
                                     let mut task = next_task_stack.pop_back().unwrap();
@@ -409,6 +420,9 @@ where
                                     }
                                     tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
                                 }
+                            }
+                            if let Some(notifies) = ctx.notify_flag.take() {
+                                self.complete_notify.broadcast(notify_tracing.finish_from(notifies)).ok();
                             }
                             if grace_down && status_tracing.spawning_tasks == 0 {break;}
                         },
@@ -448,6 +462,8 @@ where
         let ctx = DatabaseWriterScheduleCtx::<U> {
             ctrl_chn: chn_rx,
             ctrl_notify: chn_tx,
+            status_notify: self.status_send.take().unwrap(),
+            complete_notify: self.complete_send.take().unwrap(),
             pool: pool.clone(),
             config: self.config.clone(),
         };
