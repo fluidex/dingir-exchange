@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 pub enum SqlResultExt {
-    Done,
+    QueryResult,
     Issue((i32, &'static str)),
 }
 
@@ -44,13 +44,16 @@ pub trait CommonSQLQueryWithBind: sqlx::Database {
     type DefaultArg: for<'r> sqlx::Arguments<'r, Database = Self> + for<'r> sqlx::IntoArguments<'r, Self>;
 }
 
-pub trait FinalQuery {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error>;
+pub trait FinalQuery<DB>
+where
+    DB: sqlx::Database,
+{
+    fn query_final(res: Result<<DB as sqlx::Database>::QueryResult, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error>;
 }
 
 pub trait SqlxAction<'a, QT, DB>: BindQueryArg<'a, DB>
 where
-    QT: CommonSQLQuery<Self, DB> + FinalQuery,
+    QT: CommonSQLQuery<Self, DB> + FinalQuery<DB>,
     DB: CommonSQLQueryWithBind,
 {
     fn sql_query<'c, 'e, C>(&'a self, conn: C) -> Pin<Box<dyn Future<Output = Result<SqlResultExt, sqlx::Error>> + 'e + Send>>
@@ -70,7 +73,7 @@ where
     }
 }
 
-pub trait CommonSqlxAction<DB>: FinalQuery
+pub trait CommonSqlxAction<DB>: FinalQuery<DB>
 where
     DB: CommonSQLQueryWithBind,
 {
@@ -89,7 +92,7 @@ where
     }
 }
 
-impl<U: FinalQuery, DB: CommonSQLQueryWithBind> CommonSqlxAction<DB> for U {}
+impl<U: FinalQuery<DB>, DB: CommonSQLQueryWithBind> CommonSqlxAction<DB> for U {}
 
 /* ------- Implement for our default db (postgresql) ---------------------- */
 
@@ -101,8 +104,8 @@ impl CommonSQLQueryWithBind for sqlx::Postgres {
 
 pub struct InsertTable {}
 
-impl FinalQuery for InsertTable {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+impl FinalQuery<sqlx::Postgres> for InsertTable {
+    fn query_final(res: Result<<sqlx::Postgres as sqlx::Database>::QueryResult, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
         //omit duplicate error
         match res {
             Err(sqlx::Error::Database(dberr)) => {
@@ -118,7 +121,7 @@ impl FinalQuery for InsertTable {
                 if done.rows_affected() != 1 {
                     Ok(SqlResultExt::Issue((0, "Insert no line")))
                 } else {
-                    Ok(SqlResultExt::Done)
+                    Ok(SqlResultExt::QueryResult)
                 }
             }
         }
@@ -206,10 +209,10 @@ where
     }
 }
 
-impl FinalQuery for InsertTableBatch {
-    fn query_final<T: sqlx::Done>(res: Result<T, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
+impl<DB: sqlx::Database> FinalQuery<DB> for InsertTableBatch {
+    fn query_final(res: Result<DB::QueryResult, sqlx::Error>) -> Result<SqlResultExt, sqlx::Error> {
         res?;
-        Ok(SqlResultExt::Done)
+        Ok(SqlResultExt::QueryResult)
     }
 }
 
@@ -236,8 +239,8 @@ impl<T: TableSchemas> CommonSQLQuery<[T], sqlx::Postgres> for InsertTableBatch {
     }
 }
 
-pub trait CommonSQLQueryBatch<T: Sized, DB: sqlx::Database>: CommonSQLQuery<[T], DB> + FinalQuery {
-    type ElementQueryType: CommonSQLQuery<T, DB> + FinalQuery;
+pub trait CommonSQLQueryBatch<T: Sized, DB: sqlx::Database>: CommonSQLQuery<[T], DB> + FinalQuery<DB> {
+    type ElementQueryType: CommonSQLQuery<T, DB> + FinalQuery<DB>;
 }
 
 impl<T: Sized + TableSchemas> CommonSQLQueryBatch<T, sqlx::Postgres> for InsertTableBatch {
@@ -292,7 +295,7 @@ impl InsertTableBatch {
             }
         }
 
-        Ok(SqlResultExt::Done)
+        Ok(SqlResultExt::QueryResult)
     }
 }
 

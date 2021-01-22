@@ -17,7 +17,7 @@ pub enum MarketRole {
 // https://github.com/launchbadge/sqlx/issues/237#issuecomment-610696905 must use 'varchar'!!!
 // text is more readable than #[repr(i16)] and TryFromPrimitive
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
-#[sqlx(rename = "varchar")]
+#[sqlx(type_name = "varchar")]
 #[sqlx(rename_all = "lowercase")]
 pub enum OrderSide {
     ASK,
@@ -25,7 +25,7 @@ pub enum OrderSide {
 }
 // TryFromPrimitive
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
-#[sqlx(rename = "varchar")]
+#[sqlx(type_name = "varchar")]
 #[sqlx(rename_all = "lowercase")]
 pub enum OrderType {
     LIMIT,

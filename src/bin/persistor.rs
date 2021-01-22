@@ -35,9 +35,8 @@ fn main() {
     let settings: config::Settings = conf.try_into().unwrap();
     log::debug!("Settings: {:?}", settings);
 
-    let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
+    let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .threaded_scheduler()
         .build()
         .expect("build runtime");
 

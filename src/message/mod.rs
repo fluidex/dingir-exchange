@@ -25,8 +25,11 @@ impl ProducerContext for SimpleProducerContext {
     type DeliveryOpaque = ();
     fn delivery(&self, result: &DeliveryResult, _: Self::DeliveryOpaque) {
         match result {
+            // TODO: how to handle this err
             Err(e) => println!("kafka send err: {:?}", e),
-            Ok(r) => println!("kafka send done: {:?}", r),
+            Ok(_r) => {
+                //println!("kafka send done: {:?}", r)
+            }
         }
     }
 }

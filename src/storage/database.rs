@@ -174,7 +174,7 @@ where
     U: 'static + TableSchemas,
     U: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
 {
-    async fn execute(mut self, mut conn: sqlx::pool::PoolConnection<DbType>, mut ret: sync::mpsc::Sender<WriterMsg<U>>) {
+    async fn execute(mut self, mut conn: sqlx::pool::PoolConnection<DbType>, ret: sync::mpsc::Sender<WriterMsg<U>>) {
         let entries = &self.data;
 
         log::debug!(
@@ -332,7 +332,7 @@ where
 
     pub async fn finish(self) -> types::SimpleResult {
         match self.sender {
-            Some(mut sd) => {
+            Some(sd) => {
                 sd.send(WriterMsg::Exit(true))
                     .await
                     .map_err(|e| anyhow!("Send exit notify fail: {}", e))?;
@@ -374,7 +374,7 @@ where
         let mut grace_down = false;
 
         loop {
-            self.status_notify.broadcast(status_tracing.clone()).ok();
+            self.status_notify.send(status_tracing.clone()).ok();
 
             tokio::select! {
                 Ok(conn) = self.pool.acquire(), if !error_task_stack.is_empty() => {
@@ -422,7 +422,7 @@ where
                                 }
                             }
                             if let Some(notifies) = ctx.notify_flag.take() {
-                                self.complete_notify.broadcast(notify_tracing.finish_from(notifies)).ok();
+                                self.complete_notify.send(notify_tracing.finish_from(notifies)).ok();
                             }
                             if grace_down && status_tracing.spawning_tasks == 0 {break;}
                         },
