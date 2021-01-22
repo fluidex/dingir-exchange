@@ -11,7 +11,8 @@ use rdkafka::Message;
 // use crate::config;
 use std::collections::HashMap;
 use std::pin::Pin;
-use tonic::async_trait;
+
+type PinBox<T> = Pin<Box<T>>;
 
 pub trait RdConsumerExt {
     type CTXType: ConsumerContext;
@@ -20,18 +21,20 @@ pub trait RdConsumerExt {
     fn to_self(&self) -> &Self::SelfType;
 }
 
-#[async_trait]
-pub trait MessageHandler<'c, C: RdConsumerExt>: Send + Sync {
-    async fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType);
-    async fn on_no_msg(&self, cr: &'c C::SelfType);
+/*
+    Notice this trait is not easy to be implied (self cannot be involved
+    into the return futures, that is why I abondoned the async_trait macro)
+    We should provide some trait which is better understood for users
+*/
+pub trait MessageHandlerAsync<'c, C: RdConsumerExt>: Send {
+    fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
-
-type PinBox<T> = Pin<Box<T>>;
 
 /*A consumer which can handle mutiple topics*/
 pub struct SimpleConsumer<'c, C: RdConsumerExt> {
     consumer: &'c C::SelfType,
-    handlers: HashMap<String, PinBox<dyn MessageHandler<'c, C> + 'c>>,
+    handlers: HashMap<String, PinBox<dyn MessageHandlerAsync<'c, C> + 'c>>,
 }
 /*
 impl<C: RdConsumerExt> SimpleConsumer<'_, C> {
@@ -51,7 +54,7 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
         }
     }
 
-    pub fn add_topic<'a: 'c>(mut self, topic: &str, h: impl MessageHandler<'c, C> + 'a) -> Result<SimpleConsumer<'c, C>> {
+    pub fn add_topic<'a: 'c>(mut self, topic: &str, h: impl MessageHandlerAsync<'c, C> + 'a) -> Result<SimpleConsumer<'c, C>> {
         // kafka server health and topic check, fetch metadata
         self.consumer
             .fetch_metadata(Some(topic), Duration::from_millis(2000u64))
@@ -99,20 +102,37 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
 
 use serde::Deserialize;
 
-#[async_trait]
-pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send + Sync {
+pub trait TypedMessageHandlerAsync<'c, C: RdConsumerExt>: Send {
     type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
-    async fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType);
-    async fn on_no_msg(&self, cr: &'c C::SelfType);
+    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
 
-#[async_trait]
-impl<'c, C, U> MessageHandler<'c, C> for U
+pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
+    type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
+    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType);
+    fn on_no_msg(&self, cr: &'c C::SelfType);
+}
+
+impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for U {
+    type DataType = <Self as TypedMessageHandler<'c, C>>::DataType;
+
+    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        <Self as TypedMessageHandler<'c, C>>::on_message(&self, msg, cr);
+        Box::pin(async {})
+    }
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        <Self as TypedMessageHandler<'c, C>>::on_no_msg(&self, cr);
+        Box::pin(async {})
+    }
+}
+
+impl<'c, C, U> MessageHandlerAsync<'c, C> for U
 where
-    U: TypedMessageHandler<'c, C>,
+    U: TypedMessageHandlerAsync<'c, C>,
     C: RdConsumerExt + 'static,
 {
-    async fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) {
+    fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         if let Some(pl) = msg.payload() {
             match String::from_utf8(pl.to_vec())
                 .map_err(|e| format_err!("Decode kafka message fail: {}", e))
@@ -120,15 +140,19 @@ where
             {
                 Ok(t) => {
                     log::debug!("{:?}", t);
-                    <Self as TypedMessageHandler<'c, C>>::on_message(&self, t, cr).await;
+                    <Self as TypedMessageHandlerAsync<'c, C>>::on_message(&self, t, cr)
                 }
                 Err(e) => {
                     log::error!("{}", e);
+                    Box::pin(async {})
                 }
             }
+        } else {
+            log::error!("Receive empty message");
+            Box::pin(async {})
         }
     }
-    async fn on_no_msg(&self, cr: &'c C::SelfType) {
-        <Self as TypedMessageHandler<'c, C>>::on_no_msg(&self, cr).await
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        <Self as TypedMessageHandlerAsync<'c, C>>::on_no_msg(&self, cr)
     }
 }

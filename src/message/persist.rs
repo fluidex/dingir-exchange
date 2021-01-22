@@ -1,31 +1,39 @@
 use super::consumer::{self, RdConsumerExt}; //crate::message::consumer
 use crate::{database, models, types, utils};
 use serde::Deserialize;
+use std::cell::RefCell;
 use std::marker::PhantomData;
-use tonic::async_trait;
 use types::OrderSide;
 
 use sqlx::migrate::Migrator;
 pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations/ts");
 
-pub struct MsgDataPersistor<'a, U: Clone + Send, UM> {
-    pub writer: &'a database::DatabaseWriter<U>,
-    pub phantom: PhantomData<UM>,
+pub struct MsgDataPersistor<U: Clone + Send, UM> {
+    pub writer: RefCell<database::DatabaseWriterEntry<U>>,
+    pub _phantom: PhantomData<UM>,
+}
+
+impl<U: Clone + Send, UM> MsgDataPersistor<U, UM> {
+    pub fn new(src: &database::DatabaseWriter<U>) -> Self {
+        MsgDataPersistor::<U, UM> {
+            writer: RefCell::new(src.get_entry().unwrap()),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 //An simple handler, just persist it by DatabaseWriter
-#[async_trait]
-impl<'a, 'c, C, U, UM> consumer::TypedMessageHandler<'c, C> for MsgDataPersistor<'a, U, UM>
+impl<'c, C, U, UM> consumer::TypedMessageHandler<'c, C> for MsgDataPersistor<U, UM>
 where
     UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
     U: Clone + Send + Sync + From<UM>,
     C: RdConsumerExt + 'static,
 {
     type DataType = UM;
-    async fn on_message(&self, msg: UM, _cr: &'c C::SelfType) {
-        self.writer.append(From::from(msg));
+    fn on_message(&self, msg: UM, _cr: &'c C::SelfType) {
+        self.writer.borrow_mut().gen().append(From::from(msg)).ok();
     }
-    async fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
+    fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
 
 impl From<types::Trade> for models::TradeRecord {
