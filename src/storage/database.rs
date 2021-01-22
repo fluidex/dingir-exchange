@@ -70,6 +70,67 @@ impl ProgTracingStack {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    //the size of stack is limited: the maxium is just the
+    //uplimit of concurrent task, so we do not bother to
+    //use max/min heap
+    fn prepare_progtracking_stack() -> ProgTracingStack {
+
+        let mut ret = ProgTracingStack(Vec::new());
+
+        ret.push_top(1);
+        ret.push_top(3);
+        ret.push_top(5);
+        ret.push_top(4);
+        ret.push_top(2);
+
+        ret
+    }
+
+    #[test]
+    fn test_progtracking_stack_push() {
+
+        let case = prepare_progtracking_stack();
+
+        assert_eq!(case[0].0, 1);
+        assert_eq!(case[1].0, 2);
+        assert_eq!(case[2].0, 3);
+        assert_eq!(case[3].0, 4);
+        assert_eq!(case[4].0, 5);
+    }
+
+    #[test]
+    fn test_progtracking_stack_pop_1() {
+
+        let mut case = prepare_progtracking_stack();
+
+        assert_eq!(case.pop_top(1), Some(1));
+        assert_eq!(case.pop_top(4), None);
+        assert_eq!(case.pop_top(2), Some(2));
+        assert_eq!(case.pop_top(3), Some(4));
+        assert_eq!(case.pop_top(5), Some(5));
+        assert_eq!(case.is_empty(), true);
+    }
+
+    #[test]
+    fn test_progtracking_stack_pop_2() {
+
+        let mut case = prepare_progtracking_stack();
+
+        assert_eq!(case.pop_top(4), None);
+        assert_eq!(case.pop_top(2), None);
+        assert_eq!(case.pop_top(1), Some(2));
+        assert_eq!(case.pop_top(5), None);
+        assert_eq!(case.pop_top(3), Some(5));
+        assert_eq!(case.is_empty(), true);
+    }    
+}
+
 pub type TaskNotifyFlag = HashMap<i32, u64>;
 pub struct TaskNotification(i32, u64);
 
