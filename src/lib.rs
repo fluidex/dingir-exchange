@@ -5,19 +5,12 @@
 #![allow(clippy::single_char_pattern)]
 #![allow(clippy::await_holding_refcell_ref)] // FIXME
 
-pub mod asset;
+pub mod matchengine;
+pub use matchengine::{asset, controller, dto, history, market, persist, sequencer, server};
+pub mod storage;
+pub use storage::{database, models, sqlxextend};
 pub mod config;
-pub mod controller;
-pub mod database;
-pub mod dto;
-pub mod history;
-pub mod market;
 pub mod message;
-pub mod models;
-pub mod persist;
 pub mod restapi;
-pub mod sequencer;
-pub mod server;
-pub mod sqlxextend;
 pub mod types;
 pub mod utils;

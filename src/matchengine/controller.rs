@@ -449,8 +449,8 @@ impl Controller {
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
             let db_str = &self.settings.db_log;
-            let down_cmd = include_str!("../migrations/reset/down.sql");
-            let up_cmd = include_str!("../migrations/reset/up.sql");
+            let down_cmd = include_str!("../../migrations/reset/down.sql");
+            let up_cmd = include_str!("../../migrations/reset/up.sql");
             let mut connection = ConnectionType::connect(db_str).await?;
             connection.execute(down_cmd).await?;
             let mut connection = ConnectionType::connect(db_str).await?;
