@@ -5,10 +5,10 @@ authors = ["lispczz <mycinbrin@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-log = "0.4.14"
+log = "0.4.13"
 env_logger = "0.8.2"
 config_rs = { package = "config", version = "0.10.1" }
-serde = { version = "1.0.123", features = ["derive"] }
+serde = { version = "1.0.120", features = ["derive"] }
 serde_json = "1.0.61"
 prost = "0.7.0"
 prost-types = "0.7.0"
@@ -18,19 +18,18 @@ futures-core = { version = "0.3.12", default-features = false }
 futures-channel = "0.3.12"
 futures-util = { version = "0.3.12", default-features = false }
 
-tokio = { version = "1.1.1", features = ["full"] }
+tokio = { version = "1.0.2", features = ["full"] }
 thread-id = "3.3.0"
-
 futures = "0.3.12"
 hyper = "0.14.2"
 crossbeam-channel = "0.5.0"
-rdkafka = { version = "0.25.0", features = ["cmake-build"] }
+rdkafka = "0.24.0"
 nix = "0.19.1"
 anyhow = "1.0.38"
 sqlx = { git = "https://github.com/launchbadge/sqlx.git", features=["runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ]  }
 chrono = { version = "0.4.19", features = ["serde"] }
-rust_decimal = { version = "1.10.1", features = ["postgres", "bytes", "byteorder"] }
-rust_decimal_macros = "1.10.1"
+rust_decimal = { version = "1.10.0", features = ["postgres", "bytes", "byteorder"] }
+rust_decimal_macros = "1.10.0"
 humantime-serde = "1.0.1"
 
 ttl_cache = "0.5.1"
