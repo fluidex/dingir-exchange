@@ -1,7 +1,7 @@
 use crate::database::{DatabaseWriter, DatabaseWriterConfig};
 use crate::market;
 use crate::models;
-use crate::types::Trade;
+use market::Trade;
 
 use crate::utils::FTimestamp;
 use anyhow::Result;

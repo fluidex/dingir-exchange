@@ -36,8 +36,8 @@ where
     fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
 
-impl From<types::Trade> for models::TradeRecord {
-    fn from(origin: types::Trade) -> models::TradeRecord {
+impl From<super::Trade> for models::TradeRecord {
+    fn from(origin: super::Trade) -> models::TradeRecord {
         models::TradeRecord {
             time: utils::FTimestamp(origin.timestamp).into(),
             market: origin.market.clone(),

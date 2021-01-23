@@ -21,6 +21,21 @@ pub trait RdConsumerExt {
     fn to_self(&self) -> &Self::SelfType;
 }
 
+//implied for consumer types current we have known in rdkafka, for more types, implied
+//then with the new type idiom in your code
+impl<C: ConsumerContext + 'static> RdConsumerExt for stream_consumer::StreamConsumer<C> {
+    type CTXType = stream_consumer::StreamConsumerContext<C>;
+    type SelfType = stream_consumer::StreamConsumer<C>;
+    fn to_self(&self) -> &Self::SelfType {&self}    
+}
+
+impl<C: ConsumerContext> RdConsumerExt for base_consumer::BaseConsumer<C> {
+    type CTXType = C;
+    type SelfType = base_consumer::BaseConsumer<C>;
+    fn to_self(&self) -> &Self::SelfType {&self}    
+}
+
+
 /*
     Notice this trait is not easy to be implied (self cannot be involved
     into the return futures, that is why I abondoned the async_trait macro)

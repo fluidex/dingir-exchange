@@ -6,24 +6,11 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use types::{ConnectionType, DbType};
+use types::{DbType};
 
-use rdkafka::consumer::{stream_consumer, ConsumerContext, DefaultConsumerContext, StreamConsumer};
+use rdkafka::consumer::{StreamConsumer};
 
 use message::persist::MIGRATOR;
-
-//use sqlx::Connection;
-struct AppliedConsumer<C: ConsumerContext + 'static = DefaultConsumerContext>(stream_consumer::StreamConsumer<C>);
-
-impl<C: ConsumerContext + 'static> message::consumer::RdConsumerExt for AppliedConsumer<C> {
-    type CTXType = stream_consumer::StreamConsumerContext<C>;
-    type SelfType = stream_consumer::StreamConsumer<C>;
-    fn to_self(&self) -> &Self::SelfType {
-        &self.0
-    }
-}
-
-use sqlx::Connection;
 
 fn main() {
     dotenv::dotenv().ok();
@@ -40,23 +27,23 @@ fn main() {
         .build()
         .expect("build runtime");
 
+    let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
+        .set("bootstrap.servers", &settings.brokers)
+        .set("group.id", &settings.consumer_group)
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .set("auto.offset.reset", "earliest")
+        .create()
+        .unwrap();
+
     rt.block_on(async move {
-        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
-            .set("bootstrap.servers", &settings.brokers)
-            .set("group.id", &settings.consumer_group)
-            .set("enable.partition.eof", "false")
-            .set("session.timeout.ms", "6000")
-            .set("enable.auto.commit", "true")
-            .create()
-            .unwrap();
-        let consumer = AppliedConsumer(consumer);
+        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
         MIGRATOR
-            .run(&mut ConnectionType::connect(&settings.db_history).await.unwrap())
+            .run(&pool)
             .await
             .ok();
-
-        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
         let persistor: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&DatabaseWriterConfig {
             spawn_limit: 4,
@@ -70,7 +57,7 @@ fn main() {
             let cr_main = message::consumer::SimpleConsumer::new(&consumer)
                 .add_topic(
                     message::TRADES_TOPIC,
-                    message::persist::MsgDataPersistor::<_, types::Trade>::new(&persistor),
+                    message::persist::MsgDataPersistor::<_, message::Trade>::new(&persistor),
                 )
                 .unwrap();
 

@@ -71,6 +71,28 @@ pub struct Order {
     pub finished_fee: Decimal,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Trade {
+    pub id: u64,
+    pub timestamp: f64, // unix epoch timestamp,
+    pub market: String,
+    pub base: String,
+    pub quote: String,
+    pub price: rust_decimal::Decimal,
+    pub amount: rust_decimal::Decimal,
+    pub quote_amount: rust_decimal::Decimal,
+
+    pub ask_user_id: u32,
+    pub ask_order_id: u64,
+    pub ask_role: MarketRole, // take/make
+    pub ask_fee: rust_decimal::Decimal,
+
+    pub bid_user_id: u32,
+    pub bid_order_id: u64,
+    pub bid_role: MarketRole,
+    pub bid_fee: rust_decimal::Decimal,
+}
+
 impl Order {
     pub fn get_ask_key(&self) -> MarketKeyAsk {
         MarketKeyAsk {
