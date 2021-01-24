@@ -12,7 +12,7 @@ use rdkafka::Message;
 use std::collections::HashMap;
 use std::pin::Pin;
 
-type PinBox<T> = Pin<Box<T>>;
+pub(crate) type PinBox<T> = Pin<Box<T>>;
 
 pub trait RdConsumerExt {
     type CTXType: ConsumerContext;
@@ -51,7 +51,7 @@ pub struct SimpleConsumer<'c, C: RdConsumerExt> {
     consumer: &'c C::SelfType,
     handlers: HashMap<String, PinBox<dyn MessageHandlerAsync<'c, C> + 'c>>,
 }
-/*
+
 impl<C: RdConsumerExt> SimpleConsumer<'_, C> {
     pub fn new(cr :&C) -> SimpleConsumer<C> {
         SimpleConsumer{
@@ -59,15 +59,18 @@ impl<C: RdConsumerExt> SimpleConsumer<'_, C> {
             handlers: HashMap::new(),
         }
     }
-}*/
+}
+
+pub trait TopicBuilder<C> 
+where 
+    C: RdConsumerExt
+{
+    type HandlerType: for <'r> MessageHandlerAsync<'r, C> + 'static;
+    fn topic_name(&self) -> &str;
+    fn topic_handler(&self) -> Self::HandlerType;
+}
 
 impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
-    pub fn new(cr: &'c C) -> SimpleConsumer<'c, C> {
-        SimpleConsumer {
-            consumer: cr.to_self(),
-            handlers: HashMap::new(),
-        }
-    }
 
     pub fn add_topic<'a: 'c>(mut self, topic: &str, h: impl MessageHandlerAsync<'c, C> + 'a) -> Result<SimpleConsumer<'c, C>> {
         // kafka server health and topic check, fetch metadata
@@ -77,6 +80,13 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
 
         self.handlers.insert(topic.to_string(), Box::pin(h));
         Ok(self)
+    }
+
+    pub fn add_topic_config<CF>(self, builder: CF) -> Result<SimpleConsumer<'c, C>> 
+    where 
+        CF: TopicBuilder<C>,
+    {
+        self.add_topic(builder.topic_name(), builder.topic_handler())
     }
 
     pub async fn run_stream<CT, RT>(&self, f: impl Fn(&'c C::SelfType) -> MessageStream<'c, CT, RT>) -> KafkaError
@@ -123,26 +133,9 @@ pub trait TypedMessageHandlerAsync<'c, C: RdConsumerExt>: Send {
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
 
-pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
-    type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
-    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType);
-    fn on_no_msg(&self, cr: &'c C::SelfType);
-}
+pub struct Typed<U> (U);
 
-impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for U {
-    type DataType = <Self as TypedMessageHandler<'c, C>>::DataType;
-
-    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
-        <Self as TypedMessageHandler<'c, C>>::on_message(&self, msg, cr);
-        Box::pin(async {})
-    }
-    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
-        <Self as TypedMessageHandler<'c, C>>::on_no_msg(&self, cr);
-        Box::pin(async {})
-    }
-}
-
-impl<'c, C, U> MessageHandlerAsync<'c, C> for U
+impl<'c, C, U> MessageHandlerAsync<'c, C> for Typed<U>
 where
     U: TypedMessageHandlerAsync<'c, C>,
     C: RdConsumerExt + 'static,
@@ -155,7 +148,7 @@ where
             {
                 Ok(t) => {
                     log::debug!("{:?}", t);
-                    <Self as TypedMessageHandlerAsync<'c, C>>::on_message(&self, t, cr)
+                    U::on_message(&self.0, t, cr)
                 }
                 Err(e) => {
                     log::error!("{}", e);
@@ -168,6 +161,36 @@ where
         }
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
-        <Self as TypedMessageHandlerAsync<'c, C>>::on_no_msg(&self, cr)
+        U::on_no_msg(&self.0, cr)
     }
+}
+
+
+pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
+    type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
+    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType);
+    fn on_no_msg(&self, cr: &'c C::SelfType);
+}
+
+pub struct Synced<U> (U);
+
+impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for Synced<U> {
+    type DataType = U::DataType;
+
+    fn on_message(&self, msg: U::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        U::on_message(&self.0, msg, cr);
+        Box::pin(async {})
+    }
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        U::on_no_msg(&self.0, cr);
+        Box::pin(async {})
+    }
+}
+
+impl<U> From<U> for Typed<U> {fn from(t: U) -> Self{Typed(t)}}
+impl<U> From<U> for Synced<U> {fn from(t: U) -> Self{Synced(t)}}
+
+pub type SyncTyped<U> = Typed<Synced<U>>;
+impl<U> From<U> for SyncTyped<U> {
+    fn from(t: U) -> Self{Typed::from(Synced::from(t))}
 }

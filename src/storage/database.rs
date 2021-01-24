@@ -369,6 +369,10 @@ where
         self.sender.as_ref().map(|sd| DatabaseWriterEntry(sd.clone()))
     }
 
+    pub fn listen_notify(&self) -> sync::watch::Receiver<TaskNotifyFlag> {
+        self.complete_notify.clone()
+    }
+
     pub fn append(&mut self, item: U) -> Result<(), U> {
         self.append_with_notify(item, None)
     }
