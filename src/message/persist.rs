@@ -8,35 +8,74 @@ use types::OrderSide;
 use sqlx::migrate::Migrator;
 pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations/ts");
 
-pub struct MsgDataPersistor<U: Clone + Send, UM> {
-    pub writer: RefCell<database::DatabaseWriterEntry<U>>,
+pub struct MsgDataPersistor<T: Clone + Send, UM = ()> {
+    pub writer: RefCell<database::DatabaseWriterEntry<T>>,
     pub _phantom: PhantomData<UM>,
 }
 
-impl<U: Clone + Send, UM> MsgDataPersistor<U, UM> {
-    pub fn new(src: &database::DatabaseWriter<U>) -> SyncTyped<Self> {
-        SyncTyped::from(Self::new_raw(src))
-    }
+pub trait MsgDataTransformer<T: Clone + Send> : Send {
+    type MsgType: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
+    fn into<'r>(msg : &'r Self::MsgType) -> T;
+}
 
-    fn new_raw(src: &database::DatabaseWriter<U>) -> Self {
-        MsgDataPersistor::<U, UM> {
-            writer: RefCell::new(src.get_entry().unwrap()),
-            _phantom: PhantomData,
-        }
+impl<T, UM> MsgDataPersistor<T, UM>
+where
+    T: Clone + Send,
+    UM: MsgDataTransformer<T>,
+{
+    pub fn write_in<'r>(&self, msg : &'r UM::MsgType) 
+    {
+        self.writer.borrow_mut().gen().append(UM::into(msg)).ok();
     }    
 }
 
-//An simple handler, just persist it by DatabaseWriter
-impl<'c, C, U, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<U, UM>
+pub struct Deco<UM> (PhantomData<UM>);
+
+impl<T, UM> MsgDataTransformer<T> for Deco<UM>
 where
-    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
-    for<'r> &'r UM: Into<U>,
-    U: Clone + Send + Sync,
+    T: Clone + Send,
+    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    for<'r> &'r UM: Into<T>,
+{
+    type MsgType = UM;
+    fn into<'r>(msg : &'r Self::MsgType) -> T {Into::into(msg)}    
+}
+
+impl<T: Clone + Send> MsgDataPersistor<T, ()> {
+
+    pub fn new(src: &database::DatabaseWriter<T>) -> Self {
+        MsgDataPersistor {
+            writer: RefCell::new(src.get_entry().unwrap()),
+            _phantom: PhantomData,
+        }
+    }
+
+    fn set_transformer<UM> (self)-> MsgDataPersistor<T, UM> 
+    {
+        MsgDataPersistor {
+            writer: self.writer,
+            _phantom: PhantomData,
+        }        
+    }
+
+    pub fn handle_message<UM> (self)-> SyncTyped<MsgDataPersistor<T, Deco<UM>>>
+    where UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    {
+        SyncTyped::from(self.set_transformer())
+    }
+}
+
+//An simple handler, just persist it by DatabaseWriter
+impl<'c, C, T, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<T, Deco<UM>>
+where
+    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    for<'r> &'r UM: Into<T>,
+    T: Clone + Send,
     C: RdConsumerExt + 'static,
 {
     type DataType = UM;
     fn on_message(&self, msg: UM, _cr: &'c C::SelfType) {
-        self.writer.borrow_mut().gen().append(Into::into(&msg)).ok();
+        self.write_in(&msg);
     }
     fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
@@ -49,7 +88,7 @@ pub struct EmptyHandler<U> {
 impl<'c, C, UM> TypedMessageHandler<'c, C> for EmptyHandler<UM>
 where
     C: RdConsumerExt + 'static,
-    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
+    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
     type DataType = UM;
     fn on_message(&self, _msg: UM, _cr: &'c C::SelfType) {}
@@ -58,18 +97,18 @@ where
 
 pub struct ChainedHandler<T1, T2> (T1, T2);
 
-impl<'c, C, U, UM, T> TypedMessageHandlerAsync<'c, C> for ChainedHandler<MsgDataPersistor<U, UM>, T> 
+impl<'c, C, U, UM, UT, T> TypedMessageHandlerAsync<'c, C> for ChainedHandler<MsgDataPersistor<U, UT>, T> 
 where
     C: RdConsumerExt + 'static,
-    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
-    for<'r> &'r UM: Into<U>,
-    U: Clone + Send + Sync,
+    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    UT: MsgDataTransformer<U, MsgType = UM>,
+    U: Clone + Send,
     T: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
 {
     type DataType = UM;
     fn on_message(&self, msg: UM, cr: &'c C::SelfType) 
         -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>{
-        self.0.writer.borrow_mut().gen().append(Into::into(&msg)).ok();
+        self.0.write_in(&msg);
         self.1.on_message(msg, cr)
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>
@@ -79,7 +118,7 @@ where
 //Config builder ...
 pub trait TypedTopicConfig
 {
-//    type TypedHandlerType: for <'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + for <'r> From<&'r Self> + 'static;
+    type BaseMsgType;
     fn topic_name(&self) -> &str;
 }
 
@@ -90,7 +129,7 @@ pub trait FromTopicConfig<T>
 
 pub trait TypedTopicHandlerData<C: RdConsumerExt> : Sized
 {
-    type DataType : 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync;
+    type DataType : 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
     type HandlerType : for <'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + FromTopicConfig<Self> + 'static;
 }
 
@@ -101,12 +140,13 @@ pub struct TopicConfig<U> {
 
 impl<U> TypedTopicConfig for TopicConfig<U>
 {
+    type BaseMsgType = U;
     fn topic_name(&self) -> &str {&self.topic}
 }
 
 impl<U> FromTopicConfig<TopicConfig<U>> for consumer::Synced<EmptyHandler<U>>
 where 
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
+    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
     fn from_config<'r, C: RdConsumerExt>(_origin : &'r TopicConfig<U>) -> Self
     {
@@ -117,64 +157,64 @@ where
 impl<C, U> TypedTopicHandlerData<C>  for TopicConfig<U>
 where 
     C: RdConsumerExt + 'static,
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
+    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
     type DataType = U;
     type HandlerType = consumer::Synced<EmptyHandler<U>>;
 }
 
-pub struct ChainedTopicBuilder<'a, T, NXC> 
+pub struct ChainedTopicBuilder<'a, T, UT, NXC> 
 where 
-    T: Clone + Send + Sync,
+    T: Clone + Send,
 {
     next_config: NXC,
     dbwriter: &'a database::DatabaseWriter<T>,
+    _phantom: PhantomData<UT>,
 }
 
-impl<'a, T, NXC> TypedTopicConfig for ChainedTopicBuilder<'a, T, NXC>
+impl<'a, T, UT, NXC> TypedTopicConfig for ChainedTopicBuilder<'a, T, UT, NXC>
 where 
-    T: Clone + Send + Sync,
+    T: Clone + Send,
     NXC: TypedTopicConfig + 'a,
 {
+    type BaseMsgType = NXC::BaseMsgType;
     fn topic_name(&self) -> &str {&self.next_config.topic_name()}
 }
 
-impl<'a, T, U, NXC, T1> FromTopicConfig<ChainedTopicBuilder<'a, T, NXC>> for ChainedHandler<MsgDataPersistor<T, U>, T1>
+impl<'a, T, UT, NXC, T1> FromTopicConfig<ChainedTopicBuilder<'a, T, UT, NXC>> for ChainedHandler<MsgDataPersistor<T, UT>, T1>
 where 
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
-    for<'x> &'x U: Into<T>,
-    T: Clone + Send + Sync,
+    T: Clone + Send,
     T1: FromTopicConfig<NXC>,
 {
-    fn from_config<'r, C: RdConsumerExt>(origin : &'r ChainedTopicBuilder<'a, T, NXC>) -> Self
+    fn from_config<'r, C: RdConsumerExt>(origin : &'r ChainedTopicBuilder<'a, T, UT, NXC>) -> Self
     {
         ChainedHandler(
-            MsgDataPersistor::new_raw(origin.dbwriter),
+            MsgDataPersistor::new(origin.dbwriter).set_transformer(),
             T1::from_config::<C>(&origin.next_config),
         )
     }
 }
 
-impl<'a, C, T, U, NXC> TypedTopicHandlerData<C> for ChainedTopicBuilder<'a, T, NXC>
+impl<'a, C, T, U, UT, NXC> TypedTopicHandlerData<C> for ChainedTopicBuilder<'a, T, UT, NXC>
 where 
     C: RdConsumerExt + 'static,
-    MsgDataPersistor<T, U>: 'static,
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
-    for<'x> &'x U: Into<T>,
-    T: Clone + Send + Sync,
+    MsgDataPersistor<T, UT>: 'static,
+    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    UT: MsgDataTransformer<T, MsgType = U>,
+    T: Clone + Send,
     NXC: TypedTopicHandlerData<C, DataType = U>,
 {
     type DataType = U;
-    type HandlerType = ChainedHandler<MsgDataPersistor<T, U>, NXC::HandlerType>;
+    type HandlerType = ChainedHandler<MsgDataPersistor<T, UT>, NXC::HandlerType>;
 }
 
-impl<'a, C, T, U, NXC> consumer::TopicBuilder<C> for ChainedTopicBuilder<'a, T, NXC>
+impl<'a, C, T, U, UT, NXC> consumer::TopicBuilder<C> for ChainedTopicBuilder<'a, T, UT, NXC>
 where 
     C: RdConsumerExt + 'static,
-    MsgDataPersistor<T, U>: 'static,
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send + Sync,
-    for<'x> &'x U: Into<T>,
-    T: Clone + Send + Sync,
+    MsgDataPersistor<T, UT>: 'static,
+    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    UT: MsgDataTransformer<T, MsgType = U>,
+    T: Clone + Send,
     NXC: TypedTopicConfig + TypedTopicHandlerData<C, DataType = U> + 'a,
 {
     type HandlerType = consumer::Typed<<Self as TypedTopicHandlerData<C>>::HandlerType>;
@@ -194,25 +234,28 @@ impl<U> TopicConfig<U>
         }
     }
 
-    pub fn persist_to<'a, T: Clone + Send + Sync>(self, db : &'a database::DatabaseWriter<T>) -> ChainedTopicBuilder<'a, T, Self>
+    pub fn persist_to<'a, T: Clone + Send + Sync>(self, db : &'a database::DatabaseWriter<T>) -> ChainedTopicBuilder<'a, T, Deco<U>, Self>
     {
-        ChainedTopicBuilder::<T, Self>{
+        ChainedTopicBuilder{
             next_config: self,
             dbwriter: db,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T, NXC> ChainedTopicBuilder<'a, T, NXC> 
+impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC> 
 where 
     T: Clone + Send + Sync,
-    NXC: 'a,
+    NXC: TypedTopicConfig + 'a,
 {
-    pub fn persist_to<'b : 'a, T1: Clone + Send + Sync>(self, db : &'b database::DatabaseWriter<T1>) -> ChainedTopicBuilder<'a, T1, Self>
+    pub fn persist_to<'b : 'a, T1: Clone + Send + Sync>(self, db : &'b database::DatabaseWriter<T1>) 
+        -> ChainedTopicBuilder<'a, T1, Deco<NXC::BaseMsgType>, Self>
     {
-        ChainedTopicBuilder::<T1, Self>{
+        ChainedTopicBuilder{
             next_config: self,
             dbwriter: db,
+            _phantom: PhantomData,
         }
     }
 }

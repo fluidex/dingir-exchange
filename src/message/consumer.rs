@@ -82,7 +82,7 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
         Ok(self)
     }
 
-    pub fn add_topic_config<CF>(self, builder: CF) -> Result<SimpleConsumer<'c, C>> 
+    pub fn add_topic_config<'a, CF>(self, builder: &'a CF) -> Result<SimpleConsumer<'c, C>> 
     where 
         CF: TopicBuilder<C>,
     {

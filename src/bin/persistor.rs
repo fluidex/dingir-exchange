@@ -10,7 +10,7 @@ use types::{DbType};
 
 use rdkafka::consumer::{StreamConsumer};
 
-use message::persist::MIGRATOR;
+use message::persist::{MIGRATOR, TopicConfig};
 
 fn main() {
     dotenv::dotenv().ok();
@@ -53,12 +53,14 @@ fn main() {
         .start_schedule(&pool)
         .unwrap();
 
+        let trade_cfg = TopicConfig::<message::Trade>::new(message::TRADES_TOPIC)
+            .persist_to(&persistor)
+            .persist_to(&persistor);
+
         loop {
             let cr_main = message::consumer::SimpleConsumer::new(&consumer)
-                .add_topic(
-                    message::TRADES_TOPIC,
-                    message::persist::MsgDataPersistor::<_, message::Trade>::new(&persistor),
-                )
+                .add_topic_config(&trade_cfg)
+//                .add_topic(message::TRADES_TOPIC, MsgDataPersistor::new(&persistor).handle_message::<message::Trade>())
                 .unwrap();
 
             tokio::select! {
