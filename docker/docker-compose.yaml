@@ -6,6 +6,8 @@ services:
     restart: always
     volumes: 
       - ./configs/nginx.conf:/etc/nginx/conf.d/proxy.conf
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8765:8765"
   grpcgateway:
@@ -14,6 +16,8 @@ services:
     restart: always
     volumes:
       - ../proto/exchange/matchengine.proto:/api.proto
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "50052:50052"
     command: api.proto -I ../../.. -p 50052 -g host.docker.internal:50051 -m /api    
