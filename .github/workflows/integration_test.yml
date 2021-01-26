@@ -45,7 +45,7 @@ jobs:
         run: cd ./examples/js/ && npm install
 
       - name: Up docker-compose
-        run: docker-compose --file "./docker/docker-compose.yaml" up --detach
+        run: docker-compose --file "./docker/docker-compose.yaml" up --detach db zookeeper kafka
 
       # 1. we build the binary after starting docker-compose, to ensure time for running services in docker-compose
       # 2. we avoid nohup cargo run directly, to make sure server is running before starting trading tests
