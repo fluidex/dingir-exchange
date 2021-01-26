@@ -1,5 +1,22 @@
 version: '3.4'
 services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: always
+    volumes: 
+      - ./configs/nginx.conf:/etc/nginx/conf.d/proxy.conf
+    ports:
+      - "8765:8765"
+  grpcgateway:
+    image: lispczz/grpc-dynamic-gateway:latest
+    container_name: grpc_dynamic_gateway
+    restart: always
+    volumes:
+      - ../proto/exchange/matchengine.proto:/api.proto
+    ports:
+      - "50052:50052"
+    command: api.proto -I ../../.. -p 50052 -g host.docker.internal:50051 -m /api    
   db:
     image: timescale/timescaledb:2.0.0-pg12
     container_name: exchange_pq
