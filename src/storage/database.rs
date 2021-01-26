@@ -382,7 +382,7 @@ where
                 }
                 Ok(conn) = self.pool.acquire(), if (
                         !next_task_stack.is_empty() &&
-                        status_tracing.spawning_tasks < self.config.spawn_limit 
+                        status_tracing.spawning_tasks < self.config.spawn_limit
                 )   => {
                     status_tracing.spawning_tasks += 1;
                     let mut task = next_task_stack.pop_back().unwrap();
@@ -393,7 +393,7 @@ where
                     if let Some(notifies) = task.notify_flag.as_ref(){
                         notify_tracing.update_from(notifies);
                     }
-                    tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));                    
+                    tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
                 }
                 Some(msg) = self.ctrl_chn.recv() => {
                     match msg {
