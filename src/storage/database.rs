@@ -281,7 +281,7 @@ where
 pub struct DatabaseWriterConfig {
     pub apply_benchmark: bool,
     pub spawn_limit: i32,
-    pub channel_limit: usize,
+    pub capability_limit: usize,
 }
 
 impl<U> DatabaseWriter<U>
@@ -323,7 +323,7 @@ where
 
     //we consider no block for writer anymore
     pub fn is_block(&self) -> bool {
-        self.sender.is_none()
+        self.sender.is_none() || ((self.config.capability_limit as f64 * 0.9) as usize) < self.status().pending_count
     }
 
     pub fn status(&self) -> DatabaseWriterStatus {
@@ -380,6 +380,21 @@ where
                 Ok(conn) = self.pool.acquire(), if !error_task_stack.is_empty() => {
                     tokio::spawn(error_task_stack.pop_back().unwrap().execute(conn, self.ctrl_notify.clone()));
                 }
+                Ok(conn) = self.pool.acquire(), if (
+                        !next_task_stack.is_empty() &&
+                        status_tracing.spawning_tasks < self.config.spawn_limit
+                )   => {
+                    status_tracing.spawning_tasks += 1;
+                    let mut task = next_task_stack.pop_back().unwrap();
+                    if self.config.apply_benchmark {
+                        task = task.apply_benchmark();
+                    }
+                    status_tracing.pending_count -= task.data.len();
+                    if let Some(notifies) = task.notify_flag.as_ref(){
+                        notify_tracing.update_from(notifies);
+                    }
+                    tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
+                }
                 Some(msg) = self.ctrl_chn.recv() => {
                     match msg {
                         WriterMsg::Data(data, notify) => {
@@ -388,39 +403,9 @@ where
                             }
                             next_task_stack.front_mut().unwrap().add_data(data, notify);
                             status_tracing.pending_count += 1;
-
-                            if status_tracing.spawning_tasks < self.config.spawn_limit {
-                                if let Some(conn) = self.pool.try_acquire() {
-                                    status_tracing.spawning_tasks += 1;
-                                    let mut task = next_task_stack.pop_back().unwrap();
-                                    if self.config.apply_benchmark {
-                                        task = task.apply_benchmark();
-                                    }
-                                    status_tracing.pending_count -= task.data.len();
-                                    if let Some(notifies) = task.notify_flag.as_ref(){
-                                        notify_tracing.update_from(notifies);
-                                    }
-                                    tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
-                                }
-                            }
                         },
                         WriterMsg::Done(mut ctx) => {
                             status_tracing.spawning_tasks -= 1;
-                            if !next_task_stack.is_empty() {
-                                //TODO: this code block is duplicated
-                                if let Some(conn) = self.pool.try_acquire() {
-                                    status_tracing.spawning_tasks += 1;
-                                    let mut task = next_task_stack.pop_back().unwrap();
-                                    if self.config.apply_benchmark {
-                                        task = task.apply_benchmark();
-                                    }
-                                    status_tracing.pending_count -= task.data.len();
-                                    if let Some(notifies) = task.notify_flag.as_ref(){
-                                        notify_tracing.update_from(notifies);
-                                    }
-                                    tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
-                                }
-                            }
                             if let Some(notifies) = ctx.notify_flag.take() {
                                 self.complete_notify.broadcast(notify_tracing.finish_from(notifies)).ok();
                             }
@@ -442,12 +427,19 @@ where
         }
 
         if !next_task_stack.is_empty() || !error_task_stack.is_empty() {
-            log::error!("Data has lost because of non-grace exit");
+            log::error!("Data for {} has lost because of non-grace exit", U::table_name());
         }
 
         log::info!("db scheduler thread for {}  \texit", U::table_name());
     }
 }
+
+//by designation message never pile up in channel so we just set
+//a reasonable capalicaity.
+//Not use unbounded_channel: in case we mess things up, it may be
+//difficult to find it has eaten up memory. Instead, we wish
+//die fast if code do not work as expected
+const CHANNEL_LIMIT: usize = 1000;
 
 impl<U> DatabaseWriter<U>
 where
@@ -456,7 +448,7 @@ where
     U: for<'r> SqlxAction<'r, sqlxextend::InsertTable, DbType>,
 {
     pub fn start_schedule(mut self, pool: &'_ sqlx::Pool<DbType>) -> Result<Self> {
-        let (chn_tx, chn_rx) = sync::mpsc::channel(self.config.channel_limit);
+        let (chn_tx, chn_rx) = sync::mpsc::channel(CHANNEL_LIMIT);
         self.sender = Some(chn_tx.clone());
 
         let ctx = DatabaseWriterScheduleCtx::<U> {

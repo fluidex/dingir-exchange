@@ -60,7 +60,7 @@ impl Controller {
                 &DatabaseWriterConfig {
                     spawn_limit: 4,
                     apply_benchmark: true,
-                    channel_limit: 1024,
+                    capability_limit: 8192,
                 },
                 &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap(),
             )
@@ -88,7 +88,7 @@ impl Controller {
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
-            channel_limit: 1024,
+            capability_limit: 8192,
         })
         .start_schedule(&sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap())
         .unwrap();
