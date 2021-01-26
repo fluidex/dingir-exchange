@@ -61,7 +61,7 @@ fn main() {
         let persistor: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
-            channel_limit: 1024,
+            capability_limit: 8192,
         })
         .start_schedule(&pool)
         .unwrap();
