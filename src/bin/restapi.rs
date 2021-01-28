@@ -57,7 +57,7 @@ async fn main() -> std::io::Result<()> {
         config: restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default),
     });
 
-    let workers = user_map.config.workers.clone();
+    let workers = user_map.config.workers;
 
     let server = HttpServer::new(move || {
         App::new().app_data(user_map.clone()).app_data(AppCache::new()).service(
