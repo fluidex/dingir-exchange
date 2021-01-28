@@ -27,7 +27,35 @@ pub struct KlineResult {
     pub nxt: Option<i32>,
 }
 
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct TickerResult {
+    pub market: String,
+    #[serde(rename = "price_change_percent")]
+    pub change: f32,
+    pub last: f32,
+    pub high: f32,
+    pub low: f32,
+    pub volume: f32,
+    pub quote_volume: f32,
+    pub from: u64,
+    pub to: u64,
+}
+
 #[derive(Serialize, Copy, Clone)]
 pub struct UserInfo {
     pub user_id: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TradeRecord {
+    pub time: i32,
+    pub amount: f32,
+    pub quote_amount: f32,
+    pub price: f32,
+    pub fee: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct OrderTradeResult {
+    pub trades: Vec<TradeRecord>,
 }

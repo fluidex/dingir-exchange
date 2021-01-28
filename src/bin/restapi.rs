@@ -14,9 +14,9 @@ use std::sync::Mutex;
 use dingir_exchange::restapi;
 
 use restapi::personal_history::my_orders;
-use restapi::public_history::recent_trades;
-use restapi::state::AppState;
-use restapi::tradingview::{chart_config, history, symbols, unix_timestamp};
+use restapi::public_history::{order_trades, recent_trades};
+use restapi::state::{AppCache, AppState};
+use restapi::tradingview::{chart_config, ticker, history, symbols, unix_timestamp};
 use restapi::types::UserInfo;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
@@ -46,21 +46,31 @@ async fn main() -> std::io::Result<()> {
     let config_file = dotenv::var("CONFIG_FILE").unwrap();
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
 
+    let restapi_cfg : Option<config_rs::Value> = conf.get("restapi").ok();
+
     let dburl = conf.get_str("db_history").unwrap();
+    log::debug!("Prepared db connection: {}", &dburl);
+
     let user_map = web::Data::new(AppState {
         user_addr_map: Mutex::new(HashMap::new()),
         db: Pool::<Postgres>::connect(&dburl).await.unwrap(),
+        config: restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default),
     });
 
-    log::debug!("Prepared db connection: {}", &dburl);
+    let workers = user_map.config.workers.clone();
 
-    HttpServer::new(move || {
-        App::new().app_data(user_map.clone()).service(
+    let server = HttpServer::new(move || {
+        App::new()
+            .app_data(user_map.clone())
+            .app_data(AppCache::new())
+            .service(
             web::scope("/restapi")
                 .route("/ping", web::get().to(ping))
                 .route("/user/{id_or_addr}", web::get().to(get_user))
                 .route("/recenttrades/{market}", web::get().to(recent_trades))
+                .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
                 .route("/closedorders/{market}/{user_id}", web::get().to(my_orders))
+                .route("/ticker_{ticker_inv}/{market}", web::get().to(ticker))
                 .service(
                     web::scope("/tradingview")
                         .route("/time", web::get().to(unix_timestamp))
@@ -69,8 +79,13 @@ async fn main() -> std::io::Result<()> {
                         .route("/history", web::get().to(history)),
                 ),
         )
-    })
-    .bind(("0.0.0.0", 50053))?
+    });
+
+    let server = match workers {
+        Some(wr) => server.workers(wr),
+        None => server
+    };
+    server.bind(("0.0.0.0", 50053))?
     .run()
     .await
 }
