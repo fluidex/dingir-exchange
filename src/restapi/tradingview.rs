@@ -109,10 +109,9 @@ pub async fn ticker(
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
-    let trading = &mut cache.trading.borrow_mut();
-    let may_cached_resp = &mut trading.ticker_ret_cache;
+    let ticker_ret_cache = &mut cache.trading.borrow_mut().ticker_ret_cache;
 
-    if let Some(cached_resp) = may_cached_resp.as_ref() {
+    if let Some(cached_resp) = ticker_ret_cache.get(&market_name) {
         //consider systemtime may wraparound, we set the valid
         //range of cache is [-inv, +inv] on now
         let now_ts_dur = Duration::from_secs(now_ts.timestamp() as u64);
@@ -158,7 +157,7 @@ pub async fn ticker(
         .await?;
 
     let ret = TickerResult {
-        market: String::from("ok"),
+        market: market_name.clone(),
         change: (ticker_ret.last - ticker_ret.first)
             .checked_div(ticker_ret.last)
             .and_then(|x| x.to_f32())
@@ -173,7 +172,7 @@ pub async fn ticker(
     };
 
     //update cache
-    may_cached_resp.replace(ret.clone());
+    ticker_ret_cache.insert(market_name, ret.clone());
     Ok(Json(ret))
 }
 

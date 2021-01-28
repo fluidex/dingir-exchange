@@ -13,12 +13,14 @@ pub struct AppState {
 
 #[derive(Debug)]
 pub struct TradingData {
-    pub ticker_ret_cache: Option<TickerResult>,
+    pub ticker_ret_cache: HashMap<String, TickerResult>,
 }
 
 impl TradingData {
     pub fn new() -> Self {
-        TradingData { ticker_ret_cache: None }
+        TradingData {
+            ticker_ret_cache: HashMap::new(),
+        }
     }
 }
 
