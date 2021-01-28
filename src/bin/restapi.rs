@@ -16,7 +16,7 @@ use dingir_exchange::restapi;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
-use restapi::tradingview::{chart_config, ticker, history, symbols, unix_timestamp};
+use restapi::tradingview::{chart_config, history, symbols, ticker, unix_timestamp};
 use restapi::types::UserInfo;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
@@ -46,7 +46,7 @@ async fn main() -> std::io::Result<()> {
     let config_file = dotenv::var("CONFIG_FILE").unwrap();
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
 
-    let restapi_cfg : Option<config_rs::Value> = conf.get("restapi").ok();
+    let restapi_cfg: Option<config_rs::Value> = conf.get("restapi").ok();
 
     let dburl = conf.get_str("db_history").unwrap();
     log::debug!("Prepared db connection: {}", &dburl);
@@ -60,10 +60,7 @@ async fn main() -> std::io::Result<()> {
     let workers = user_map.config.workers.clone();
 
     let server = HttpServer::new(move || {
-        App::new()
-            .app_data(user_map.clone())
-            .app_data(AppCache::new())
-            .service(
+        App::new().app_data(user_map.clone()).app_data(AppCache::new()).service(
             web::scope("/restapi")
                 .route("/ping", web::get().to(ping))
                 .route("/user/{id_or_addr}", web::get().to(get_user))
@@ -83,9 +80,7 @@ async fn main() -> std::io::Result<()> {
 
     let server = match workers {
         Some(wr) => server.workers(wr),
-        None => server
+        None => server,
     };
-    server.bind(("0.0.0.0", 50053))?
-    .run()
-    .await
+    server.bind(("0.0.0.0", 50053))?.run().await
 }

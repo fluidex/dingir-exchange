@@ -1,5 +1,5 @@
-use super::types::{UserInfo, TickerResult};
 use super::config::Settings;
+use super::types::{TickerResult, UserInfo};
 
 use sqlx::postgres::Postgres;
 use std::cell::RefCell;
@@ -18,16 +18,20 @@ pub struct TradingData {
 
 impl TradingData {
     pub fn new() -> Self {
-        TradingData {
-            ticker_ret_cache: None,
-        }
+        TradingData { ticker_ret_cache: None }
+    }
+}
+
+impl Default for TradingData {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 //TLS storage
 #[derive(Debug)]
 pub struct AppCache {
-    pub trading : RefCell<TradingData>,
+    pub trading: RefCell<TradingData>,
 }
 
 impl AppCache {
@@ -35,5 +39,11 @@ impl AppCache {
         AppCache {
             trading: TradingData::new().into(),
         }
+    }
+}
+
+impl Default for AppCache {
+    fn default() -> Self {
+        Self::new()
     }
 }

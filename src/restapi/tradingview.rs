@@ -1,11 +1,11 @@
 use actix_web::web::{self, Data, Json};
 use actix_web::{HttpRequest, Responder};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
-    time::{SystemTime, UNIX_EPOCH, Duration},
+    time::{Duration, SystemTime, UNIX_EPOCH},
     vec,
 };
-use serde::{Serialize, Deserialize};
 
 use super::errors::RpcError;
 use super::types::{KlineReq, KlineResult, TickerResult};
@@ -13,7 +13,7 @@ use crate::restapi::state;
 
 use super::mock;
 
-use crate::models::{tablenames::TRADERECORD};
+use crate::models::tablenames::TRADERECORD;
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
@@ -73,10 +73,10 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
     .to_string())
 }
 
+use chrono::{self, DurationRound};
 use futures::TryStreamExt;
 use rust_decimal::{prelude::*, Decimal};
-use sqlx::types::chrono::{DateTime, Utc, NaiveDateTime};
-use chrono::{self, DurationRound};
+use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct TickerItem {
@@ -89,10 +89,7 @@ struct TickerItem {
 }
 
 #[derive(Deserialize)]
-pub struct TickerInv (
-    #[serde(with = "humantime_serde")]
-    Duration
-);
+pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 
 #[cfg(sqlxverf)]
 fn sqlverf_ticker() {
@@ -104,13 +101,13 @@ fn sqlverf_ticker() {
     );
 }
 
-pub async fn ticker(req: HttpRequest,
-    web::Path((TickerInv(ticker_inv), market_name,)): web::Path<(TickerInv, String,)>,
+pub async fn ticker(
+    req: HttpRequest,
+    web::Path((TickerInv(ticker_inv), market_name)): web::Path<(TickerInv, String)>,
     app_state: Data<state::AppState>,
-    ) -> Result<Json<TickerResult>, RpcError> {
-
+) -> Result<Json<TickerResult>, RpcError> {
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
-    let now_ts : DateTime<Utc> = SystemTime::now().into(); 
+    let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
     let trading = &mut cache.trading.borrow_mut();
     let may_cached_resp = &mut trading.ticker_ret_cache;
@@ -120,10 +117,13 @@ pub async fn ticker(req: HttpRequest,
         //range of cache is [-inv, +inv] on now
         let now_ts_dur = Duration::from_secs(now_ts.timestamp() as u64);
         let cached_now = Duration::from_secs(cached_resp.to);
-        log::debug!("cache judge {}, {}, {}", cached_now.as_secs(), update_inv.as_secs(), now_ts_dur.as_secs());
-        if cached_now + update_inv > now_ts_dur &&
-            now_ts_dur + update_inv > cached_now
-        {
+        log::debug!(
+            "cache judge {}, {}, {}",
+            cached_now.as_secs(),
+            update_inv.as_secs(),
+            now_ts_dur.as_secs()
+        );
+        if cached_now + update_inv > now_ts_dur && now_ts_dur + update_inv > cached_now {
             log::debug!("use cached response");
             return Ok(Json(cached_resp.clone()));
         }
@@ -131,7 +131,7 @@ pub async fn ticker(req: HttpRequest,
 
     let ticker_inv = if ticker_inv > app_state.config.trading.ticker_interval {
         app_state.config.trading.ticker_interval
-    }else {
+    } else {
         ticker_inv
     };
 
@@ -145,18 +145,24 @@ pub async fn ticker(req: HttpRequest,
         TRADERECORD
     );
 
-    let from_ts = now_ts.clone().checked_sub_signed(ticker_inv).ok_or(RpcError::unknown("Internal clock error"))?;
+    let from_ts = now_ts
+        .clone()
+        .checked_sub_signed(ticker_inv)
+        .ok_or_else(|| RpcError::unknown("Internal clock error"))?;
     log::debug!("query ticker from {} to {}", from_ts, now_ts);
 
-    let ticker_ret : TickerItem = sqlx::query_as(&core_query)
+    let ticker_ret: TickerItem = sqlx::query_as(&core_query)
         .bind(&market_name)
         .bind(from_ts.naive_utc())
-        .fetch_one(&app_state.db).await?; 
-    
+        .fetch_one(&app_state.db)
+        .await?;
+
     let ret = TickerResult {
         market: String::from("ok"),
-        change: (ticker_ret.last.clone() - ticker_ret.first)
-            .checked_div(ticker_ret.last).and_then(|x| x.to_f32()).unwrap_or(9999.9),
+        change: (ticker_ret.last - ticker_ret.first)
+            .checked_div(ticker_ret.last)
+            .and_then(|x| x.to_f32())
+            .unwrap_or(9999.9),
         last: ticker_ret.last.to_f32().unwrap_or(0.0),
         high: ticker_ret.max.to_f32().unwrap_or(0.0),
         low: ticker_ret.min.to_f32().unwrap_or(0.0),
@@ -168,9 +174,8 @@ pub async fn ticker(req: HttpRequest,
 
     //update cache
     may_cached_resp.replace(ret.clone());
-    Ok(Json(ret))        
+    Ok(Json(ret))
 }
-
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct KlineItem {
@@ -181,7 +186,6 @@ struct KlineItem {
     min: Decimal,
     sum: Decimal,
 }
-
 
 #[derive(Serialize, Clone, Debug)]
 pub struct TradeViewError(RpcError);
@@ -218,9 +222,7 @@ impl actix_web::error::ResponseError for TradeViewError {
     }
 }
 
-pub async fn history(req_origin: HttpRequest,
-    app_state: Data<state::AppState>,
-    ) -> Result<Json<KlineResult>, TradeViewError> {
+pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) -> Result<Json<KlineResult>, TradeViewError> {
     let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
     let req = req.into_inner();
     log::debug!("kline req {:?}", req);

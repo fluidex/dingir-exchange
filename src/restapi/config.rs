@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -9,7 +8,6 @@ pub struct Trading {
     #[serde(with = "humantime_serde")]
     pub ticker_interval: std::time::Duration,
 }
-
 
 impl Default for Trading {
     fn default() -> Self {

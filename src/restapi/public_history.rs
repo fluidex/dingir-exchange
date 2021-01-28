@@ -2,12 +2,15 @@ use actix_web::{web, HttpRequest, Responder};
 
 use actix_web::web::Json;
 
+use crate::models::{
+    self,
+    tablenames::{TRADEHISTORY, TRADERECORD},
+};
 use core::cmp::min;
-use crate::models::{self, tablenames::{TRADERECORD, TRADEHISTORY}};
 
 use super::{errors::RpcError, state::AppState, types};
+use models::{DecimalDbType, TimestampDbType};
 use rust_decimal::prelude::*;
-use models::{TimestampDbType, DecimalDbType};
 
 fn check_market_exists(_market: &str) -> bool {
     // TODO
@@ -35,7 +38,6 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> impl 
     Ok(Json(trades))
 }
 
-
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct QueriedTradeHistory {
     pub time: TimestampDbType,
@@ -61,30 +63,37 @@ fn sqlverf_ticker() {
     );
 }
 
-pub async fn order_trades(app_state: web::Data<AppState>,
-    web::Path((market_name, order_id)): web::Path<(String, i64,)>,
-    ) -> Result<Json<types::OrderTradeResult>, RpcError> {
-    
+pub async fn order_trades(
+    app_state: web::Data<AppState>,
+    web::Path((market_name, order_id)): web::Path<(String, i64)>,
+) -> Result<Json<types::OrderTradeResult>, RpcError> {
     log::debug!("order_trades market {} order_id {}", market_name, order_id);
 
-    let sql_query = format!("
+    let sql_query = format!(
+        "
     select time, user_id, trade_id, order_id,
     price, amount, quote_amount, fee
     from {} where market = $1 and order_id = $2 
-    order by trade_id, time asc", TRADEHISTORY);
+    order by trade_id, time asc",
+        TRADEHISTORY
+    );
 
     let trades: Vec<QueriedTradeHistory> = sqlx::query_as(&sql_query)
         .bind(market_name)
         .bind(order_id)
-        .fetch_all(&app_state.db).await?;
+        .fetch_all(&app_state.db)
+        .await?;
 
-    Ok(Json(types::OrderTradeResult{
-        trades: trades.into_iter().map(|v| types::TradeRecord{
-            time: v.time.timestamp() as i32,
-            amount: v.amount.to_f32().unwrap_or(0.0),
-            quote_amount: v.quote_amount.to_f32().unwrap_or(0.0),
-            price: v.price.to_f32().unwrap_or(0.0),
-            fee: v.fee.to_f32().unwrap_or(0.0),
-        }).collect(),
+    Ok(Json(types::OrderTradeResult {
+        trades: trades
+            .into_iter()
+            .map(|v| types::TradeRecord {
+                time: v.time.timestamp() as i32,
+                amount: v.amount.to_f32().unwrap_or(0.0),
+                quote_amount: v.quote_amount.to_f32().unwrap_or(0.0),
+                price: v.price.to_f32().unwrap_or(0.0),
+                fee: v.fee.to_f32().unwrap_or(0.0),
+            })
+            .collect(),
     }))
 }
