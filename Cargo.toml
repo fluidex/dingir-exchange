@@ -30,6 +30,7 @@ sqlx = { git = "https://github.com/launchbadge/sqlx.git", features=["runtime-tok
 chrono = { version = "0.4.19", features = ["serde"] }
 rust_decimal = { version = "1.10.0", features = ["postgres", "diesel", "bytes", "byteorder"] }
 rust_decimal_macros = "1.10.0"
+humantime-serde = "1.0"
 
 ttl_cache = "0.5.1"
 itertools = "0.10.0"
