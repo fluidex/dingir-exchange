@@ -122,7 +122,7 @@ pub async fn ticker(
             update_inv.as_secs(),
             now_ts_dur.as_secs()
         );
-        if cached_now + update_inv > now_ts_dur && now_ts_dur + update_inv > cached_now {
+        if cached_now + update_inv > now_ts_dur && now_ts_dur > cached_now - update_inv {
             log::debug!("use cached response");
             return Ok(Json(cached_resp.clone()));
         }
