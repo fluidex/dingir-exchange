@@ -43,8 +43,7 @@ async fn prepare() -> anyhow::Result<Controller> {
     Ok(grpc_stub)
 }
 
-async fn grpc_run(stub : Controller) -> Result<(), Box<dyn std::error::Error>> {
-
+async fn grpc_run(stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse().unwrap();
     let grpc = GrpcHandler::new(stub);
     log::info!("Starting gprc service");
@@ -64,7 +63,7 @@ async fn grpc_run(stub : Controller) -> Result<(), Box<dyn std::error::Error>> {
             rx.await.ok();
         })
         .await?;
-    
+
     log::info!("Shutted down, wait for final clear");
     on_leave.leave().await;
     log::info!("Shutted down");

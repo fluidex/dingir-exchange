@@ -1,10 +1,10 @@
 use crate::asset::{BalanceManager, BalanceType};
+use crate::config;
 use crate::history::HistoryWriter;
 use crate::message::{MessageManager, OrderMessage};
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType};
 use crate::utils;
-use crate::{config};
 
 use std::cmp::{min, Ordering};
 use std::collections::BTreeMap;
@@ -89,28 +89,29 @@ impl Order {
 pub use types::Trade;
 
 #[derive(Clone, Debug)]
-pub struct OrderRc (Arc<RwLock<Order>>);
+pub struct OrderRc(Arc<RwLock<Order>>);
 
-/* 
+/*
     simulate behavior like RefCell, the syncing is ensured by locking in higher rank
     here we use RwLock only for avoiding unsafe tag, we can just use raw pointer
     casted from ARc rather than RwLock here if we do not care about unsafe
 */
-impl OrderRc
-{
-    fn new(order: Order) -> Self {OrderRc(Arc::new(RwLock::new(order)))}
+impl OrderRc {
+    fn new(order: Order) -> Self {
+        OrderRc(Arc::new(RwLock::new(order)))
+    }
 
-    pub(super) fn borrow(&self) -> RwLockReadGuard<'_, Order>
-    {
+    pub(super) fn borrow(&self) -> RwLockReadGuard<'_, Order> {
         self.0.try_read().expect("Lock for parent entry ensure it")
     }
 
-    pub(super) fn borrow_mut(&mut self) -> RwLockWriteGuard<'_, Order>
-    {
+    pub(super) fn borrow_mut(&mut self) -> RwLockWriteGuard<'_, Order> {
         self.0.try_write().expect("Lock for parent entry ensure it")
-    }    
+    }
 
-    fn deep(&self) -> Order {*(self.borrow())}    
+    fn deep(&self) -> Order {
+        *(self.borrow())
+    }
 }
 
 pub fn is_order_ask(order: &Order) -> bool {
@@ -135,92 +136,83 @@ pub struct Market {
     pub trade_count: u64,
 }
 
-pub trait PersistExector
-{
-    fn real_persist(&self) -> bool {true}
+pub trait PersistExector {
+    fn real_persist(&self) -> bool {
+        true
+    }
     fn put_order(&mut self, order: &Order, at_step: OrderEventType);
     fn put_trade(&mut self, trade: &Trade);
 }
 
-impl PersistExector for Box<dyn PersistExector + '_>
-{
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType){
+impl PersistExector for Box<dyn PersistExector + '_> {
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
         self.as_mut().put_order(order, at_step)
     }
-    fn put_trade(&mut self, trade: &Trade){
+    fn put_trade(&mut self, trade: &Trade) {
         self.as_mut().put_trade(trade)
     }
 }
 
-pub(super) struct DummyPersistor (pub(super) bool);
-impl PersistExector for DummyPersistor
-{
-    fn real_persist(&self) -> bool {self.0}
+pub(super) struct DummyPersistor(pub(super) bool);
+impl PersistExector for DummyPersistor {
+    fn real_persist(&self) -> bool {
+        self.0
+    }
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
-    fn put_trade(&mut self, _: &Trade) {}    
+    fn put_trade(&mut self, _: &Trade) {}
 }
 
-pub(super) struct MessengerAsPersistor<'a, T> (&'a mut T, (String, String));
+pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
 
-impl<T : MessageManager> PersistExector for MessengerAsPersistor<'_, T>
-{
+impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
-
         self.0.push_order_message(&OrderMessage {
             event: at_step,
             order: *order,
-            base: self.1.0.clone(),
-            quote: self.1.1.clone(),
+            base: self.1 .0.clone(),
+            quote: self.1 .1.clone(),
         });
     }
     fn put_trade(&mut self, trade: &Trade) {
         self.0.push_trade_message(trade);
-    }    
+    }
 }
 
-pub(super) struct DBAsPersistor<'a, T> (&'a mut T);
+pub(super) struct DBAsPersistor<'a, T>(&'a mut T);
 
-
-impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
-{
+impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
         //only persist on finish
         match at_step {
             OrderEventType::FINISH => self.0.append_order_history(order),
             OrderEventType::PUT => (),
             _ => (),
-        }     
+        }
     }
     fn put_trade(&mut self, trade: &Trade) {
         self.0.append_trade_history(trade);
-    }    
+    }
 }
 
-pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T, tag: (String, String)) 
-    -> MessengerAsPersistor<'_, T>
-{
+pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T, tag: (String, String)) -> MessengerAsPersistor<'_, T> {
     MessengerAsPersistor(messenger, tag)
 }
 
-pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: & mut T) 
-    -> DBAsPersistor<'_, T>
-{
+pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
     DBAsPersistor(history_writer)
 }
-
-
 
 pub struct BalanceManagerWrapper<'a> {
     inner: &'a mut BalanceManager,
 }
 
 impl<'a> From<&'a mut BalanceManager> for BalanceManagerWrapper<'a> {
-
-    fn from(origin: &'a mut BalanceManager) -> Self {BalanceManagerWrapper{inner: origin}}
+    fn from(origin: &'a mut BalanceManager) -> Self {
+        BalanceManagerWrapper { inner: origin }
+    }
 }
 
 impl BalanceManagerWrapper<'_> {
-
     pub fn balance_add(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) {
         self.inner.add(user_id, balance_type, asset, amount);
     }
@@ -246,10 +238,7 @@ const MAP_INIT_CAPACITY: usize = 1024;
 // TODO: is it ok to match with oneself's order?
 // TODO: precision
 impl Market {
-    pub fn new(
-        market_conf: &config::Market,
-        balance_manager: &mut BalanceManager,
-    ) -> Result<Market> {
+    pub fn new(market_conf: &config::Market, balance_manager: &mut BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
@@ -280,7 +269,7 @@ impl Market {
         Ok(market)
     }
 
-    pub fn tag(&self) -> (String, String){
+    pub fn tag(&self) -> (String, String) {
         (self.base.clone(), self.quote.clone())
     }
 
@@ -330,7 +319,7 @@ impl Market {
         order_rc.deep()
     }
 
-    fn order_finish(&mut self, balance_manager: &mut BalanceManagerWrapper<'_>, persistor : &mut impl PersistExector, order: &Order) {
+    fn order_finish(&mut self, balance_manager: &mut BalanceManagerWrapper<'_>, persistor: &mut impl PersistExector, order: &Order) {
         if order.side == OrderSide::ASK {
             let key = &order.get_ask_key();
             debug_assert!(self.asks.contains_key(key));
@@ -354,10 +343,14 @@ impl Market {
     // the last parameter `quote_limit`, is only used for market bid order,
     // it indicates the `quote` balance of the user,
     // so the sum of all the trades' quote amount cannot exceed this value
-    fn execute_order(&mut self, sequencer: &mut Sequencer, 
-        balance_manager: &mut BalanceManagerWrapper<'_>, 
-        persistor: &mut impl PersistExector, mut taker: Order, quote_limit: &Decimal) 
-        -> Order {
+    fn execute_order(
+        &mut self,
+        sequencer: &mut Sequencer,
+        balance_manager: &mut BalanceManagerWrapper<'_>,
+        persistor: &mut impl PersistExector,
+        mut taker: Order,
+        quote_limit: &Decimal,
+    ) -> Order {
         log::debug!("execute_order {:?}", taker);
         let taker_is_ask = taker.side == OrderSide::ASK;
         let taker_is_bid = !taker_is_ask;
@@ -370,7 +363,7 @@ impl Market {
 
         let mut finished_orders = Vec::new();
 
-        let counter_orders : Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
+        let counter_orders: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
             Box::new(self.bids.values_mut())
         } else {
             Box::new(self.asks.values_mut())
@@ -461,8 +454,7 @@ impl Market {
                 BalanceType::AVAILABLE
             };
             // handle base
-            balance_manager
-                .balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
+            balance_manager.balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
             balance_manager.balance_sub(
                 ask_order.user,
                 if maker_is_ask {
@@ -474,8 +466,7 @@ impl Market {
                 &traded_base_amount,
             );
             // handle quote
-            balance_manager
-                .balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
+            balance_manager.balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
             balance_manager.balance_sub(
                 bid_order.user,
                 if maker_is_bid {
@@ -488,15 +479,13 @@ impl Market {
             );
 
             if ask_fee.is_sign_positive() {
-                balance_manager
-                    .balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
+                balance_manager.balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
             }
             if bid_fee.is_sign_positive() {
-                balance_manager
-                    .balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
+                balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
             }
 
-/*          //Not need
+            /*          //Not need
             let (_, maker_mut) = if taker_is_ask {
                 (ask_order, bid_order)
             } else {
@@ -507,7 +496,7 @@ impl Market {
             let maker_finished = maker.remain.is_zero();
             if maker_finished {
                 finished_orders.push(*maker);
-            }else {
+            } else {
                 // When maker_finished, `order_finish` will send message.
                 // So we don't need to send the finish message here.
                 persistor.put_order(&maker, OrderEventType::UPDATE);
@@ -521,8 +510,13 @@ impl Market {
         taker
     }
 
-    pub fn put_order(&mut self, sequencer : &mut Sequencer, mut balance_manager: BalanceManagerWrapper<'_>, 
-        mut persistor: impl PersistExector, order_input: OrderInput) -> Result<Order> {
+    pub fn put_order(
+        &mut self,
+        sequencer: &mut Sequencer,
+        mut balance_manager: BalanceManagerWrapper<'_>,
+        mut persistor: impl PersistExector,
+        order_input: OrderInput,
+    ) -> Result<Order> {
         if order_input.amount.lt(&self.min_amount) {
             return Err(anyhow!("invalid amount"));
         }
@@ -581,8 +575,7 @@ impl Market {
             }
         }
         let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
-            balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote)
+            balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote)
         } else {
             // not used
             Decimal::zero()
@@ -617,21 +610,24 @@ impl Market {
         }
         Ok(order)
     }
-    pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, 
-        mut persistor : impl PersistExector, order_id: u64) -> Order {
+    pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {
         let order = self.orders.get(&order_id).unwrap();
         let order_struct = *order.borrow();
         self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
         order_struct
     }
-    pub fn cancel_all_for_user(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, 
-        mut persistor : impl PersistExector, user_id: u32) -> usize {
+    pub fn cancel_all_for_user(
+        &mut self,
+        mut balance_manager: BalanceManagerWrapper<'_>,
+        mut persistor: impl PersistExector,
+        user_id: u32,
+    ) -> usize {
         // TODO: can we mutate while iterate?
         let order_ids: Vec<u64> = self.users.get(&user_id).unwrap_or(&BTreeMap::new()).keys().copied().collect();
         let total = order_ids.len();
         for order_id in order_ids {
             let order = self.orders.get(&order_id).unwrap();
-            let order_struct = *order.borrow();            
+            let order_struct = *order.borrow();
             self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
         }
         total
@@ -799,11 +795,7 @@ mod tests {
         init_balance(balance_manager);
         let sequencer = &mut Sequencer::default();
         let ask_user_id = 101;
-        let mut market = Market::new(
-            &get_simple_market_config(),
-            balance_manager,
-        )
-        .unwrap();
+        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
             user_id: ask_user_id,
             side: OrderSide::ASK,
@@ -814,7 +806,9 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
         };
-        let ask_order = market.put_order(sequencer, balance_manager.into(), DummyPersistor(false), ask_order_input).unwrap();
+        let ask_order = market
+            .put_order(sequencer, balance_manager.into(), DummyPersistor(false), ask_order_input)
+            .unwrap();
         assert_eq!(ask_order.id, 1);
         assert_eq!(ask_order.remain, dec!(20.0));
 
@@ -829,7 +823,9 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
         };
-        let bid_order = market.put_order(sequencer, balance_manager.into(), DummyPersistor(false), bid_order_input).unwrap();
+        let bid_order = market
+            .put_order(sequencer, balance_manager.into(), DummyPersistor(false), bid_order_input)
+            .unwrap();
         // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
         assert_eq!(bid_order.remain, dec!(0));

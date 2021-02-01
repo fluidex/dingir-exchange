@@ -1,6 +1,6 @@
 use crate::asset;
 use crate::asset::BalanceManager;
-use crate::controller::{Controller};
+use crate::controller::Controller;
 use crate::database;
 use crate::models;
 use crate::types::SimpleResult;
@@ -207,9 +207,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
             controller.replay(&log.method, &log.params).unwrap();
         }
     }
-    controller
-        .sequencer
-        .set_operation_log_id(operation_log_start_id as u64);
+    controller.sequencer.set_operation_log_id(operation_log_start_id as u64);
     log::info!("set operation_log_id to {}", operation_log_start_id);
 }
 
@@ -446,7 +444,7 @@ fn do_forking() -> bool {
 /// # Safety
 ///
 /// Safe by designation
-pub unsafe fn fork_and_make_slice(controller : *const Controller) /*-> SimpleResult*/
+pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResult*/
 {
     if !do_forking() {
         return;
@@ -464,7 +462,7 @@ pub unsafe fn fork_and_make_slice(controller : *const Controller) /*-> SimpleRes
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .expect("build another runtime for slice-making");    
+            .expect("build another runtime for slice-making");
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
             // TODO: it seems sometimes no stderr/stdout is printed here. check it later

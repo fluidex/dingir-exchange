@@ -31,8 +31,7 @@ use serde::Serialize;
 use std::str::FromStr;
 
 #[derive(Copy, Clone)]
-enum PersistPolicy
-{
+enum PersistPolicy {
     Dummy,
     ToDB,
     ToMessege,
@@ -49,14 +48,15 @@ pub struct PersistorGen<'c> {
     policy: PersistPolicy,
 }
 
-impl<'c> PersistorGen<'c> 
-{
-    fn persist_for_market(self, market_tag : (String, String)) -> Box<dyn market::PersistExector + 'c> {
-        
+impl<'c> PersistorGen<'c> {
+    fn persist_for_market(self, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
         match self.policy {
             PersistPolicy::Dummy => Box::new(market::DummyPersistor(false)),
             PersistPolicy::ToDB => Box::new(market::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessege => Box::new(market::persistor_for_message(self.base.message_manager.as_mut().unwrap(), market_tag)),
+            PersistPolicy::ToMessege => Box::new(market::persistor_for_message(
+                self.base.message_manager.as_mut().unwrap(),
+                market_tag,
+            )),
         }
     }
 
@@ -70,20 +70,10 @@ impl<'c> PersistorGen<'c>
 }
 
 impl Persistor {
+    fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
+        let policy = if real { self.policy } else { PersistPolicy::Dummy };
 
-    fn is_real(&mut self, real : bool) -> PersistorGen<'_> {
-
-        let policy = if real {
-            self.policy    
-        }
-        else{
-            PersistPolicy::Dummy
-        };
-
-        PersistorGen {
-            base: self,
-            policy,
-        }
+        PersistorGen { base: self, policy }
     }
 
     fn service_available(&self) -> bool {
@@ -95,7 +85,7 @@ impl Persistor {
             log::warn!("history_writer full");
             return false;
         }
-        true        
+        true
     }
 }
 
@@ -108,7 +98,7 @@ pub struct Controller {
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
     pub persistor: Persistor,
-    dbg_pool : sqlx::Pool::<DbType>,
+    dbg_pool: sqlx::Pool<DbType>,
     //pub(crate) rt: tokio::runtime::Handle,
 }
 
@@ -123,31 +113,26 @@ impl Controller {
         let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
         let mut balance_manager = BalanceManager::new(&settings.assets).unwrap();
         let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
-        let history_writer = 
-            DatabaseHistoryWriter::new(
-                &DatabaseWriterConfig {
-                    spawn_limit: 4,
-                    apply_benchmark: true,
-                    capability_limit: 8192,
-                },
-                &history_pool,
-            )
-            .unwrap();
+        let history_writer = DatabaseHistoryWriter::new(
+            &DatabaseWriterConfig {
+                spawn_limit: 4,
+                apply_benchmark: true,
+                capability_limit: 8192,
+            },
+            &history_pool,
+        )
+        .unwrap();
         let update_controller = BalanceUpdateController::new();
         let asset_manager = AssetManager::new(&settings.assets).unwrap();
         let sequencer = Sequencer::default();
         let mut markets = HashMap::new();
         for entry in &settings.markets {
-            let market = market::Market::new(
-                entry,
-                &mut balance_manager,
-            )
-            .unwrap();
+            let market = market::Market::new(entry, &mut balance_manager).unwrap();
             markets.insert(entry.name.clone(), market);
         }
         let main_pool = if settings.db_log == settings.db_history {
             history_pool
-        }else{
+        } else {
             sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
         };
 
@@ -409,10 +394,9 @@ impl Controller {
 
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
-        let order = market.put_order(&mut self.sequencer, 
-            balance_manager.into(), 
-            persistor, 
-            order_input).map_err(|e| Status::unknown(format!("{}", e)))?;
+        let order = market
+            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
+            .map_err(|e| Status::unknown(format!("{}", e)))?;
         if real {
             self.append_operation_log(OPERATION_ORDER_PUT, &req);
         }
@@ -451,9 +435,11 @@ impl Controller {
             .markets
             .get_mut(&req.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
-        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), 
+        let total = market.cancel_all_for_user(
+            (&mut self.balance_manager).into(),
             self.persistor.is_real(real).persist_for_market(market.tag()),
-            req.user_id) as u32;
+            req.user_id,
+        ) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -482,7 +468,6 @@ impl Controller {
     }
 
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
-
         async {
             println!("do full reset: memory and db");
             self.reset_state();
@@ -515,7 +500,7 @@ impl Controller {
                 tablenames::ORDERSLICE);
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
-            
+
             let down_cmd = include_str!("../../migrations/reset/down.sql");
             let up_cmd = include_str!("../../migrations/reset/up.sql");
             let mut connection1 = self.dbg_pool.acquire().await?;
@@ -525,27 +510,23 @@ impl Controller {
 
             //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
             let db_str = self.settings.db_log.clone();
-            let thr_handle = std::thread::spawn(move ||  {
+            let thr_handle = std::thread::spawn(move || {
                 let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("build another runtime for migration");
+                    .enable_all()
+                    .build()
+                    .expect("build another runtime for migration");
 
-                let ret = rt.block_on(
-                    async move {
-                        let mut conn = ConnectionType::connect(&db_str).await?;
-                        crate::persist::MIGRATOR.run(&mut conn).await?;
-                        crate::message::persist::MIGRATOR.run(&mut conn).await
-                    }                    
-                );
+                let ret = rt.block_on(async move {
+                    let mut conn = ConnectionType::connect(&db_str).await?;
+                    crate::persist::MIGRATOR.run(&mut conn).await?;
+                    crate::message::persist::MIGRATOR.run(&mut conn).await
+                });
 
                 println!("migration task done");
                 ret
-            });            
+            });
 
-            tokio::task::spawn_blocking(move || {
-                thr_handle.join().unwrap()
-            }).await.unwrap()
+            tokio::task::spawn_blocking(move || thr_handle.join().unwrap()).await.unwrap()
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;

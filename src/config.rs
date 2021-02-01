@@ -58,7 +58,7 @@ pub struct Settings {
     pub markets: Vec<Market>,
     pub brokers: String,
     pub consumer_group: String,
-    pub persist_interval: i32, 
+    pub persist_interval: i32,
     pub slice_interval: i32,
     pub slice_keeptime: i32,
     pub history_thread: i32,

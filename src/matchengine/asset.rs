@@ -238,33 +238,31 @@ pub struct BalanceUpdateController {
     cache: TtlCache<BalanceUpdateKey, bool>,
 }
 
-
-pub trait PersistExector
-{
-    fn real_persist(&self) -> bool {true}
+pub trait PersistExector {
+    fn real_persist(&self) -> bool {
+        true
+    }
     fn put_balance(&mut self, balance: BalanceHistory);
 }
 
-impl PersistExector for Box<dyn PersistExector + '_>
-{
-    fn put_balance(&mut self, balance: BalanceHistory){
+impl PersistExector for Box<dyn PersistExector + '_> {
+    fn put_balance(&mut self, balance: BalanceHistory) {
         self.as_mut().put_balance(balance)
     }
 }
 
-pub(super) struct DummyPersistor (pub(super) bool);
-impl PersistExector for DummyPersistor
-{
-    fn real_persist(&self) -> bool {self.0}
+pub(super) struct DummyPersistor(pub(super) bool);
+impl PersistExector for DummyPersistor {
+    fn real_persist(&self) -> bool {
+        self.0
+    }
     fn put_balance(&mut self, _balance: BalanceHistory) {}
 }
 
-pub(super) struct MessengerAsPersistor<'a, T> (&'a mut T);
+pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T);
 
-impl<T : MessageManager> PersistExector for MessengerAsPersistor<'_, T>
-{
+impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
-
         self.0.push_balance_message(&BalanceMessage {
             timestamp: balance.time.timestamp() as f64,
             user_id: balance.user_id as u32,
@@ -272,25 +270,22 @@ impl<T : MessageManager> PersistExector for MessengerAsPersistor<'_, T>
             business: balance.business.clone(),
             change: balance.change.to_string(),
         });
-    }   
+    }
 }
 
-pub(super) struct DBAsPersistor<'a, T> (&'a mut T);
+pub(super) struct DBAsPersistor<'a, T>(&'a mut T);
 
-impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
-{
-    fn put_balance(&mut self, balance: BalanceHistory) {self.0.append_balance_history(balance);}    
+impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
+    fn put_balance(&mut self, balance: BalanceHistory) {
+        self.0.append_balance_history(balance);
+    }
 }
 
-pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) 
-    -> MessengerAsPersistor<'_, T>
-{
+pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {
     MessengerAsPersistor(messenger)
 }
 
-pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) 
-    -> DBAsPersistor<'_, T>
-{
+pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
     DBAsPersistor(history_writer)
 }
 
@@ -333,11 +328,9 @@ impl BalanceUpdateController {
         }
         let abs_change = change.abs();
         let new_balance = if abs_change.is_sign_positive() || abs_change.is_zero() {
-            balance_manager
-                .add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
+            balance_manager.add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
         } else {
-            balance_manager
-                .sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
+            balance_manager.sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
         };
         log::debug!("change user balance: {} {} {}", user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
@@ -359,5 +352,7 @@ impl BalanceUpdateController {
 }
 
 impl Default for BalanceUpdateController {
-    fn default() -> Self {Self::new()}
+    fn default() -> Self {
+        Self::new()
+    }
 }

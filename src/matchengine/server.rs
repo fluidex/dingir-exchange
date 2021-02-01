@@ -4,85 +4,79 @@ use tonic::{self, Request, Response, Status};
 pub use crate::dto::*;
 
 //use crate::me_history::HistoryWriter;
+use crate::controller::Controller;
+use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::fmt::Debug;
-use crate::controller::Controller;
-use tokio::sync::{oneshot, mpsc, RwLock};
-
+use tokio::sync::{mpsc, oneshot, RwLock};
 
 type StubType = Arc<RwLock<Controller>>;
 
-type ControllerAction = Box<dyn FnOnce (StubType) -> Pin<Box<dyn futures::Future<Output = ()> + Send>> + Send >;
+type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<Output = ()> + Send>> + Send>;
 
 pub struct GrpcHandler {
     stub: StubType,
-    task_dispacther : mpsc::Sender<ControllerAction>,
-    set_close : mpsc::Sender<()>,
+    task_dispacther: mpsc::Sender<ControllerAction>,
+    set_close: mpsc::Sender<()>,
 }
 
-struct ControllerDispatch<OT> (ControllerAction, oneshot::Receiver<OT>);
+struct ControllerDispatch<OT>(ControllerAction, oneshot::Receiver<OT>);
 
-impl<OT: 'static + Debug + Send> ControllerDispatch<OT>
-{
+impl<OT: 'static + Debug + Send> ControllerDispatch<OT> {
     fn new<T>(f: T) -> Self
-    where T: for<'c> FnOnce(&'c mut Controller) -> Pin<Box<dyn futures::Future<Output = OT> + Send + 'c>>,
+    where
+        T: for<'c> FnOnce(&'c mut Controller) -> Pin<Box<dyn futures::Future<Output = OT> + Send + 'c>>,
         T: Send + 'static,
     {
         let (tx, rx) = oneshot::channel();
 
         ControllerDispatch(
-            Box::new(move |ctrl : StubType| 
-                -> Pin<Box<dyn futures::Future<Output = ()>  + Send + 'static>> {
-                
-                Box::pin(async move {
-                    let mut wg = ctrl.write().await;
-                    if let Err(t) = tx.send(f(&mut wg).await){
-                        log::error!("Controller action can not be return: {:?}", t);
-                    }
-                })
-            }),
+            Box::new(
+                move |ctrl: StubType| -> Pin<Box<dyn futures::Future<Output = ()> + Send + 'static>> {
+                    Box::pin(async move {
+                        let mut wg = ctrl.write().await;
+                        if let Err(t) = tx.send(f(&mut wg).await) {
+                            log::error!("Controller action can not be return: {:?}", t);
+                        }
+                    })
+                },
+            ),
             rx,
         )
     }
 }
 
-fn map_dispatch_err<T: 'static>(_ : mpsc::error::SendError<T>) -> tonic::Status {tonic::Status::unknown("Server temporary unavaliable")}
+fn map_dispatch_err<T: 'static>(_: mpsc::error::SendError<T>) -> tonic::Status {
+    tonic::Status::unknown("Server temporary unavaliable")
+}
 
 type ControllerRet<OT> = Result<OT, tonic::Status>;
 type ServerRet<OT> = Result<Response<OT>, tonic::Status>;
 
-fn map_dispatch_ret<OT: 'static>(recv_ret : Result<ControllerRet<OT>, oneshot::error::RecvError>) -> ServerRet<OT>
-{
+fn map_dispatch_ret<OT: 'static>(recv_ret: Result<ControllerRet<OT>, oneshot::error::RecvError>) -> ServerRet<OT> {
     match recv_ret {
         Ok(ret) => ret.map(Response::new),
         Err(_) => Err(Status::unknown("Dispatch ret unreach")),
-    }   
+    }
 }
 
-pub struct ServerLeave (mpsc::Sender<ControllerAction>, mpsc::Sender<()>);
+pub struct ServerLeave(mpsc::Sender<ControllerAction>, mpsc::Sender<()>);
 
-impl ServerLeave 
-{
-    pub async fn leave(self)
-    {
+impl ServerLeave {
+    pub async fn leave(self) {
         self.1.send(()).await.unwrap();
         self.0.closed().await;
-    }    
+    }
 }
 
-
 impl GrpcHandler {
-
     pub fn new(stub: Controller) -> Self {
-
         let mut persist_interval = tokio::time::interval(std::time::Duration::from_secs(stub.settings.persist_interval as u64));
 
         let stub = Arc::new(RwLock::new(stub));
         //we always wait so the size of channel is no matter
         let (tx, mut rx) = mpsc::channel(16);
         let (tx_close, mut rx_close) = mpsc::channel(1);
-        
 
         let stub_for_dispatch = stub.clone();
 
@@ -92,45 +86,41 @@ impl GrpcHandler {
             stub,
         };
 
-        tokio::spawn(
-            async move {
-                persist_interval.tick().await; //skip first tick
-                loop {
-                    tokio::select! {
-                        may_task = rx.recv() => {
-                            if let Some(task) = may_task {
-                                task(stub_for_dispatch.clone()).await;
-                            }else {
-                                break;
-                            }
+        tokio::spawn(async move {
+            persist_interval.tick().await; //skip first tick
+            loop {
+                tokio::select! {
+                    may_task = rx.recv() => {
+                        if let Some(task) = may_task {
+                            task(stub_for_dispatch.clone()).await;
+                        }else {
+                            break;
                         }
-                        _ = persist_interval.tick() => {
-                            let stub_rd = stub_for_dispatch.read().await;
-                            log::info!("Start a persisting task");
-                            unsafe {
-                                crate::persist::fork_and_make_slice(&*stub_rd);
-                            }
+                    }
+                    _ = persist_interval.tick() => {
+                        let stub_rd = stub_for_dispatch.read().await;
+                        log::info!("Start a persisting task");
+                        unsafe {
+                            crate::persist::fork_and_make_slice(&*stub_rd);
                         }
-                        _ = rx_close.recv() => {
-                            log::info!("Server scheduler is notified to close");
-                            rx.close();
-                        }
-                    }    
+                    }
+                    _ = rx_close.recv() => {
+                        log::info!("Server scheduler is notified to close");
+                        rx.close();
+                    }
                 }
-
-                log::warn!("Server scheduler has exited");
             }
-        );
+
+            log::warn!("Server scheduler has exited");
+        });
 
         ret
     }
 
-    pub fn on_leave(&self) -> ServerLeave
-    {
+    pub fn on_leave(&self) -> ServerLeave {
         ServerLeave(self.task_dispacther.clone(), self.set_close.clone())
     }
 }
-
 
 #[tonic::async_trait]
 impl Matchengine for GrpcHandler {
@@ -176,37 +166,25 @@ impl Matchengine for GrpcHandler {
 
     /*---------------------------- following are "written ops" ---------------------------------*/
     async fn balance_update(&self, request: Request<BalanceUpdateRequest>) -> Result<Response<BalanceUpdateResponse>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.update_balance(true, request.into_inner()) }));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(async move {
-                ctrl.update_balance(true, request.into_inner())
-            })
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
     async fn order_put(&self, request: Request<OrderPutRequest>) -> Result<Response<OrderInfo>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_put(true, request.into_inner()) }));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(async move {
-                ctrl.order_put(true, request.into_inner())
-            })
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
     async fn order_cancel(&self, request: tonic::Request<OrderCancelRequest>) -> Result<tonic::Response<OrderInfo>, tonic::Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_cancel(true, request.into_inner()) }));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(async move {
-                ctrl.order_cancel(true, request.into_inner())
-            })
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
@@ -214,13 +192,10 @@ impl Matchengine for GrpcHandler {
         &self,
         request: tonic::Request<OrderCancelAllRequest>,
     ) -> Result<tonic::Response<OrderCancelAllResponse>, tonic::Status> {
+        let ControllerDispatch(act, rt) = ControllerDispatch::new(move |ctrl: &mut Controller| {
+            Box::pin(async move { ctrl.order_cancel_all(true, request.into_inner()) })
+        });
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(async move {
-                ctrl.order_cancel_all(true, request.into_inner())
-            })
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
@@ -228,36 +203,29 @@ impl Matchengine for GrpcHandler {
     // This is the only blocking call of the server
     #[cfg(debug_assertions)]
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_dump(request.into_inner())));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(ctrl.debug_dump(request.into_inner()))
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
     #[cfg(debug_assertions)]
     async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_reset(request.into_inner())));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(ctrl.debug_reset(request.into_inner()))
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
     #[cfg(debug_assertions)]
     async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_reload(request.into_inner())));
 
-        let ControllerDispatch(act, rt)  = ControllerDispatch::new(
-            move |ctrl:&mut Controller| Box::pin(ctrl.debug_reload(request.into_inner()))
-        );
-        
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
-
     }
 
     #[cfg(not(debug_assertions))]
