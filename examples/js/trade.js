@@ -113,6 +113,12 @@ async function tradeTest() {
   console.log("bid order id", bidOrder.id);
   await testStatusAfterTrade(askOrder.id, bidOrder.id);
 
+  const testReload = false;
+  if (testReload) {
+    await debugReload();
+    await testStatusAfterTrade(askOrder.id, bidOrder.id);
+  }
+
   console.log("tradeTest passed!");
   return [askOrder.id, bidOrder.id];
 }

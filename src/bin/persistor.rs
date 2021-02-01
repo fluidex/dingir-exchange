@@ -40,17 +40,17 @@ fn main() {
         .build()
         .expect("build runtime");
 
-    let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
-        .set("bootstrap.servers", &settings.brokers)
-        .set("group.id", &settings.consumer_group)
-        .set("enable.partition.eof", "false")
-        .set("session.timeout.ms", "6000")
-        .set("enable.auto.commit", "true")
-        .create()
-        .unwrap();
-    let consumer = AppliedConsumer(consumer);
-
     rt.block_on(async move {
+        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
+            .set("bootstrap.servers", &settings.brokers)
+            .set("group.id", &settings.consumer_group)
+            .set("enable.partition.eof", "false")
+            .set("session.timeout.ms", "6000")
+            .set("enable.auto.commit", "true")
+            .create()
+            .unwrap();
+        let consumer = AppliedConsumer(consumer);
+
         MIGRATOR
             .run(&mut ConnectionType::connect(&settings.db_history).await.unwrap())
             .await
@@ -80,7 +80,7 @@ fn main() {
                     break;
                 },
 
-                err = cr_main.run_stream(|cr|cr.start()) => {
+                err = cr_main.run_stream(|cr|cr.stream()) => {
                     log::error!("Kafka consumer error: {}", err);
                 }
             }
