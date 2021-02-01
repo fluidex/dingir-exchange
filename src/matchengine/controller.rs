@@ -109,6 +109,7 @@ pub struct Controller {
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
     pub persistor: Persistor,
+    dbg_pool : sqlx::Pool::<DbType>,
     //pub(crate) rt: tokio::runtime::Handle,
 }
 
@@ -120,6 +121,7 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
+        let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
         let mut balance_manager = BalanceManager::new(&settings.assets).unwrap();
         let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
         let history_writer = 
@@ -129,7 +131,7 @@ impl Controller {
                     apply_benchmark: true,
                     capability_limit: 8192,
                 },
-                &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap(),
+                &history_pool,
             )
             .unwrap();
         let update_controller = BalanceUpdateController::new();
@@ -144,12 +146,18 @@ impl Controller {
             .unwrap();
             markets.insert(entry.name.clone(), market);
         }
+        let main_pool = if settings.db_log == settings.db_history {
+            history_pool
+        }else{
+            sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
+        };
+
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
             capability_limit: 8192,
         })
-        .start_schedule(&sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap())
+        .start_schedule(&main_pool)
         .unwrap();
 
         let persist_policy = PersistPolicy::ToDB;
@@ -166,20 +174,10 @@ impl Controller {
                 history_writer,
                 message_manager: Some(message_manager),
                 policy: persist_policy,
-            }
+            },
+            dbg_pool: main_pool,
             //            rt: tokio::runtime::Handle::current(),
         }
-    }
-    // TODO: make the code more elegant
-    pub fn prepare_stub(self) {
-        unsafe { G_STUB = Some(self) };
-    }
-    pub fn prepare_runtime(rt: *const tokio::runtime::Runtime) {
-        unsafe { G_RT = rt };
-    }
-
-    pub fn release_stub() {
-        unsafe { G_STUB = None };
     }
 
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
@@ -485,6 +483,7 @@ impl Controller {
     }
 
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
+
         async {
             println!("do full reset: memory and db");
             self.reset_state();
@@ -517,17 +516,37 @@ impl Controller {
                 tablenames::ORDERSLICE);
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
-            let db_str = &self.settings.db_log;
+            
             let down_cmd = include_str!("../../migrations/reset/down.sql");
             let up_cmd = include_str!("../../migrations/reset/up.sql");
-            let mut connection = ConnectionType::connect(db_str).await?;
-            connection.execute(down_cmd).await?;
-            let mut connection = ConnectionType::connect(db_str).await?;
-            connection.execute(up_cmd).await?;
+            let mut connection1 = self.dbg_pool.acquire().await?;
+            connection1.execute(down_cmd).await?;
+            let mut connection2 = self.dbg_pool.acquire().await?;
+            connection2.execute(up_cmd).await?;
 
-            let mut connection = ConnectionType::connect(db_str).await?;
-            crate::persist::MIGRATOR.run(&mut connection).await?;
-            crate::message::persist::MIGRATOR.run(&mut connection).await
+            //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
+            let db_str = self.settings.db_log.clone();
+            let thr_handle = std::thread::spawn(move ||  {
+                let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("build another runtime for migration");
+
+                let ret = rt.block_on(
+                    async move {
+                        let mut conn = ConnectionType::connect(&db_str).await?;
+                        crate::persist::MIGRATOR.run(&mut conn).await?;
+                        crate::message::persist::MIGRATOR.run(&mut conn).await
+                    }                    
+                );
+
+                println!("migration task done");
+                ret
+            });            
+
+            tokio::task::spawn_blocking(move || {
+                thr_handle.join().unwrap()
+            }).await.unwrap()
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;

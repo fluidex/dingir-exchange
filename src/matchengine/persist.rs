@@ -446,7 +446,7 @@ fn do_forking() -> bool {
     }
 }
 
-pub fn fork_and_make_slice() /*-> SimpleResult*/
+pub fn fork_and_make_slice(controller : *const Controller) /*-> SimpleResult*/
 {
     if !do_forking() {
         return;
@@ -458,13 +458,13 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
+    let controller = unsafe { controller.as_ref().unwrap() };
+
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .expect("build another runtime for slice-making");
-
-        let controller = unsafe { G_STUB.as_mut().unwrap() };
+            .expect("build another runtime for slice-making");    
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
             // TODO: it seems sometimes no stderr/stdout is printed here. check it later
@@ -488,7 +488,7 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //die fast
     std::process::exit(exitcode);
 }
-
+/*
 pub fn init_persist_timer() {
     // use spawn_local here will block the network thread
     tokio::spawn(async move {
@@ -501,3 +501,4 @@ pub fn init_persist_timer() {
         }
     });
 }
+*/

@@ -24,27 +24,9 @@ fn main() {
 
     rt.block_on(async {
         let stub = prepare().await.expect("Init state error");
-        stub.prepare_stub();
-        Controller::prepare_runtime(&rt as *const tokio::runtime::Runtime);
-
-        let rpc_thread = std::thread::spawn(move || {
-            let aux_rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("build auxiliary runtime");
-
-            println!("start grpc under single-thread runtime");
-            aux_rt.block_on(grpc_run()).unwrap()
-        });
-
-        tokio::runtime::Handle::current()
-            .spawn_blocking(|| rpc_thread.join())
-            .await
-            .unwrap()
+        grpc_run(stub).await
     })
     .unwrap();
-
-    Controller::release_stub();
 }
 
 async fn prepare() -> anyhow::Result<Controller> {
@@ -61,18 +43,18 @@ async fn prepare() -> anyhow::Result<Controller> {
     Ok(grpc_stub)
 }
 
-async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
-    persist::init_persist_timer();
+async fn grpc_run(stub : Controller) -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = "0.0.0.0:50051".parse().unwrap();
-    let grpc = GrpcHandler {};
-    println!("Starting gprc service");
+    let grpc = GrpcHandler::new(stub);
+    log::info!("Starting gprc service");
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let on_leave = grpc.on_leave();
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
-        println!("Ctrl-c received, shutting down");
+        log::info!("Ctrl-c received, shutting down");
         tx.send(()).ok();
     });
 
@@ -82,7 +64,9 @@ async fn grpc_run() -> Result<(), Box<dyn std::error::Error>> {
             rx.await.ok();
         })
         .await?;
-
-    println!("Shutted down");
+    
+    log::info!("Shutted down, wait for final clear");
+    on_leave.leave().await;
+    log::info!("Shutted down");
     Ok(())
 }
