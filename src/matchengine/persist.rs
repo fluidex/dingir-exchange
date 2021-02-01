@@ -431,18 +431,20 @@ pub fn do_forking() -> bool {
 
 #[cfg(not(target_family = "windows"))]
 fn do_forking() -> bool {
-    match nix::unistd::fork() {
-        Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
-            println!("Continuing execution in parent process, new child has pid: {}", child);
-            false
+    unsafe {
+        match nix::unistd::fork() {
+            Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
+                println!("Continuing execution in parent process, new child has pid: {}", child);
+                false
+            }
+            Ok(nix::unistd::ForkResult::Child) => {
+                println!("fork success");
+                true
+            }
+            //if fork fail? should we panic? this will make the main process exit
+            //purpose to do that?
+            Err(e) => panic!("Fork failed {}", e),
         }
-        Ok(nix::unistd::ForkResult::Child) => {
-            println!("fork success");
-            true
-        }
-        //if fork fail? should we panic? this will make the main process exit
-        //purpose to do that?
-        Err(e) => panic!("Fork failed {}", e),
     }
 }
 
@@ -459,9 +461,8 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //so we put our task under new thread, with another tokio runtime
 
     let thread_handle = std::thread::spawn(move || {
-        let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
+        let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .basic_scheduler()
             .build()
             .expect("build another runtime for slice-making");
 

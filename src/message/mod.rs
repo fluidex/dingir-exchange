@@ -6,8 +6,8 @@ use anyhow::{anyhow, Result};
 use crossbeam_channel::RecvTimeoutError;
 use rdkafka::client::ClientContext;
 use rdkafka::config::ClientConfig;
-use rdkafka::error::{KafkaError, RDKafkaError};
-use rdkafka::producer::{BaseProducer, BaseRecord, DeliveryResult, ProducerContext};
+use rdkafka::error::{KafkaError, RDKafkaErrorCode};
+use rdkafka::producer::{BaseProducer, BaseRecord, DeliveryResult, Producer, ProducerContext};
 
 use serde::{Deserialize, Serialize};
 
@@ -25,8 +25,11 @@ impl ProducerContext for SimpleProducerContext {
     type DeliveryOpaque = ();
     fn delivery(&self, result: &DeliveryResult, _: Self::DeliveryOpaque) {
         match result {
+            // TODO: how to handle this err
             Err(e) => println!("kafka send err: {:?}", e),
-            Ok(r) => println!("kafka send done: {:?}", r),
+            Ok(_r) => {
+                //println!("kafka send done: {:?}", r)
+            }
         }
     }
 }
@@ -100,7 +103,7 @@ impl KafkaMessageSender {
         let result = self.producer.send(record);
         if result.is_err() {
             log::error!("fail to push message {} to {}", message, topic_name);
-            if let Err((KafkaError::MessageProduction(RDKafkaError::QueueFull), _)) = result {
+            if let Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), _)) = result {
                 list.push_back(message.to_string());
                 return Ok(());
             }
@@ -128,7 +131,7 @@ impl KafkaMessageSender {
 
             if result.is_err() {
                 //println!("fail to push message {} to {}", message_str, topic_name);
-                if let Err((KafkaError::MessageProduction(RDKafkaError::QueueFull), _)) = result {
+                if let Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), _)) = result {
                     break;
                 }
             }

@@ -5,7 +5,7 @@ services:
     container_name: nginx
     restart: always
     volumes: 
-      - ./configs/nginx.conf:/etc/nginx/conf.d/proxy.conf
+      - ./configs/proxy.conf:/etc/nginx/conf.d/proxy.conf
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -22,7 +22,7 @@ services:
       - "50052:50052"
     command: api.proto -I ../../.. -p 50052 -g host.docker.internal:50051 -m /api    
   db:
-    image: timescale/timescaledb:2.0.0-pg12
+    image: timescale/timescaledb:2.0.1-pg12
     container_name: exchange_pq
     restart: always
     volumes:
@@ -35,7 +35,7 @@ services:
       POSTGRES_PASSWORD: exchange_AA9944
 
   zookeeper:
-    image: wurstmeister/zookeeper
+    image: zookeeper
     container_name: exchange_zookeeper
     ports:
       - "2181:2181"
@@ -56,3 +56,4 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_CREATE_TOPICS: "trades:1:1,orders:1:1,balances:1:1"

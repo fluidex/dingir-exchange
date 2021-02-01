@@ -9,6 +9,7 @@ use dingir_exchange::config;
 use dingir_exchange::controller::Controller;
 use dingir_exchange::persist;
 use dingir_exchange::server::{GrpcHandler, MatchengineServer};
+//use dingir_exchange::sqlxextend;
 
 use dingir_exchange::types::ConnectionType;
 use sqlx::Connection;
@@ -16,21 +17,19 @@ use sqlx::Connection;
 fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
-    //simple_logger::init().unwrap();
-    let mut rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
+    let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .threaded_scheduler()
         .build()
         .expect("build runtime");
 
     rt.block_on(async {
         let stub = prepare().await.expect("Init state error");
         stub.prepare_stub();
+        Controller::prepare_runtime(&rt as *const tokio::runtime::Runtime);
 
         let rpc_thread = std::thread::spawn(move || {
-            let mut aux_rt: tokio::runtime::Runtime = tokio::runtime::Builder::new()
+            let aux_rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
-                .basic_scheduler()
                 .build()
                 .expect("build auxiliary runtime");
 

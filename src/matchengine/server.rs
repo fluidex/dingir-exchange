@@ -4,6 +4,7 @@ use tonic::{self, Request, Response, Status};
 pub use crate::dto::*;
 
 //use crate::me_history::HistoryWriter;
+use crate::controller::G_RT;
 use crate::controller::G_STUB;
 
 pub struct GrpcHandler {}
@@ -20,12 +21,14 @@ where
     F: std::future::Future<Output = Result<(), Status>> + 'static,
 {
     println!("We start a handling with block-the-world (grpc) mode");
-    let handle = get_stub!().rt.clone();
+    //let handle = get_stub!().rt.clone();
 
     let thr_handle = std::thread::spawn(move || -> Result<(), Status> {
-        //            just for verification
-        //            std::thread::sleep(std::time::Duration::from_secs(10));
-        handle.block_on(f())
+        unsafe {
+            (*G_RT).block_on(f())
+            //            just for verification
+            //            std::thread::sleep(std::time::Duration::from_secs(10));
+        }
     });
 
     //simply block the thread in a crude way ...

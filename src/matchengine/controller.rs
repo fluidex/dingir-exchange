@@ -105,8 +105,12 @@ impl Controller {
             rt: tokio::runtime::Handle::current(),
         }
     }
+    // TODO: make the code more elegant
     pub fn prepare_stub(self) {
         unsafe { G_STUB = Some(self) };
+    }
+    pub fn prepare_runtime(rt: *const tokio::runtime::Runtime) {
+        unsafe { G_RT = rt };
     }
 
     pub fn release_stub() {
@@ -420,7 +424,7 @@ impl Controller {
             println!("do full reset: memory and db");
             self.reset_state();
             // waiting for pending db writes
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             /*
             notice: migration in sqlx is rather crude. It simply add operating records into
             _sqlx_migrations table and once an operating is recorded, it never try to reapply
@@ -468,7 +472,7 @@ impl Controller {
     pub async fn debug_reload(&mut self, _req: DebugReloadRequest) -> Result<DebugReloadResponse, Status> {
         async {
             self.reset_state();
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
             crate::persist::init_from_db(&mut connection, self).await
         }
@@ -518,3 +522,4 @@ fn sqlverf_clear_slice() {
 
 //use the ownership should make us has no dangling pointer
 pub(crate) static mut G_STUB: Option<Controller> = None;
+pub(crate) static mut G_RT: *const tokio::runtime::Runtime = std::ptr::null();

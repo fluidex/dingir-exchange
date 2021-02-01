@@ -23,7 +23,7 @@ use tablenames::*;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct BalanceHistory {
-    //for renaming, add #[sqlx(rename = "<row name>")] in corresponding
+    //for renaming, add #[sqlx(type_name = "<row name>")] in corresponding
     //field (not like diesel imply within the derive macro)
     //pub id: i64,
     pub time: TimestampDbType,
