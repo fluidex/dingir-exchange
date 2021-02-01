@@ -55,7 +55,7 @@ type ServerRet<OT> = Result<Response<OT>, tonic::Status>;
 fn map_dispatch_ret<OT: 'static>(recv_ret : Result<ControllerRet<OT>, oneshot::error::RecvError>) -> ServerRet<OT>
 {
     match recv_ret {
-        Ok(ret) => ret.map(|reply|Response::new(reply)),
+        Ok(ret) => ret.map(Response::new),
         Err(_) => Err(Status::unknown("Dispatch ret unreach")),
     }   
 }
@@ -107,7 +107,9 @@ impl GrpcHandler {
                         _ = persist_interval.tick() => {
                             let stub_rd = stub_for_dispatch.read().await;
                             log::info!("Start a persisting task");
-                            crate::persist::fork_and_make_slice(&*stub_rd);
+                            unsafe {
+                                crate::persist::fork_and_make_slice(&*stub_rd);
+                            }
                         }
                         _ = rx_close.recv() => {
                             log::info!("Server scheduler is notified to close");

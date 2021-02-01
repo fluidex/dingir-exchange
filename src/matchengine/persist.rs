@@ -1,6 +1,6 @@
 use crate::asset;
 use crate::asset::BalanceManager;
-use crate::controller::{Controller, G_STUB};
+use crate::controller::{Controller};
 use crate::database;
 use crate::models;
 use crate::types::SimpleResult;
@@ -11,9 +11,6 @@ use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSl
 use crate::sqlxextend::*;
 use sqlx::migrate::Migrator;
 use sqlx::Connection;
-
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::market::Order;
 use std::convert::TryFrom;
@@ -446,7 +443,10 @@ fn do_forking() -> bool {
     }
 }
 
-pub fn fork_and_make_slice(controller : *const Controller) /*-> SimpleResult*/
+/// # Safety
+///
+/// Safe by designation
+pub unsafe fn fork_and_make_slice(controller : *const Controller) /*-> SimpleResult*/
 {
     if !do_forking() {
         return;
@@ -458,7 +458,7 @@ pub fn fork_and_make_slice(controller : *const Controller) /*-> SimpleResult*/
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
-    let controller = unsafe { controller.as_ref().unwrap() };
+    let controller = controller.as_ref().unwrap();
 
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()

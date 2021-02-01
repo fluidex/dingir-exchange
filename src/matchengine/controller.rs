@@ -7,7 +7,6 @@ use crate::{config, utils};
 use anyhow::anyhow;
 use rust_decimal::Decimal;
 use serde_json::json;
-use std::sync::Arc;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
@@ -72,7 +71,7 @@ impl<'c> PersistorGen<'c>
 
 impl Persistor {
 
-    fn is_real<'c>(&'c mut self, real : bool) -> PersistorGen<'c> {
+    fn is_real(&mut self, real : bool) -> PersistorGen<'_> {
 
         let policy = if real {
             self.policy    

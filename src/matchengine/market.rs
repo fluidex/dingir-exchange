@@ -156,7 +156,7 @@ pub(super) struct DummyPersistor (pub(super) bool);
 impl PersistExector for DummyPersistor
 {
     fn real_persist(&self) -> bool {self.0}
-    fn put_order(&mut self, _1: &Order, _2: OrderEventType) {}
+    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
     fn put_trade(&mut self, _: &Trade) {}    
 }
 
@@ -187,6 +187,7 @@ impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
         //only persist on finish
         match at_step {
             OrderEventType::FINISH => self.0.append_order_history(order),
+            OrderEventType::PUT => (),
             _ => (),
         }     
     }
@@ -195,14 +196,14 @@ impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
     }    
 }
 
-pub(super) fn persistor_for_message<'a, T: MessageManager>(messenger: &'a mut T, tag: (String, String)) 
-    -> MessengerAsPersistor<'a, T>
+pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T, tag: (String, String)) 
+    -> MessengerAsPersistor<'_, T>
 {
     MessengerAsPersistor(messenger, tag)
 }
 
-pub(super) fn persistor_for_db<'a, T: HistoryWriter>(history_writer: &'a mut T) 
-    -> DBAsPersistor<'a, T>
+pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: & mut T) 
+    -> DBAsPersistor<'_, T>
 {
     DBAsPersistor(history_writer)
 }
@@ -381,9 +382,9 @@ impl Market {
                 break;
             }
             let (ask_fee_rate, bid_fee_rate) = if taker_is_ask {
-                (taker.taker_fee.clone(), maker.maker_fee.clone())
+                (taker.taker_fee, maker.maker_fee)
             } else {
-                (maker.maker_fee.clone(), taker.taker_fee.clone())
+                (maker.maker_fee, taker.taker_fee)
             };
             let price = maker.price;
             let (ask_order, bid_order) = if taker_is_ask {
@@ -588,7 +589,7 @@ impl Market {
         };
 
         let t = utils::current_timestamp();
-        let mut order = Order {
+        let order = Order {
             id: sequencer.next_order_id(),
             type_: order_input.type_,
             side: order_input.side,

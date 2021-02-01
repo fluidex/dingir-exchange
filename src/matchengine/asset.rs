@@ -282,14 +282,14 @@ impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
     fn put_balance(&mut self, balance: BalanceHistory) {self.0.append_balance_history(balance);}    
 }
 
-pub(super) fn persistor_for_message<'a, T: MessageManager>(messenger: &'a mut T) 
-    -> MessengerAsPersistor<'a, T>
+pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) 
+    -> MessengerAsPersistor<'_, T>
 {
     MessengerAsPersistor(messenger)
 }
 
-pub(super) fn persistor_for_db<'a, T: HistoryWriter>(history_writer: &'a mut T) 
-    -> DBAsPersistor<'a, T>
+pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) 
+    -> DBAsPersistor<'_, T>
 {
     DBAsPersistor(history_writer)
 }
@@ -348,7 +348,7 @@ impl BalanceUpdateController {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
-                business: business.clone(),
+                business,
                 change,
                 balance: new_balance,
                 detail: detail.to_string(),
@@ -356,4 +356,8 @@ impl BalanceUpdateController {
         }
         true
     }
+}
+
+impl Default for BalanceUpdateController {
+    fn default() -> Self {Self::new()}
 }
