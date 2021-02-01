@@ -3,7 +3,7 @@ use crate::message::{BalanceMessage, MessageManager};
 use crate::models;
 use crate::utils;
 use crate::{config, utils::FTimestamp};
-use models::BalanceHistory;
+pub use models::BalanceHistory;
 
 use anyhow::Result;
 use rust_decimal::prelude::Zero;
@@ -12,10 +12,8 @@ use serde::{Deserialize, Serialize};
 use ttl_cache::TtlCache;
 
 use num_enum::TryFromPrimitive;
-use std::cell::RefCell;
 use std::collections::HashMap;
 
-use std::rc::Rc;
 use std::time::Duration;
 
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
@@ -238,23 +236,69 @@ struct BalanceUpdateKey {
 
 pub struct BalanceUpdateController {
     cache: TtlCache<BalanceUpdateKey, bool>,
-    balance_manager: Rc<RefCell<BalanceManager>>,
-    message_manager: Rc<RefCell<dyn MessageManager>>,
-    history_writer: Rc<RefCell<dyn HistoryWriter>>,
+}
+
+
+pub trait PersistExector
+{
+    fn real_persist(&self) -> bool {true}
+    fn put_balance(&mut self, balance: BalanceHistory);
+}
+
+impl PersistExector for Box<dyn PersistExector + '_>
+{
+    fn put_balance(&mut self, balance: BalanceHistory){
+        self.as_mut().put_balance(balance)
+    }
+}
+
+pub(super) struct DummyPersistor (pub(super) bool);
+impl PersistExector for DummyPersistor
+{
+    fn real_persist(&self) -> bool {self.0}
+    fn put_balance(&mut self, _balance: BalanceHistory) {}
+}
+
+pub(super) struct MessengerAsPersistor<'a, T> (&'a mut T);
+
+impl<T : MessageManager> PersistExector for MessengerAsPersistor<'_, T>
+{
+    fn put_balance(&mut self, balance: BalanceHistory) {
+
+        self.0.push_balance_message(&BalanceMessage {
+            timestamp: balance.time.timestamp() as f64,
+            user_id: balance.user_id as u32,
+            asset: balance.asset.clone(),
+            business: balance.business.clone(),
+            change: balance.change.to_string(),
+        });
+    }   
+}
+
+pub(super) struct DBAsPersistor<'a, T> (&'a mut T);
+
+impl<T : HistoryWriter> PersistExector for DBAsPersistor<'_, T>
+{
+    fn put_balance(&mut self, balance: BalanceHistory) {self.0.append_balance_history(balance);}    
+}
+
+pub(super) fn persistor_for_message<'a, T: MessageManager>(messenger: &'a mut T) 
+    -> MessengerAsPersistor<'a, T>
+{
+    MessengerAsPersistor(messenger)
+}
+
+pub(super) fn persistor_for_db<'a, T: HistoryWriter>(history_writer: &'a mut T) 
+    -> DBAsPersistor<'a, T>
+{
+    DBAsPersistor(history_writer)
 }
 
 impl BalanceUpdateController {
-    pub fn new(
-        balance_manager: Rc<RefCell<BalanceManager>>,
-        message_manager: Rc<RefCell<dyn MessageManager>>,
-        history_writer: Rc<RefCell<dyn HistoryWriter>>,
-    ) -> BalanceUpdateController {
+    pub fn new() -> BalanceUpdateController {
         let capacity = 1_000_000;
         BalanceUpdateController {
             cache: TtlCache::new(capacity),
-            balance_manager,
-            message_manager,
-            history_writer,
         }
     }
     pub fn reset(&mut self) {
@@ -269,7 +313,8 @@ impl BalanceUpdateController {
     // return false if duplicate
     pub fn update_user_balance(
         &mut self,
-        real: bool,
+        balance_manager: &mut BalanceManager,
+        mut persistor: impl PersistExector,
         user_id: u32,
         asset: &str,
         business: String,
@@ -288,19 +333,18 @@ impl BalanceUpdateController {
         }
         let abs_change = change.abs();
         let new_balance = if abs_change.is_sign_positive() || abs_change.is_zero() {
-            self.balance_manager
-                .borrow_mut()
+            balance_manager
                 .add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
         } else {
-            self.balance_manager
-                .borrow_mut()
+            balance_manager
                 .sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
         };
         log::debug!("change user balance: {} {} {}", user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
-        if real {
+
+        if persistor.real_persist() {
             detail["id"] = serde_json::Value::from(business_id);
-            let balance_history = BalanceHistory {
+            persistor.put_balance(BalanceHistory {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
@@ -308,17 +352,7 @@ impl BalanceUpdateController {
                 change,
                 balance: new_balance,
                 detail: detail.to_string(),
-            };
-            self.history_writer.borrow_mut().append_balance_history(balance_history);
-
-            let message = BalanceMessage {
-                timestamp: FTimestamp(utils::current_timestamp()).into(),
-                user_id,
-                asset: asset.to_string(),
-                business,
-                change: change.to_string(),
-            };
-            self.message_manager.borrow_mut().push_balance_message(&message);
+            });
         }
         true
     }
