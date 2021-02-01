@@ -4,6 +4,7 @@
     "fmt": "npx prettier --write *.js *.mjs package.json"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.2.5",
     "axios": "^0.21.1",
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
