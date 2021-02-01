@@ -12,6 +12,7 @@ type TradeWriter = DatabaseWriter<models::TradeHistory>;
 
 pub trait HistoryWriter {
     fn is_block(&self) -> bool;
+    //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_order_history(&mut self, order: &market::Order);
     fn append_trade_history(&mut self, trade: &Trade);

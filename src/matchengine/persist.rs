@@ -1,6 +1,6 @@
 use crate::asset;
 use crate::asset::BalanceManager;
-use crate::controller::{Controller, G_STUB};
+use crate::controller::Controller;
 use crate::database;
 use crate::models;
 use crate::types::SimpleResult;
@@ -11,9 +11,6 @@ use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSl
 use crate::sqlxextend::*;
 use sqlx::migrate::Migrator;
 use sqlx::Connection;
-
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::market::Order;
 use std::convert::TryFrom;
@@ -109,7 +106,6 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             let amount = balance.balance;
             controller
                 .balance_manager
-                .borrow_mut()
                 .set(balance.user_id as u32, balance_type, &balance.asset, &amount);
         }
         if let Some(slice_balance) = balances.last() {
@@ -136,7 +132,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             .unwrap();
         for order in &orders {
             let market = controller.markets.get_mut(&order.market).unwrap();
-            let order_rc = Rc::new(RefCell::new(Order {
+            let order = Order {
                 id: order.id as u64,
                 type_: order.order_type,
                 side: order.order_side,
@@ -153,8 +149,8 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_base: order.finished_base,
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
-            }));
-            market.insert_order(order_rc);
+            };
+            market.insert_order(order);
         }
         if let Some(last_order) = orders.last() {
             order_id = last_order.id;
@@ -211,10 +207,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
             controller.replay(&log.method, &log.params).unwrap();
         }
     }
-    controller
-        .sequencer
-        .borrow_mut()
-        .set_operation_log_id(operation_log_start_id as u64);
+    controller.sequencer.set_operation_log_id(operation_log_start_id as u64);
     log::info!("set operation_log_id to {}", operation_log_start_id);
 }
 
@@ -225,8 +218,8 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
         log::debug!("last slice {:?}", slice);
         load_slice_from_db(conn, slice.time, controller).await;
         end_operation_log_id = slice.end_operation_log_id;
-        controller.sequencer.borrow_mut().set_order_id(slice.end_order_id as u64);
-        controller.sequencer.borrow_mut().set_trade_id(slice.end_trade_id as u64);
+        controller.sequencer.set_order_id(slice.end_order_id as u64);
+        controller.sequencer.set_trade_id(slice.end_trade_id as u64);
         log::info!("set order_id and trade_id to {} {}", slice.end_order_id, slice.end_trade_id);
     }
     load_operation_log_from_db(conn, end_operation_log_id as u64, controller).await;
@@ -269,7 +262,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
     let mut records = Vec::new();
     for market in controller.markets.values() {
         for order_rc in market.orders.values() {
-            let order = *order_rc.borrow_mut();
+            let order = order_rc.borrow();
             let record = OrderSlice {
                 id: order.id as i64,
                 slice_id,
@@ -312,7 +305,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
 }
 
 pub async fn update_slice_history(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
-    let sequencer = controller.sequencer.borrow_mut();
+    let sequencer = &controller.sequencer;
     let slice_history = SliceHistory {
         time: slice_id,
         end_operation_log_id: sequencer.get_operation_log_id() as i64,
@@ -327,7 +320,7 @@ pub async fn update_slice_history(conn: &mut ConnectionType, slice_id: i64, cont
 pub async fn dump_to_db(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
     log::info!("persisting orders and balances to db");
     dump_orders(conn, slice_id, controller).await?;
-    dump_balance(conn, slice_id, &controller.balance_manager.borrow()).await?;
+    dump_balance(conn, slice_id, &controller.balance_manager).await?;
     update_slice_history(conn, slice_id, controller).await?;
     Ok(())
 }
@@ -448,7 +441,10 @@ fn do_forking() -> bool {
     }
 }
 
-pub fn fork_and_make_slice() /*-> SimpleResult*/
+/// # Safety
+///
+/// Safe by designation
+pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResult*/
 {
     if !do_forking() {
         return;
@@ -460,13 +456,13 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
+    let controller = controller.as_ref().unwrap();
+
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("build another runtime for slice-making");
-
-        let controller = unsafe { G_STUB.as_mut().unwrap() };
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
             // TODO: it seems sometimes no stderr/stdout is printed here. check it later
@@ -490,7 +486,7 @@ pub fn fork_and_make_slice() /*-> SimpleResult*/
     //die fast
     std::process::exit(exitcode);
 }
-
+/*
 pub fn init_persist_timer() {
     // use spawn_local here will block the network thread
     tokio::spawn(async move {
@@ -503,3 +499,4 @@ pub fn init_persist_timer() {
         }
     });
 }
+*/

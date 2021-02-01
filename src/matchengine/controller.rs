@@ -1,4 +1,4 @@
-use crate::asset::{AssetManager, BalanceManager, BalanceType, BalanceUpdateController};
+use crate::asset::{self, AssetManager, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::database::OperationLogSender;
 use crate::market;
 use crate::sequencer::Sequencer;
@@ -7,8 +7,6 @@ use crate::{config, utils};
 use anyhow::anyhow;
 use rust_decimal::Decimal;
 use serde_json::json;
-use std::cell::RefCell;
-use std::rc::Rc;
 use tonic::{self, Status};
 
 //use rust_decimal::Decimal;
@@ -32,17 +30,76 @@ use sqlx::Executor;
 use serde::Serialize;
 use std::str::FromStr;
 
+#[derive(Copy, Clone)]
+enum PersistPolicy {
+    Dummy,
+    ToDB,
+    ToMessege,
+}
+
+pub struct Persistor {
+    history_writer: DatabaseHistoryWriter,
+    message_manager: Option<ChannelMessageManager>,
+    policy: PersistPolicy,
+}
+
+pub struct PersistorGen<'c> {
+    base: &'c mut Persistor,
+    policy: PersistPolicy,
+}
+
+impl<'c> PersistorGen<'c> {
+    fn persist_for_market(self, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
+        match self.policy {
+            PersistPolicy::Dummy => Box::new(market::DummyPersistor(false)),
+            PersistPolicy::ToDB => Box::new(market::persistor_for_db(&mut self.base.history_writer)),
+            PersistPolicy::ToMessege => Box::new(market::persistor_for_message(
+                self.base.message_manager.as_mut().unwrap(),
+                market_tag,
+            )),
+        }
+    }
+
+    fn persist_for_balance(self) -> Box<dyn asset::PersistExector + 'c> {
+        match self.policy {
+            PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
+            PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
+            PersistPolicy::ToMessege => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+        }
+    }
+}
+
+impl Persistor {
+    fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
+        let policy = if real { self.policy } else { PersistPolicy::Dummy };
+
+        PersistorGen { base: self, policy }
+    }
+
+    fn service_available(&self) -> bool {
+        if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
+            log::warn!("message_manager full");
+            return false;
+        }
+        if self.history_writer.is_block() {
+            log::warn!("history_writer full");
+            return false;
+        }
+        true
+    }
+}
+
 pub struct Controller {
     pub settings: config::Settings,
-    pub sequencer: Rc<RefCell<Sequencer>>,
-    pub balance_manager: Rc<RefCell<BalanceManager>>,
+    pub sequencer: Sequencer,
+    pub balance_manager: BalanceManager,
     pub asset_manager: AssetManager,
-    pub update_controller: Rc<RefCell<BalanceUpdateController>>,
+    pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
-    pub history_writer: Rc<RefCell<DatabaseHistoryWriter>>,
-    pub message_manager: Rc<RefCell<ChannelMessageManager>>,
-    pub(crate) rt: tokio::runtime::Handle,
+    pub persistor: Persistor,
+    dbg_pool: sqlx::Pool<DbType>,
+    //pub(crate) rt: tokio::runtime::Handle,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -53,45 +110,42 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
     pub fn new(settings: config::Settings) -> Controller {
-        let balance_manager = Rc::new(RefCell::new(BalanceManager::new(&settings.assets).unwrap()));
-        let message_manager = Rc::new(RefCell::new(new_message_manager_with_kafka_backend(&settings.brokers).unwrap()));
-        let history_writer = Rc::new(RefCell::new(
-            DatabaseHistoryWriter::new(
-                &DatabaseWriterConfig {
-                    spawn_limit: 4,
-                    apply_benchmark: true,
-                    capability_limit: 8192,
-                },
-                &sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap(),
-            )
-            .unwrap(),
-        ));
-        let update_controller = Rc::new(RefCell::new(BalanceUpdateController::new(
-            balance_manager.clone(),
-            message_manager.clone(),
-            history_writer.clone(),
-        )));
+        let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+        let mut balance_manager = BalanceManager::new(&settings.assets).unwrap();
+        let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
+        let history_writer = DatabaseHistoryWriter::new(
+            &DatabaseWriterConfig {
+                spawn_limit: 4,
+                apply_benchmark: true,
+                capability_limit: 8192,
+            },
+            &history_pool,
+        )
+        .unwrap();
+        let update_controller = BalanceUpdateController::new();
         let asset_manager = AssetManager::new(&settings.assets).unwrap();
-        let sequencer = Rc::new(RefCell::new(Sequencer::default()));
+        let sequencer = Sequencer::default();
         let mut markets = HashMap::new();
         for entry in &settings.markets {
-            let market = market::Market::new(
-                entry,
-                balance_manager.clone(),
-                sequencer.clone(),
-                history_writer.clone(),
-                message_manager.clone(),
-            )
-            .unwrap();
+            let market = market::Market::new(entry, &mut balance_manager).unwrap();
             markets.insert(entry.name.clone(), market);
         }
+        let main_pool = if settings.db_log == settings.db_history {
+            history_pool
+        } else {
+            sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
+        };
+
         let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
             capability_limit: 8192,
         })
-        .start_schedule(&sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap())
+        .start_schedule(&main_pool)
         .unwrap();
+
+        let persist_policy = PersistPolicy::ToDB;
+
         Controller {
             settings,
             sequencer,
@@ -100,21 +154,14 @@ impl Controller {
             update_controller,
             markets,
             log_handler,
-            history_writer,
-            message_manager,
-            rt: tokio::runtime::Handle::current(),
+            persistor: Persistor {
+                history_writer,
+                message_manager: Some(message_manager),
+                policy: persist_policy,
+            },
+            dbg_pool: main_pool,
+            //            rt: tokio::runtime::Handle::current(),
         }
-    }
-    // TODO: make the code more elegant
-    pub fn prepare_stub(self) {
-        unsafe { G_STUB = Some(self) };
-    }
-    pub fn prepare_runtime(rt: *const tokio::runtime::Runtime) {
-        unsafe { G_RT = rt };
-    }
-
-    pub fn release_stub() {
-        unsafe { G_STUB = None };
     }
 
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
@@ -145,7 +192,7 @@ impl Controller {
             req.assets
         };
         let user_id = req.user_id;
-        let balance_manager = self.balance_manager.borrow_mut();
+        let balance_manager = &self.balance_manager;
         let balances = query_assets
             .into_iter()
             .map(|asset_name| {
@@ -195,10 +242,7 @@ impl Controller {
                     .rev()
                     .skip(req.offset as usize)
                     .take(limit as usize)
-                    .map(|order_rc| {
-                        let order = *order_rc.borrow_mut();
-                        order_to_proto(&order)
-                    })
+                    .map(|order_rc| order_to_proto(&order_rc.borrow()))
                     .collect()
             })
             .unwrap_or_else(Vec::new);
@@ -300,15 +344,7 @@ impl Controller {
             log::warn!("log_handler full");
             return false;
         }
-        if self.message_manager.borrow_mut().is_block() {
-            log::warn!("message_manager full");
-            return false;
-        }
-        if self.history_writer.borrow_mut().is_block() {
-            log::warn!("history_writer full");
-            return false;
-        }
-        true
+        self.persistor.service_available()
     }
 
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
@@ -326,8 +362,9 @@ impl Controller {
         } else {
             serde_json::from_str(req.detail.as_str()).map_err(|_| Status::invalid_argument("invalid detail"))?
         };
-        let _is_valid = self.update_controller.borrow_mut().update_user_balance(
-            real,
+        let _is_valid = self.update_controller.update_user_balance(
+            &mut self.balance_manager,
+            self.persistor.is_real(real).persist_for_balance(),
             req.user_id,
             req.asset.as_str(),
             req.business.clone(),
@@ -352,10 +389,14 @@ impl Controller {
             return Err(Status::invalid_argument("invalid market"));
         }
         let market = self.markets.get_mut(&req.market).unwrap();
+        let balance_manager = &mut self.balance_manager;
+        let persistor = self.persistor.is_real(real).persist_for_market(market.tag());
 
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
-        let order = market.put_order(real, order_input).map_err(|e| Status::unknown(format!("{}", e)))?;
+        let order = market
+            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
+            .map_err(|e| Status::unknown(format!("{}", e)))?;
         if real {
             self.append_operation_log(OPERATION_ORDER_PUT, &req);
         }
@@ -376,7 +417,10 @@ impl Controller {
         if order.user != req.user_id {
             return Err(Status::invalid_argument("invalid user"));
         }
-        market.cancel(real, order.id);
+        let balance_manager = &mut self.balance_manager;
+        let persistor = self.persistor.is_real(real).persist_for_market(market.tag());
+
+        market.cancel(balance_manager.into(), persistor, order.id);
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
         }
@@ -391,7 +435,11 @@ impl Controller {
             .markets
             .get_mut(&req.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
-        let total = market.cancel_all_for_user(real, req.user_id) as u32;
+        let total = market.cancel_all_for_user(
+            (&mut self.balance_manager).into(),
+            self.persistor.is_real(real).persist_for_market(market.tag()),
+            req.user_id,
+        ) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -409,13 +457,13 @@ impl Controller {
     }
 
     fn reset_state(&mut self) {
-        self.sequencer.borrow_mut().reset();
+        self.sequencer.reset();
         for market in self.markets.values_mut() {
             market.reset();
         }
         //self.log_handler.reset();
-        self.update_controller.borrow_mut().reset();
-        self.balance_manager.borrow_mut().reset();
+        self.update_controller.reset();
+        self.balance_manager.reset();
         //Ok(())
     }
 
@@ -452,17 +500,33 @@ impl Controller {
                 tablenames::ORDERSLICE);
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
-            let db_str = &self.settings.db_log;
+
             let down_cmd = include_str!("../../migrations/reset/down.sql");
             let up_cmd = include_str!("../../migrations/reset/up.sql");
-            let mut connection = ConnectionType::connect(db_str).await?;
-            connection.execute(down_cmd).await?;
-            let mut connection = ConnectionType::connect(db_str).await?;
-            connection.execute(up_cmd).await?;
+            let mut connection1 = self.dbg_pool.acquire().await?;
+            connection1.execute(down_cmd).await?;
+            let mut connection2 = self.dbg_pool.acquire().await?;
+            connection2.execute(up_cmd).await?;
 
-            let mut connection = ConnectionType::connect(db_str).await?;
-            crate::persist::MIGRATOR.run(&mut connection).await?;
-            crate::message::persist::MIGRATOR.run(&mut connection).await
+            //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
+            let db_str = self.settings.db_log.clone();
+            let thr_handle = std::thread::spawn(move || {
+                let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("build another runtime for migration");
+
+                let ret = rt.block_on(async move {
+                    let mut conn = ConnectionType::connect(&db_str).await?;
+                    crate::persist::MIGRATOR.run(&mut conn).await?;
+                    crate::message::persist::MIGRATOR.run(&mut conn).await
+                });
+
+                println!("migration task done");
+                ret
+            });
+
+            tokio::task::spawn_blocking(move || thr_handle.join().unwrap()).await.unwrap()
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
@@ -506,7 +570,7 @@ impl Controller {
     {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
-            id: self.sequencer.borrow_mut().next_operation_log_id() as i64,
+            id: self.sequencer.next_operation_log_id() as i64,
             time: FTimestamp(utils::current_timestamp()).into(),
             method: method.to_owned(),
             params,
