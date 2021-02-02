@@ -282,11 +282,13 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
 }
 
 impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
-    fn real_persist(&self) -> bool {self.0.real_persist() || self.1.real_persist()}
+    fn real_persist(&self) -> bool {
+        self.0.real_persist() || self.1.real_persist()
+    }
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.put_balance(balance.clone());
         self.1.put_balance(balance);
-    }   
+    }
 }
 
 pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {

@@ -58,15 +58,10 @@ impl<'c> PersistorGen<'c> {
                 self.base.message_manager.as_mut().unwrap(),
                 market_tag,
             )),
-            PersistPolicy::Both => Box::new(
-                (
-                    market::persistor_for_db(&mut self.base.history_writer),
-                    market::persistor_for_message(
-                        self.base.message_manager.as_mut().unwrap(),
-                        market_tag,
-                    ),
-                )
-            ),
+            PersistPolicy::Both => Box::new((
+                market::persistor_for_db(&mut self.base.history_writer),
+                market::persistor_for_message(self.base.message_manager.as_mut().unwrap(), market_tag),
+            )),
         }
     }
 
@@ -75,12 +70,10 @@ impl<'c> PersistorGen<'c> {
             PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
             PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
             PersistPolicy::ToMessege => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
-            PersistPolicy::Both => Box::new(
-                (
-                    asset::persistor_for_db(&mut self.base.history_writer),
-                    asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
-                )
-            )
+            PersistPolicy::Both => Box::new((
+                asset::persistor_for_db(&mut self.base.history_writer),
+                asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
+            )),
         }
     }
 }
