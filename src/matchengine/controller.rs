@@ -33,6 +33,7 @@ use std::str::FromStr;
 #[derive(Copy, Clone)]
 enum PersistPolicy {
     Dummy,
+    Both,
     ToDB,
     ToMessege,
 }
@@ -57,6 +58,10 @@ impl<'c> PersistorGen<'c> {
                 self.base.message_manager.as_mut().unwrap(),
                 market_tag,
             )),
+            PersistPolicy::Both => Box::new((
+                market::persistor_for_db(&mut self.base.history_writer),
+                market::persistor_for_message(self.base.message_manager.as_mut().unwrap(), market_tag),
+            )),
         }
     }
 
@@ -65,6 +70,10 @@ impl<'c> PersistorGen<'c> {
             PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
             PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
             PersistPolicy::ToMessege => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+            PersistPolicy::Both => Box::new((
+                asset::persistor_for_db(&mut self.base.history_writer),
+                asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
+            )),
         }
     }
 }
@@ -144,7 +153,7 @@ impl Controller {
         .start_schedule(&main_pool)
         .unwrap();
 
-        let persist_policy = PersistPolicy::ToDB;
+        let persist_policy = PersistPolicy::Both;
 
         Controller {
             settings,
@@ -501,12 +510,13 @@ impl Controller {
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
 
+            let db_str = self.settings.db_log.clone();
             let down_cmd = include_str!("../../migrations/reset/down.sql");
             let up_cmd = include_str!("../../migrations/reset/up.sql");
-            let mut connection1 = self.dbg_pool.acquire().await?;
-            connection1.execute(down_cmd).await?;
-            let mut connection2 = self.dbg_pool.acquire().await?;
-            connection2.execute(up_cmd).await?;
+            let mut connection = ConnectionType::connect(&db_str).await?;
+            connection.execute(down_cmd).await?;
+            let mut connection = ConnectionType::connect(&db_str).await?;
+            connection.execute(up_cmd).await?;
 
             //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
             let db_str = self.settings.db_log.clone();

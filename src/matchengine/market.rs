@@ -178,6 +178,20 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     }
 }
 
+impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
+    fn real_persist(&self) -> bool {
+        self.0.real_persist() || self.1.real_persist()
+    }
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
+        self.0.put_order(order, at_step);
+        self.1.put_order(order, at_step);
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        self.0.put_trade(trade);
+        self.1.put_trade(trade);
+    }
+}
+
 pub(super) struct DBAsPersistor<'a, T>(&'a mut T);
 
 impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
