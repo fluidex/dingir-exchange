@@ -1,6 +1,6 @@
 -- Add migration script here
 --CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
-CREATE TABLE trade_record (
+CREATE TABLE market_trade (
     time TIMESTAMP(0) NOT NULL,
     market VARCHAR(30) NOT NULL,
     trade_id BIGINT CHECK (trade_id >= 0) NOT NULL,
@@ -10,6 +10,6 @@ CREATE TABLE trade_record (
     taker_side VARCHAR(30) NOT NULL
 );
 
-CREATE INDEX trade_record_idx_market ON trade_record (market, time DESC);
+CREATE INDEX market_trade_idx_market ON market_trade (market, time DESC);
 
-SELECT create_hypertable('trade_record', 'time');
+SELECT create_hypertable('market_trade', 'time');

@@ -551,9 +551,9 @@ impl AutoCommitRet {
 use crate::market;
 use crate::utils::FTimestamp;
 
-impl<'r> From<&'r super::Trade> for models::TradeRecord {
+impl<'r> From<&'r super::Trade> for models::MarketTrade {
     fn from(origin: &'r super::Trade) -> Self {
-        models::TradeRecord {
+        models::MarketTrade {
             time: utils::FTimestamp(origin.timestamp).into(),
             market: origin.market.clone(),
             trade_id: origin.id as i64,

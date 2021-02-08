@@ -4,7 +4,7 @@ use actix_web::web::Json;
 
 use crate::models::{
     self,
-    tablenames::{USERTRADE, TRADERECORD},
+    tablenames::{USERTRADE, MARKETTRADE},
 };
 use core::cmp::min;
 
@@ -31,9 +31,9 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> impl 
     // and more suitable for fetching latest trades on a market.
     // models::UserTrade is designed for a user to fetch his trades.
 
-    let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", TRADERECORD, limit);
+    let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", MARKETTRADE, limit);
 
-    let trades: Vec<models::TradeRecord> = sqlx::query_as(&sql_query).bind(market).fetch_all(&data.db).await?;
+    let trades: Vec<models::MarketTrade> = sqlx::query_as(&sql_query).bind(market).fetch_all(&data.db).await?;
 
     Ok(Json(trades))
 }
@@ -87,7 +87,7 @@ pub async fn order_trades(
     Ok(Json(types::OrderTradeResult {
         trades: trades
             .into_iter()
-            .map(|v| types::TradeRecord {
+            .map(|v| types::MarketTrade {
                 time: v.time.timestamp() as i32,
                 amount: v.amount.to_f32().unwrap_or(0.0),
                 quote_amount: v.quote_amount.to_f32().unwrap_or(0.0),

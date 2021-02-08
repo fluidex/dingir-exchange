@@ -51,7 +51,7 @@ fn main() {
             capability_limit: 8192,
         };
 
-        let persistor_kline: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+        let persistor_kline: DatabaseWriter<models::MarketTrade> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
         //following is equal to writers in history.rs
         let persistor_trade: DatabaseWriter<models::UserTrade> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
