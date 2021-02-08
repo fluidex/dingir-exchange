@@ -44,7 +44,7 @@ impl DatabaseHistoryWriter {
     }
 }
 
-impl<'r> From<&'r market::Order> for models::OrderHistory{
+impl<'r> From<&'r market::Order> for models::OrderHistory {
     fn from(order: &'r market::Order) -> Self {
         models::OrderHistory {
             id: order.id as i64,

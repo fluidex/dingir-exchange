@@ -1,4 +1,4 @@
-use super::consumer::{self, RdConsumerExt, TypedMessageHandlerAsync, TypedMessageHandler, SyncTyped}; //crate::message::consumer
+use super::consumer::{self, RdConsumerExt, SyncTyped, TypedMessageHandler, TypedMessageHandlerAsync}; //crate::message::consumer
 use crate::{database, models, types, utils};
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -13,12 +13,12 @@ pub struct MsgDataPersistor<T: Clone + Send, UM = ()> {
     pub _phantom: PhantomData<UM>,
 }
 
-pub trait MsgDataTransformer<T: Clone + Send> : Send {
+pub trait MsgDataTransformer<T: Clone + Send>: Send {
     type MsgType: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
-    fn into<'r>(msg : &'r Self::MsgType) -> T;
+    fn into(msg: &Self::MsgType) -> T;
 }
 
-use rdkafka::{Message, message::BorrowedMessage};
+use rdkafka::{message::BorrowedMessage, Message};
 
 impl<'c, C, T, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<T, UM>
 where
@@ -28,17 +28,13 @@ where
 {
     type DataType = UM::MsgType;
     fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) {
-        let notify = database::TaskNotification::new(
-            origin_msg.partition(),
-            origin_msg.offset() as u64,
-        );
-        self.writer.borrow_mut().gen()
-            .append_with_notify(UM::into(msg), Some(notify)).ok();
+        let notify = database::TaskNotification::new(origin_msg.partition(), origin_msg.offset() as u64);
+        self.writer.borrow_mut().gen().append_with_notify(UM::into(msg), Some(notify)).ok();
     }
     fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
 
-pub struct Deco<UM> (PhantomData<UM>);
+pub struct Deco<UM>(PhantomData<UM>);
 
 impl<T, UM> MsgDataTransformer<T> for Deco<UM>
 where
@@ -47,11 +43,12 @@ where
     for<'r> &'r UM: Into<T>,
 {
     type MsgType = UM;
-    fn into<'r>(msg : &'r Self::MsgType) -> T {Into::into(msg)}    
+    fn into(msg: &Self::MsgType) -> T {
+        Into::into(msg)
+    }
 }
 
 impl<T: Clone + Send> MsgDataPersistor<T, ()> {
-
     pub fn new(src: &database::DatabaseWriter<T>) -> Self {
         MsgDataPersistor {
             writer: RefCell::new(src.get_entry().unwrap()),
@@ -59,16 +56,16 @@ impl<T: Clone + Send> MsgDataPersistor<T, ()> {
         }
     }
 
-    fn set_transformer<UM> (self)-> MsgDataPersistor<T, UM> 
-    {
+    fn set_transformer<UM>(self) -> MsgDataPersistor<T, UM> {
         MsgDataPersistor {
             writer: self.writer,
             _phantom: PhantomData,
-        }        
+        }
     }
 
-    pub fn handle_message<UM> (self)-> SyncTyped<MsgDataPersistor<T, Deco<UM>>>
-    where UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+    pub fn handle_message<UM>(self) -> SyncTyped<MsgDataPersistor<T, Deco<UM>>>
+    where
+        UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
     {
         SyncTyped::from(self.set_transformer())
     }
@@ -89,9 +86,9 @@ where
     fn on_no_msg(&self, _cr: &'c C::SelfType) {}
 }
 
-pub struct ChainedHandler<T1, T2> (T1, T2);
+pub struct ChainedHandler<T1, T2>(T1, T2);
 
-impl<'c, C, U, UM, UT, T> TypedMessageHandlerAsync<'c, C> for ChainedHandler<MsgDataPersistor<U, UT>, T> 
+impl<'c, C, U, UM, UT, T> TypedMessageHandlerAsync<'c, C> for ChainedHandler<MsgDataPersistor<U, UT>, T>
 where
     C: RdConsumerExt + 'static,
     UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
@@ -100,31 +97,33 @@ where
     T: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
 {
     type DataType = UM;
-    fn on_message(&self, msg: &UM, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) 
-        -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>{
+    fn on_message(
+        &self,
+        msg: &UM,
+        origin_msg: &BorrowedMessage<'c>,
+        cr: &'c C::SelfType,
+    ) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send> {
         TypedMessageHandler::<'c, C>::on_message(&self.0, msg, origin_msg, cr);
         self.1.on_message(msg, origin_msg, cr)
     }
-    fn on_no_msg(&self, cr: &'c C::SelfType) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>
-    {self.1.on_no_msg(cr)}    
+    fn on_no_msg(&self, cr: &'c C::SelfType) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send> {
+        self.1.on_no_msg(cr)
+    }
 }
 
 //Config builder ...
-pub trait TypedTopicConfig
-{
+pub trait TypedTopicConfig {
     type BaseMsgType;
     fn topic_name(&self) -> &str;
 }
 
-pub trait FromTopicConfig<T>
-{
-    fn from_config<'r, C: RdConsumerExt>(cfg : &'r T) -> Self;
+pub trait FromTopicConfig<T> {
+    fn from_config<C: RdConsumerExt>(cfg: &T) -> Self;
 }
 
-pub trait TypedTopicHandlerData<C: RdConsumerExt> : Sized
-{
-    type DataType : 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
-    type HandlerType : for <'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + FromTopicConfig<Self> + 'static;
+pub trait TypedTopicHandlerData<C: RdConsumerExt>: Sized {
+    type DataType: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
+    type HandlerType: for<'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + FromTopicConfig<Self> + 'static;
 }
 
 pub struct TopicConfig<U> {
@@ -132,24 +131,24 @@ pub struct TopicConfig<U> {
     _phantom: PhantomData<U>,
 }
 
-impl<U> TypedTopicConfig for TopicConfig<U>
-{
+impl<U> TypedTopicConfig for TopicConfig<U> {
     type BaseMsgType = U;
-    fn topic_name(&self) -> &str {&self.topic}
-}
-
-impl<U> FromTopicConfig<TopicConfig<U>> for consumer::Synced<EmptyHandler<U>>
-where 
-    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
-{
-    fn from_config<'r, C: RdConsumerExt>(_origin : &'r TopicConfig<U>) -> Self
-    {
-        consumer::Synced::from(EmptyHandler{_phantom: PhantomData})
+    fn topic_name(&self) -> &str {
+        &self.topic
     }
 }
 
-impl<C, U> TypedTopicHandlerData<C>  for TopicConfig<U>
-where 
+impl<U> FromTopicConfig<TopicConfig<U>> for consumer::Synced<EmptyHandler<U>>
+where
+    U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
+{
+    fn from_config<C: RdConsumerExt>(_origin: &TopicConfig<U>) -> Self {
+        consumer::Synced::from(EmptyHandler { _phantom: PhantomData })
+    }
+}
+
+impl<C, U> TypedTopicHandlerData<C> for TopicConfig<U>
+where
     C: RdConsumerExt + 'static,
     U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
@@ -157,8 +156,8 @@ where
     type HandlerType = consumer::Synced<EmptyHandler<U>>;
 }
 
-pub struct ChainedTopicBuilder<'a, T, UT, NXC> 
-where 
+pub struct ChainedTopicBuilder<'a, T, UT, NXC>
+where
     T: Clone + Send,
 {
     next_config: NXC,
@@ -167,21 +166,22 @@ where
 }
 
 impl<'a, T, UT, NXC> TypedTopicConfig for ChainedTopicBuilder<'a, T, UT, NXC>
-where 
+where
     T: Clone + Send,
     NXC: TypedTopicConfig + 'a,
 {
     type BaseMsgType = NXC::BaseMsgType;
-    fn topic_name(&self) -> &str {&self.next_config.topic_name()}
+    fn topic_name(&self) -> &str {
+        &self.next_config.topic_name()
+    }
 }
 
 impl<'a, T, UT, NXC, T1> FromTopicConfig<ChainedTopicBuilder<'a, T, UT, NXC>> for ChainedHandler<MsgDataPersistor<T, UT>, T1>
-where 
+where
     T: Clone + Send,
     T1: FromTopicConfig<NXC>,
 {
-    fn from_config<'r, C: RdConsumerExt>(origin : &'r ChainedTopicBuilder<'a, T, UT, NXC>) -> Self
-    {
+    fn from_config<C: RdConsumerExt>(origin: &ChainedTopicBuilder<'a, T, UT, NXC>) -> Self {
         ChainedHandler(
             MsgDataPersistor::new(origin.dbwriter).set_transformer(),
             T1::from_config::<C>(&origin.next_config),
@@ -190,7 +190,7 @@ where
 }
 
 impl<'a, C, T, U, UT, NXC> TypedTopicHandlerData<C> for ChainedTopicBuilder<'a, T, UT, NXC>
-where 
+where
     C: RdConsumerExt + 'static,
     MsgDataPersistor<T, UT>: 'static,
     U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
@@ -203,7 +203,7 @@ where
 }
 
 impl<'a, C, T, U, UT, NXC> consumer::TopicBuilder<C> for ChainedTopicBuilder<'a, T, UT, NXC>
-where 
+where
     C: RdConsumerExt + 'static,
     MsgDataPersistor<T, UT>: 'static,
     U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
@@ -212,60 +212,58 @@ where
     NXC: TypedTopicConfig + TypedTopicHandlerData<C, DataType = U> + 'a,
 {
     type HandlerType = consumer::Typed<<Self as TypedTopicHandlerData<C>>::HandlerType>;
-    fn topic_name(&self) -> &str {<Self as TypedTopicConfig>::topic_name(&self)}
-    fn topic_handler(&self) -> Self::HandlerType{
+    fn topic_name(&self) -> &str {
+        <Self as TypedTopicConfig>::topic_name(&self)
+    }
+    fn topic_handler(&self) -> Self::HandlerType {
         consumer::Typed::from(<<Self as TypedTopicHandlerData<C>>::HandlerType>::from_config::<C>(&self))
     }
 }
 
-impl<U> TopicConfig<U> 
-{
-    pub fn new(tpn :&str) -> Self
-    {
-        TopicConfig{
+impl<U> TopicConfig<U> {
+    pub fn new(tpn: &str) -> Self {
+        TopicConfig {
             topic: tpn.to_string(),
             _phantom: PhantomData,
         }
     }
 
-    pub fn persist_to<'a, T: Clone + Send>(self, db : &'a database::DatabaseWriter<T>) -> ChainedTopicBuilder<'a, T, Deco<U>, Self>
-    {
-        ChainedTopicBuilder{
+    pub fn persist_to<T: Clone + Send>(self, db: &database::DatabaseWriter<T>) -> ChainedTopicBuilder<'_, T, Deco<U>, Self> {
+        ChainedTopicBuilder {
             next_config: self,
             dbwriter: db,
             _phantom: PhantomData,
         }
-    }   
+    }
 }
 
-impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC> 
-where 
+impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC>
+where
     T: Clone + Send,
     NXC: TypedTopicConfig + 'a,
 {
-    pub fn persist_to<'b : 'a, T1: Clone + Send>(self, db : &'b database::DatabaseWriter<T1>) 
-        -> ChainedTopicBuilder<'a, T1, Deco<NXC::BaseMsgType>, Self>
-    {
-        ChainedTopicBuilder{
+    pub fn persist_to<'b: 'a, T1: Clone + Send>(
+        self,
+        db: &'b database::DatabaseWriter<T1>,
+    ) -> ChainedTopicBuilder<'a, T1, Deco<NXC::BaseMsgType>, Self> {
+        ChainedTopicBuilder {
             next_config: self,
             dbwriter: db,
             _phantom: PhantomData,
         }
     }
 
-    pub fn with_tr<UT1>(self) -> ChainedTopicBuilder<'a, T, UT1, NXC>
-    {
-        ChainedTopicBuilder{
+    pub fn with_tr<UT1>(self) -> ChainedTopicBuilder<'a, T, UT1, NXC> {
+        ChainedTopicBuilder {
             next_config: self.next_config,
             dbwriter: self.dbwriter,
             _phantom: PhantomData,
         }
     }
-    
-/*    pub fn auto_commit<'r, 'C : RdConsumerExt + 'static + Sync>(&self, cr : &'r C) {
+
+    /*    pub fn auto_commit<'r, 'C : RdConsumerExt + 'static + Sync>(&self, cr : &'r C) {
         //self.dbwriter
     }*/
-
 }
 
 #[derive(Debug, Clone)]
@@ -275,57 +273,58 @@ pub enum NotifyTrackItem {
 }
 
 impl NotifyTrackItem {
-
     fn is_left(&self) -> bool {
         match self {
             NotifyTrackItem::Left(_) => true,
             NotifyTrackItem::Right(_) => false,
-        }    
+        }
     }
-    fn is_right(&self) -> bool { !self.is_left()}
+    fn is_right(&self) -> bool {
+        !self.is_left()
+    }
 
-    fn val(&self) -> u64 { 
+    fn val(&self) -> u64 {
         match self {
             NotifyTrackItem::Left(v) => *v,
             NotifyTrackItem::Right(v) => *v,
         }
     }
 
-    fn val_into(self) -> u64 { 
+    fn val_into(self) -> u64 {
         match self {
             NotifyTrackItem::Left(v) => v,
             NotifyTrackItem::Right(v) => v,
         }
     }
 
-    fn resolve(&mut self, another : NotifyTrackItem) -> u64 {
+    fn resolve(&mut self, another: NotifyTrackItem) -> u64 {
         let self_v = self.val();
         let another_v = another.val();
 
         if self_v < another_v {
             *self = another;
             self_v
-        }else {
+        } else {
             another_v
         }
     }
 
     //demo: https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=b62ca543775ab42eaa79a76a0d29dd22
-    fn merge(&mut self, another : NotifyTrackItem) -> Option<u64> {
+    fn merge(&mut self, another: NotifyTrackItem) -> Option<u64> {
         match self {
             NotifyTrackItem::Left(v) => {
                 if another.is_left() {
                     *v = std::cmp::max(*v, another.val());
                     None
-                }else {
+                } else {
                     Some(self.resolve(another))
                 }
-            },
+            }
             NotifyTrackItem::Right(v) => {
                 if another.is_right() {
                     *v = std::cmp::max(*v, another.val());
                     None
-                }else {
+                } else {
                     Some(self.resolve(another))
                 }
             }
@@ -333,11 +332,10 @@ impl NotifyTrackItem {
     }
 }
 
-use std::collections::HashMap;
 use database::TaskNotifyFlag;
+use std::collections::HashMap;
 
-
-pub struct NotifyTracker (HashMap<i32, NotifyTrackItem>);
+pub struct NotifyTracker(HashMap<i32, NotifyTrackItem>);
 
 impl std::ops::Deref for NotifyTracker {
     type Target = HashMap<i32, NotifyTrackItem>;
@@ -353,41 +351,50 @@ impl std::ops::DerefMut for NotifyTracker {
 }
 
 impl NotifyTracker {
-
-    fn map_to(input : &TaskNotifyFlag, mf : fn(u64) -> NotifyTrackItem) -> NotifyTracker {
-        NotifyTracker(input.iter().map(|item| {
-            let (k, v) = item;
-            (*k, mf(*v))
-        }).collect())
+    fn map_to(input: &TaskNotifyFlag, mf: fn(u64) -> NotifyTrackItem) -> NotifyTracker {
+        NotifyTracker(
+            input
+                .iter()
+                .map(|item| {
+                    let (k, v) = item;
+                    (*k, mf(*v))
+                })
+                .collect(),
+        )
     }
 
-    fn merge(&mut self, another : NotifyTracker) -> TaskNotifyFlag {
-        another.0.into_iter().filter_map(|item|{
-            let (k, v) = item;
-            self.entry(k).or_insert(v.clone()).merge(v).map(|u|(k, u))
-        }).collect()
+    fn merge(&mut self, another: NotifyTracker) -> TaskNotifyFlag {
+        another
+            .0
+            .into_iter()
+            .filter_map(|item| {
+                let (k, v) = item;
+                self.entry(k).or_insert_with(|| v.clone()).merge(v).map(|u| (k, u))
+            })
+            .collect()
     }
 }
 
 //stack-base recuisive tracker receiver
-pub struct NotifyTrackerReceiver
-{
+pub struct NotifyTrackerReceiver {
     status: NotifyTracker,
     listener: tokio::sync::watch::Receiver<TaskNotifyFlag>,
     next: Option<Box<NotifyTrackerReceiver>>,
 }
 
-impl NotifyTrackerReceiver
-{
+impl NotifyTrackerReceiver {
     fn final_status(self) -> TaskNotifyFlag {
-        self.status.0.into_iter().map(|item|{
-            let (k, v) = item;
-            (k, v.val_into())
-        }).collect()
+        self.status
+            .0
+            .into_iter()
+            .map(|item| {
+                let (k, v) = item;
+                (k, v.val_into())
+            })
+            .collect()
     }
 
-    fn changed(&mut self) -> consumer::PinBox<dyn futures::Future<Output = Option<TaskNotifyFlag>> + Send + '_>
-    {
+    fn changed(&mut self) -> consumer::PinBox<dyn futures::Future<Output = Option<TaskNotifyFlag>> + Send + '_> {
         let listener = &mut self.listener;
         let status = &mut self.status;
         if let Some(next_iter) = self.next.as_mut() {
@@ -410,22 +417,21 @@ impl NotifyTrackerReceiver
                                 //we die from botton
                                 return None
                             }
-                            
+
                         }
-                    }    
+                    }
                 }
             };
             Box::pin(async_block)
-
-        }else {
-            Box::pin(async move{
+        } else {
+            Box::pin(async move {
                 match listener.changed().await {
                     Ok(_) => {
                         let ret = listener.borrow();
                         status.merge(NotifyTracker::map_to(&ret, NotifyTrackItem::Left));
                         Some(ret.clone())
                     }
-                    _ => None
+                    _ => None,
                 }
             })
         }
@@ -436,20 +442,18 @@ pub trait HandleWriterNotify {
     fn get_tracker(&self) -> Option<NotifyTrackerReceiver>;
 }
 
-
-impl<U> HandleWriterNotify for TopicConfig<U>
-{
-    fn get_tracker(&self) -> Option<NotifyTrackerReceiver> {None}
+impl<U> HandleWriterNotify for TopicConfig<U> {
+    fn get_tracker(&self) -> Option<NotifyTrackerReceiver> {
+        None
+    }
 }
 
-
-impl<'a, T, UT, NXC> HandleWriterNotify for ChainedTopicBuilder<'a, T, UT, NXC> 
-where 
+impl<'a, T, UT, NXC> HandleWriterNotify for ChainedTopicBuilder<'a, T, UT, NXC>
+where
     T: Clone + Send,
     NXC: HandleWriterNotify + 'a,
 {
     fn get_tracker(&self) -> Option<NotifyTrackerReceiver> {
-
         Some(NotifyTrackerReceiver {
             status: NotifyTracker(HashMap::new()),
             listener: self.dbwriter.listen_notify(),
@@ -458,90 +462,88 @@ where
     }
 }
 
-use rdkafka::topic_partition_list::{TopicPartitionList, Offset};
 use rdkafka::consumer::Consumer;
+use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 
-pub struct AutoCommitRet (tokio::task::JoinHandle<TaskNotifyFlag>, String, tokio::sync::oneshot::Sender<()>);
+pub struct AutoCommitRet(tokio::task::JoinHandle<TaskNotifyFlag>, String, tokio::sync::oneshot::Sender<()>);
 
-impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC> 
-where 
-    T: Clone + Send, 
+impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC>
+where
+    T: Clone + Send,
     NXC: HandleWriterNotify + TypedTopicConfig + 'a,
 {
     pub fn auto_commit_start<C>(&self, cr: std::sync::Arc<C>) -> AutoCommitRet
-    where 
+    where
         C: RdConsumerExt + Send + Sync + 'static,
     {
-        
         let mut receiver = HandleWriterNotify::get_tracker(self).expect("should ensure it");
         let topic_name = TypedTopicConfig::topic_name(self).to_string();
         let (tx, mut rx) = tokio::sync::oneshot::channel();
 
-        AutoCommitRet(tokio::spawn(async move {
+        AutoCommitRet(
+            tokio::spawn(async move {
+                log::info!("start auto commiting for topic {}", topic_name);
+                let cr = cr.to_self();
+                loop {
+                    tokio::select! {
+                        may_notify = receiver.changed() => {
+                            if let Some(notify) = may_notify {
 
-            log::info!("start auto commiting for topic {}", topic_name);
-            let cr = cr.to_self();
-            loop {
-                tokio::select! {
-                    may_notify = receiver.changed() => {
-                        if let Some(notify) = may_notify {
+                                let mut tplist = TopicPartitionList::new();
 
-                            let mut tplist = TopicPartitionList::new();
-            
-                            for (k, v) in notify.into_iter() {
-                                log::debug!("Commit {} for offset {}@{}", &topic_name, k, v+1);
-                                tplist.add_partition_offset(&topic_name, k, Offset::from_raw(v as i64+1)).ok();
+                                for (k, v) in notify.into_iter() {
+                                    log::debug!("Commit {} for offset {}@{}", &topic_name, k, v+1);
+                                    tplist.add_partition_offset(&topic_name, k, Offset::from_raw(v as i64+1)).ok();
+                                }
+
+                                if let Err(e) = cr.commit(&tplist, rdkafka::consumer::CommitMode::Async) {
+                                    //omit error, just log it
+                                    log::error!("Encounter error in kafka commit: {}", e);
+                                }
+
+                            }else {
+                                break;
                             }
-            
-                            if let Err(e) = cr.commit(&tplist, rdkafka::consumer::CommitMode::Async) {
-                                //omit error, just log it
-                                log::error!("Encounter error in kafka commit: {}", e);
-                            }
-                            
-                        }else {
-                            break;
+
                         }
-            
+                        _ = &mut rx => {break;}
                     }
-                    _ = &mut rx => {break;}
-                }    
-            }
-            log::info!("exit auto commiting for topic {}", topic_name);
-            receiver.final_status()
-        }),
-        TypedTopicConfig::topic_name(self).to_string(),
-        tx)
-        
+                }
+                log::info!("exit auto commiting for topic {}", topic_name);
+                receiver.final_status()
+            }),
+            TypedTopicConfig::topic_name(self).to_string(),
+            tx,
+        )
     }
 }
 
-impl AutoCommitRet
-{
-    async fn commit<C: RdConsumerExt>(thread_h : tokio::task::JoinHandle<TaskNotifyFlag>, topic: &str, cr: &C){
+impl AutoCommitRet {
+    async fn commit<C: RdConsumerExt>(thread_h: tokio::task::JoinHandle<TaskNotifyFlag>, topic: &str, cr: &C) {
         let cr = cr.to_self();
         let ret_notify = thread_h.await.unwrap();
         log::debug!("Enter final Commit for topic {}: {:?}", topic, ret_notify);
         if !ret_notify.is_empty() {
             let mut tplist = TopicPartitionList::new();
-            
+
             for (k, v) in ret_notify.into_iter() {
-                log::debug!("Final Commit {} for offset {}@{}", topic, k, v+1);
+                log::debug!("Final Commit {} for offset {}@{}", topic, k, v + 1);
                 tplist.add_partition_offset(topic, k, Offset::from_raw(v as i64 + 1)).ok();
             }
 
             cr.commit(&tplist, rdkafka::consumer::CommitMode::Async).unwrap();
-        }        
+        }
     }
 
     pub async fn interrut_and_commit<C: RdConsumerExt>(self, cr: &C) {
         let AutoCommitRet(ret_h, topic, tx) = self;
         tx.send(()).unwrap();
-        Self::commit(ret_h, &topic, cr).await    
+        Self::commit(ret_h, &topic, cr).await
     }
 
-    pub async fn final_commit<C: RdConsumerExt>(self, cr: &C){
+    pub async fn final_commit<C: RdConsumerExt>(self, cr: &C) {
         let AutoCommitRet(ret_h, topic, _) = self;
-        Self::commit(ret_h, &topic, cr).await        
+        Self::commit(ret_h, &topic, cr).await
     }
 }
 
@@ -588,21 +590,18 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
             user_id: origin.user_id as i32,
             asset: origin.asset.clone(),
             business: origin.business.clone(),
-            change: DecimalDbType::from_str(&origin.change)
-                .unwrap_or_else(decimal_warning),
-            balance: DecimalDbType::from_str(&origin.balance)
-                .unwrap_or_else(decimal_warning),
+            change: DecimalDbType::from_str(&origin.change).unwrap_or_else(decimal_warning),
+            balance: DecimalDbType::from_str(&origin.balance).unwrap_or_else(decimal_warning),
             detail: origin.detail.clone(),
         }
     }
 }
 
-
-pub struct AskTrade ();
+pub struct AskTrade();
 
 impl MsgDataTransformer<models::TradeHistory> for AskTrade {
     type MsgType = super::Trade;
-    fn into<'r>(trade: &'r Self::MsgType) -> models::TradeHistory {
+    fn into(trade: &Self::MsgType) -> models::TradeHistory {
         models::TradeHistory {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
@@ -617,15 +616,15 @@ impl MsgDataTransformer<models::TradeHistory> for AskTrade {
             quote_amount: trade.quote_amount,
             fee: trade.ask_fee,
             counter_order_fee: trade.bid_fee, // counter order
-        }        
+        }
     }
 }
 
-pub struct BidTrade ();
+pub struct BidTrade();
 
 impl MsgDataTransformer<models::TradeHistory> for BidTrade {
     type MsgType = super::Trade;
-    fn into<'r>(trade: &'r Self::MsgType) -> models::TradeHistory {
+    fn into(trade: &Self::MsgType) -> models::TradeHistory {
         models::TradeHistory {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,

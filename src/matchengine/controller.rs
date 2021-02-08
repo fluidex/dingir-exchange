@@ -147,7 +147,7 @@ impl Controller {
         .start_schedule(&main_pool)
         .unwrap();
 
-        let persist_policy = settings.history_persist_policy.clone();
+        let persist_policy = settings.history_persist_policy;
 
         Controller {
             settings,

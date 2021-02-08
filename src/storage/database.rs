@@ -70,7 +70,6 @@ impl ProgTracingStack {
     }
 }
 
-
 #[cfg(test)]
 mod tests_1 {
 
@@ -80,7 +79,6 @@ mod tests_1 {
     //uplimit of concurrent task, so we do not bother to
     //use max/min heap
     fn prepare_progtracking_stack() -> ProgTracingStack {
-
         let mut ret = ProgTracingStack(Vec::new());
 
         ret.push_top(1);
@@ -94,7 +92,6 @@ mod tests_1 {
 
     #[test]
     fn test_progtracking_stack_push() {
-
         let case = prepare_progtracking_stack();
 
         assert_eq!(case[0].0, 1);
@@ -106,7 +103,6 @@ mod tests_1 {
 
     #[test]
     fn test_progtracking_stack_pop_1() {
-
         let mut case = prepare_progtracking_stack();
 
         assert_eq!(case.pop_top(1), Some(1));
@@ -119,7 +115,6 @@ mod tests_1 {
 
     #[test]
     fn test_progtracking_stack_pop_2() {
-
         let mut case = prepare_progtracking_stack();
 
         assert_eq!(case.pop_top(4), None);
@@ -128,15 +123,14 @@ mod tests_1 {
         assert_eq!(case.pop_top(5), None);
         assert_eq!(case.pop_top(3), Some(5));
         assert_eq!(case.is_empty(), true);
-    }    
+    }
 }
 
 pub type TaskNotifyFlag = HashMap<i32, u64>;
 pub struct TaskNotification(i32, u64);
 
 impl TaskNotification {
-
-    pub fn new<T1: Into<i32>, T2: Into<u64>>(v1: T1, v2: T2) -> Self{
+    pub fn new<T1: Into<i32>, T2: Into<u64>>(v1: T1, v2: T2) -> Self {
         TaskNotification(v1.into(), v2.into())
     }
 
@@ -157,9 +151,8 @@ mod tests_2 {
 
     #[test]
     fn test_tasknotification() {
-
-        let mut target : TaskNotifyFlag = HashMap::new();
-        let mut compare : TaskNotifyFlag = HashMap::new();
+        let mut target: TaskNotifyFlag = HashMap::new();
+        let mut compare: TaskNotifyFlag = HashMap::new();
         TaskNotification(1, 5).add_to(&mut target);
         TaskNotification(2, 7).add_to(&mut target);
         TaskNotification(1, 8).add_to(&mut target);
@@ -185,9 +178,7 @@ mod tests_2 {
         compare.insert(3, 10);
         assert_eq!(target, compare);
         compare.clear();
-
-    }  
-
+    }
 }
 
 struct ProgTracing(HashMap<i32, ProgTracingStack>);
@@ -228,7 +219,6 @@ impl ProgTracing {
     }
 }
 
-
 #[cfg(test)]
 mod tests_3 {
 
@@ -236,46 +226,43 @@ mod tests_3 {
 
     #[test]
     fn test_progtracing() {
-
         let mut target = ProgTracing(HashMap::new());
-        let mut case1 : TaskNotifyFlag = HashMap::new();
-        
+        let mut case1: TaskNotifyFlag = HashMap::new();
+
         case1.insert(1, 2);
         case1.insert(2, 1);
         case1.insert(3, 3);
         target.update_from(&case1);
 
-        let mut case2 : TaskNotifyFlag = HashMap::new();
+        let mut case2: TaskNotifyFlag = HashMap::new();
         case2.insert(1, 3);
         case2.insert(3, 1);
         target.update_from(&case2);
-        
-        let mut case3 : TaskNotifyFlag = HashMap::new();
+
+        let mut case3: TaskNotifyFlag = HashMap::new();
         case3.insert(1, 1);
         case3.insert(2, 2);
-        case3.insert(3, 2);        
+        case3.insert(3, 2);
         target.update_from(&case3);
-        
+
         let out = target.finish_from(case2);
-        let mut compare : TaskNotifyFlag = HashMap::new();
+        let mut compare: TaskNotifyFlag = HashMap::new();
         compare.insert(3, 1);
         assert_eq!(out, compare);
 
         let out = target.finish_from(case3);
-        let mut compare : TaskNotifyFlag = HashMap::new();
+        let mut compare: TaskNotifyFlag = HashMap::new();
         compare.insert(1, 1);
         compare.insert(3, 2);
         assert_eq!(out, compare);
 
         let out = target.finish_from(case1);
-        let mut compare : TaskNotifyFlag = HashMap::new();
+        let mut compare: TaskNotifyFlag = HashMap::new();
         compare.insert(1, 3);
         compare.insert(2, 2);
         compare.insert(3, 3);
         assert_eq!(out, compare);
-
-    }  
-
+    }
 }
 
 struct DatabaseWriterTask<T> {
@@ -554,7 +541,7 @@ where
                                 if let Some(notifies) = task.notify_flag.as_ref(){
                                     notify_tracing.update_from(notifies);
                                 }
-                                tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));                                
+                                tokio::spawn(task.execute(conn, self.ctrl_notify.clone()));
                             }
                         },
                         Err(err) => {
@@ -590,7 +577,7 @@ where
                     }
                 }
                 _ = tokio::task::yield_now(), if (
-                    grace_down && 
+                    grace_down &&
                     status_tracing.spawning_tasks == 0 &&
                     next_task_stack.is_empty()
                     ) => {

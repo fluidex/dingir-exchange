@@ -121,7 +121,10 @@ impl GrpcHandler {
     }
 
     pub fn on_leave(&mut self) -> ServerLeave {
-        ServerLeave(self.task_dispacther.clone(), self.set_close.take().expect("Do not call twice with on_leave"))
+        ServerLeave(
+            self.task_dispacther.clone(),
+            self.set_close.take().expect("Do not call twice with on_leave"),
+        )
     }
 }
 

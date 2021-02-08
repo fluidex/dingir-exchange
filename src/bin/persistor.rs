@@ -4,14 +4,14 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::single_char_pattern)]
 
-use std::pin::Pin;
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use types::{DbType};
+use std::pin::Pin;
+use types::DbType;
 
-use rdkafka::consumer::{StreamConsumer};
+use rdkafka::consumer::StreamConsumer;
 
-use message::persist::{self, MIGRATOR, TopicConfig};
+use message::persist::{self, TopicConfig, MIGRATOR};
 
 fn main() {
     dotenv::dotenv().ok();
@@ -29,25 +29,21 @@ fn main() {
         .expect("build runtime");
 
     rt.block_on(async move {
-
         let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
-        .set("bootstrap.servers", &settings.brokers)
-        .set("group.id", &settings.consumer_group)
-        .set("enable.partition.eof", "false")
-        .set("session.timeout.ms", "6000")
-        .set("enable.auto.commit", "false")
-        .set("auto.offset.reset", "earliest")
-        .create()
-        .unwrap();
+            .set("bootstrap.servers", &settings.brokers)
+            .set("group.id", &settings.consumer_group)
+            .set("enable.partition.eof", "false")
+            .set("session.timeout.ms", "6000")
+            .set("enable.auto.commit", "false")
+            .set("auto.offset.reset", "earliest")
+            .create()
+            .unwrap();
 
         let consumer = std::sync::Arc::new(consumer);
 
         let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
-        MIGRATOR
-            .run(&pool)
-            .await
-            .ok();
+        MIGRATOR.run(&pool).await.ok();
 
         let write_config = DatabaseWriterConfig {
             spawn_limit: 4,
@@ -55,34 +51,25 @@ fn main() {
             capability_limit: 8192,
         };
 
-        let persistor_kline: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&write_config)
-        .start_schedule(&pool)
-        .unwrap();
+        let persistor_kline: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
         //following is equal to writers in history.rs
-        let persistor_trade: DatabaseWriter<models::TradeHistory> = DatabaseWriter::new(&write_config)
-        .start_schedule(&pool)
-        .unwrap();
+        let persistor_trade: DatabaseWriter<models::TradeHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
-        let persistor_order: DatabaseWriter<models::OrderHistory> = DatabaseWriter::new(&write_config)
-        .start_schedule(&pool)
-        .unwrap();
+        let persistor_order: DatabaseWriter<models::OrderHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
-        let persistor_balance: DatabaseWriter<models::BalanceHistory> = DatabaseWriter::new(&write_config)
-        .start_schedule(&pool)
-        .unwrap();
-
+        let persistor_balance: DatabaseWriter<models::BalanceHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
         let trade_cfg = TopicConfig::<message::Trade>::new(message::TRADES_TOPIC)
             .persist_to(&persistor_kline)
-            .persist_to(&persistor_trade).with_tr::<persist::AskTrade>()
-            .persist_to(&persistor_trade).with_tr::<persist::BidTrade>();
-        
-        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC)
-            .persist_to(&persistor_order);
-        
-        let balance_cfg = TopicConfig::<message::BalanceMessage>::new(message::BALANCES_TOPIC)
-            .persist_to(&persistor_balance);
+            .persist_to(&persistor_trade)
+            .with_tr::<persist::AskTrade>()
+            .persist_to(&persistor_trade)
+            .with_tr::<persist::BidTrade>();
+
+        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC).persist_to(&persistor_order);
+
+        let balance_cfg = TopicConfig::<message::BalanceMessage>::new(message::BALANCES_TOPIC).persist_to(&persistor_balance);
 
         let auto_commit = vec![
             trade_cfg.auto_commit_start(consumer.clone()),
@@ -116,13 +103,12 @@ fn main() {
             persistor_trade.finish(),
             persistor_order.finish(),
             persistor_balance.finish(),
-        ).expect("all persistor should success finish");
-        let final_commits : Vec<Pin<Box<dyn std::future::Future<Output=()> + Send>>>
-            = auto_commit
-                .into_iter()
-                .map(|ac| -> Pin<Box<dyn std::future::Future<Output=()> + Send>>
-                    {Box::pin(ac.final_commit(consumer))})
-                .collect();
+        )
+        .expect("all persistor should success finish");
+        let final_commits: Vec<Pin<Box<dyn std::future::Future<Output = ()> + Send>>> = auto_commit
+            .into_iter()
+            .map(|ac| -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> { Box::pin(ac.final_commit(consumer)) })
+            .collect();
         futures::future::join_all(final_commits).await;
         //auto_commit.final_commit(consumer).await;
     })

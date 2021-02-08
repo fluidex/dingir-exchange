@@ -56,9 +56,10 @@ pub enum MarketString {
     Right(String),
 }
 
-impl From<&'static str> for MarketString
-{
-    fn from(str: &'static str) -> Self {MarketString::Left(str)}
+impl From<&'static str> for MarketString {
+    fn from(str: &'static str) -> Self {
+        MarketString::Left(str)
+    }
 }
 
 impl std::ops::Deref for MarketString {
@@ -71,10 +72,8 @@ impl std::ops::Deref for MarketString {
     }
 }
 
-impl serde::ser::Serialize for MarketString
-{
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    {
+impl serde::ser::Serialize for MarketString {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             MarketString::Left(str) => serializer.serialize_str(*str),
             MarketString::Right(stri) => serializer.serialize_str(stri.as_str()),
@@ -82,14 +81,11 @@ impl serde::ser::Serialize for MarketString
     }
 }
 
-impl<'de> serde::de::Deserialize<'de> for MarketString
-{
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error>
-    {
+impl<'de> serde::de::Deserialize<'de> for MarketString {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         Ok(MarketString::Right(s))
     }
-    
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -113,11 +109,9 @@ pub struct Order {
     pub finished_fee: Decimal,
 }
 
-fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> Result<&'static str, D::Error>
-{
+fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> Result<&'static str, D::Error> {
     Ok("Test")
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Trade {

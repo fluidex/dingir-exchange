@@ -26,15 +26,18 @@ pub trait RdConsumerExt {
 impl<C: ConsumerContext + 'static> RdConsumerExt for stream_consumer::StreamConsumer<C> {
     type CTXType = stream_consumer::StreamConsumerContext<C>;
     type SelfType = stream_consumer::StreamConsumer<C>;
-    fn to_self(&self) -> &Self::SelfType {&self}    
+    fn to_self(&self) -> &Self::SelfType {
+        &self
+    }
 }
 
 impl<C: ConsumerContext> RdConsumerExt for base_consumer::BaseConsumer<C> {
     type CTXType = C;
     type SelfType = base_consumer::BaseConsumer<C>;
-    fn to_self(&self) -> &Self::SelfType {&self}    
+    fn to_self(&self) -> &Self::SelfType {
+        &self
+    }
 }
-
 
 /*
     Notice this trait is not easy to be implied (self cannot be involved
@@ -53,25 +56,24 @@ pub struct SimpleConsumer<'c, C: RdConsumerExt> {
 }
 
 impl<C: RdConsumerExt> SimpleConsumer<'_, C> {
-    pub fn new(cr :&C) -> SimpleConsumer<C> {
-        SimpleConsumer{
+    pub fn new(cr: &C) -> SimpleConsumer<C> {
+        SimpleConsumer {
             consumer: cr.to_self(),
             handlers: HashMap::new(),
         }
     }
 }
 
-pub trait TopicBuilder<C> 
-where 
-    C: RdConsumerExt
+pub trait TopicBuilder<C>
+where
+    C: RdConsumerExt,
 {
-    type HandlerType: for <'r> MessageHandlerAsync<'r, C> + 'static;
+    type HandlerType: for<'r> MessageHandlerAsync<'r, C> + 'static;
     fn topic_name(&self) -> &str;
     fn topic_handler(&self) -> Self::HandlerType;
 }
 
 impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
-
     pub fn add_topic<'a: 'c>(mut self, topic: &str, h: impl MessageHandlerAsync<'c, C> + 'a) -> Result<SimpleConsumer<'c, C>> {
         // kafka server health and topic check, fetch metadata
         self.consumer
@@ -82,8 +84,8 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
         Ok(self)
     }
 
-    pub fn add_topic_config<'a, CF>(self, builder: &'a CF) -> Result<SimpleConsumer<'c, C>> 
-    where 
+    pub fn add_topic_config<'a, CF>(self, builder: &'a CF) -> Result<SimpleConsumer<'c, C>>
+    where
         CF: TopicBuilder<C>,
     {
         self.add_topic(builder.topic_name(), builder.topic_handler())
@@ -129,11 +131,16 @@ use serde::Deserialize;
 
 pub trait TypedMessageHandlerAsync<'c, C: RdConsumerExt>: Send {
     type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
-    fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
+    fn on_message(
+        &self,
+        msg: &Self::DataType,
+        origin_msg: &BorrowedMessage<'c>,
+        cr: &'c C::SelfType,
+    ) -> PinBox<dyn futures::Future<Output = ()> + Send>;
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
 
-pub struct Typed<U> (U);
+pub struct Typed<U>(U);
 
 impl<'c, C, U> MessageHandlerAsync<'c, C> for Typed<U>
 where
@@ -165,19 +172,23 @@ where
     }
 }
 
-
 pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
     type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
     fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType);
     fn on_no_msg(&self, cr: &'c C::SelfType);
 }
 
-pub struct Synced<U> (U);
+pub struct Synced<U>(U);
 
 impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for Synced<U> {
     type DataType = U::DataType;
 
-    fn on_message(&self, msg: &U::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+    fn on_message(
+        &self,
+        msg: &U::DataType,
+        origin_msg: &BorrowedMessage<'c>,
+        cr: &'c C::SelfType,
+    ) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         U::on_message(&self.0, msg, origin_msg, cr);
         Box::pin(async {})
     }
@@ -187,10 +198,20 @@ impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsy
     }
 }
 
-impl<U> From<U> for Typed<U> {fn from(t: U) -> Self{Typed(t)}}
-impl<U> From<U> for Synced<U> {fn from(t: U) -> Self{Synced(t)}}
+impl<U> From<U> for Typed<U> {
+    fn from(t: U) -> Self {
+        Typed(t)
+    }
+}
+impl<U> From<U> for Synced<U> {
+    fn from(t: U) -> Self {
+        Synced(t)
+    }
+}
 
 pub type SyncTyped<U> = Typed<Synced<U>>;
 impl<U> From<U> for SyncTyped<U> {
-    fn from(t: U) -> Self{Typed::from(Synced::from(t))}
+    fn from(t: U) -> Self {
+        Typed::from(Synced::from(t))
+    }
 }

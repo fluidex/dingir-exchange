@@ -58,10 +58,8 @@ pub enum PersistPolicy {
 
 use serde::de;
 
-impl<'de> de::Deserialize<'de> for PersistPolicy
-{
-    fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error>
-    {
+impl<'de> de::Deserialize<'de> for PersistPolicy {
+    fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
 
         match s.as_ref() {
@@ -69,10 +67,9 @@ impl<'de> de::Deserialize<'de> for PersistPolicy
             "Db" | "db" | "DB" => Ok(PersistPolicy::ToDB),
             "Message" | "message" => Ok(PersistPolicy::ToMessage),
             "Dummy" | "dummy" => Ok(PersistPolicy::Dummy),
-            _ => Err(serde::de::Error::custom("unexpected specification for persist policy"))
-        }        
+            _ => Err(serde::de::Error::custom("unexpected specification for persist policy")),
+        }
     }
-    
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
