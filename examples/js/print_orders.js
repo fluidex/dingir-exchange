@@ -34,5 +34,6 @@ async function main() {
 }
 main().catch(function(e) {
   console.log(e);
-  throw e;
+  process.exit(1);
+  //throw e;
 });
