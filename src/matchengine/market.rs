@@ -266,7 +266,7 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
         }
     }
     fn put_trade(&mut self, trade: &Trade) {
-        self.0.append_user_trade(trade);
+        self.0.append_pair_user_trade(trade);
     }
 }
 

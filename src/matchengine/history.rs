@@ -15,14 +15,14 @@ pub trait HistoryWriter {
     //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_order_history(&mut self, order: &market::Order);
-    fn append_user_trade(&mut self, trade: &Trade);
+    fn append_pair_user_trade(&mut self, trade: &Trade);
 }
 
 pub struct DummyHistoryWriter;
 impl HistoryWriter for DummyHistoryWriter {
     fn append_balance_history(&mut self, _data: models::BalanceHistory) {}
     fn append_order_history(&mut self, _order: &market::Order) {}
-    fn append_user_trade(&mut self, _trade: &Trade) {}
+    fn append_pair_user_trade(&mut self, _trade: &Trade) {}
     fn is_block(&self) -> bool {
         false
     }
@@ -92,7 +92,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         self.order_writer.append(data).ok();
     }
 
-    fn append_user_trade(&mut self, trade: &Trade) {
+    fn append_pair_user_trade(&mut self, trade: &Trade) {
         let ask_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
