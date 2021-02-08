@@ -60,4 +60,4 @@ jobs:
         run: make startall
 
       - name: Run trading tests
-        run: cd ./examples/js/ && node trade.js && node print_order.js 
+        run: cd ./examples/js/ && node trade.js && node print_orders.js 
