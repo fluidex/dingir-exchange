@@ -17,7 +17,7 @@ pub(crate) type PinBox<T> = Pin<Box<T>>;
 pub trait RdConsumerExt {
     type CTXType: ConsumerContext;
     //So we can elimate the generic dep in trait bound ....
-    type SelfType: Consumer<Self::CTXType> + Sync;
+    type SelfType: Consumer<Self::CTXType> + Send + Sync;
     fn to_self(&self) -> &Self::SelfType;
 }
 
@@ -42,7 +42,7 @@ impl<C: ConsumerContext> RdConsumerExt for base_consumer::BaseConsumer<C> {
     We should provide some trait which is better understood for users
 */
 pub trait MessageHandlerAsync<'c, C: RdConsumerExt>: Send {
-    fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
+    fn on_message(&self, msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
 
@@ -117,7 +117,7 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
                     self.handlers
                         .get(m.topic())
                         .expect("kafka should not consumer message do not subscribed")
-                        .on_message(m, self.consumer)
+                        .on_message(&m, self.consumer)
                         .await;
                 }
             }
@@ -129,7 +129,7 @@ use serde::Deserialize;
 
 pub trait TypedMessageHandlerAsync<'c, C: RdConsumerExt>: Send {
     type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
-    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
+    fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>;
 }
 
@@ -140,7 +140,7 @@ where
     U: TypedMessageHandlerAsync<'c, C>,
     C: RdConsumerExt + 'static,
 {
-    fn on_message(&self, msg: BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+    fn on_message(&self, msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
         if let Some(pl) = msg.payload() {
             match String::from_utf8(pl.to_vec())
                 .map_err(|e| format_err!("Decode kafka message fail: {}", e))
@@ -148,7 +148,7 @@ where
             {
                 Ok(t) => {
                     log::debug!("{:?}", t);
-                    U::on_message(&self.0, t, cr)
+                    U::on_message(&self.0, &t, msg, cr)
                 }
                 Err(e) => {
                     log::error!("{}", e);
@@ -168,7 +168,7 @@ where
 
 pub trait TypedMessageHandler<'c, C: RdConsumerExt>: Send {
     type DataType: for<'de> Deserialize<'de> + 'static + std::fmt::Debug + Send;
-    fn on_message(&self, msg: Self::DataType, cr: &'c C::SelfType);
+    fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType);
     fn on_no_msg(&self, cr: &'c C::SelfType);
 }
 
@@ -177,8 +177,8 @@ pub struct Synced<U> (U);
 impl<'c, C: RdConsumerExt, U: TypedMessageHandler<'c, C>> TypedMessageHandlerAsync<'c, C> for Synced<U> {
     type DataType = U::DataType;
 
-    fn on_message(&self, msg: U::DataType, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
-        U::on_message(&self.0, msg, cr);
+    fn on_message(&self, msg: &U::DataType, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {
+        U::on_message(&self.0, msg, origin_msg, cr);
         Box::pin(async {})
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send> {

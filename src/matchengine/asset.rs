@@ -269,6 +269,8 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
             asset: balance.asset.clone(),
             business: balance.business.clone(),
             change: balance.change.to_string(),
+            balance: balance.balance.to_string(),
+            detail: balance.detail,
         });
     }
 }

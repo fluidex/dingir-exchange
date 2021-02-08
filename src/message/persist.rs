@@ -18,15 +18,24 @@ pub trait MsgDataTransformer<T: Clone + Send> : Send {
     fn into<'r>(msg : &'r Self::MsgType) -> T;
 }
 
-impl<T, UM> MsgDataPersistor<T, UM>
+use rdkafka::{Message, message::BorrowedMessage};
+
+impl<'c, C, T, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<T, UM>
 where
-    T: Clone + Send,
     UM: MsgDataTransformer<T>,
+    T: Clone + Send,
+    C: RdConsumerExt + 'static,
 {
-    pub fn write_in<'r>(&self, msg : &'r UM::MsgType) 
-    {
-        self.writer.borrow_mut().gen().append(UM::into(msg)).ok();
-    }    
+    type DataType = UM::MsgType;
+    fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) {
+        let notify = database::TaskNotification::new(
+            origin_msg.partition(),
+            origin_msg.offset() as u64,
+        );
+        self.writer.borrow_mut().gen()
+            .append_with_notify(UM::into(msg), Some(notify)).ok();
+    }
+    fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
 
 pub struct Deco<UM> (PhantomData<UM>);
@@ -65,21 +74,6 @@ impl<T: Clone + Send> MsgDataPersistor<T, ()> {
     }
 }
 
-//An simple handler, just persist it by DatabaseWriter
-impl<'c, C, T, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<T, Deco<UM>>
-where
-    UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
-    for<'r> &'r UM: Into<T>,
-    T: Clone + Send,
-    C: RdConsumerExt + 'static,
-{
-    type DataType = UM;
-    fn on_message(&self, msg: UM, _cr: &'c C::SelfType) {
-        self.write_in(&msg);
-    }
-    fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
-}
-
 //Try chainning handlers ...
 pub struct EmptyHandler<U> {
     _phantom: PhantomData<U>,
@@ -91,7 +85,7 @@ where
     UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
     type DataType = UM;
-    fn on_message(&self, _msg: UM, _cr: &'c C::SelfType) {}
+    fn on_message(&self, _msg: &UM, _origin_msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) {}
     fn on_no_msg(&self, _cr: &'c C::SelfType) {}
 }
 
@@ -106,10 +100,10 @@ where
     T: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
 {
     type DataType = UM;
-    fn on_message(&self, msg: UM, cr: &'c C::SelfType) 
+    fn on_message(&self, msg: &UM, origin_msg: &BorrowedMessage<'c>, cr: &'c C::SelfType) 
         -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>{
-        self.0.write_in(&msg);
-        self.1.on_message(msg, cr)
+        TypedMessageHandler::<'c, C>::on_message(&self.0, msg, origin_msg, cr);
+        self.1.on_message(msg, origin_msg, cr)
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send>
     {self.1.on_no_msg(cr)}    
@@ -234,22 +228,22 @@ impl<U> TopicConfig<U>
         }
     }
 
-    pub fn persist_to<'a, T: Clone + Send + Sync>(self, db : &'a database::DatabaseWriter<T>) -> ChainedTopicBuilder<'a, T, Deco<U>, Self>
+    pub fn persist_to<'a, T: Clone + Send>(self, db : &'a database::DatabaseWriter<T>) -> ChainedTopicBuilder<'a, T, Deco<U>, Self>
     {
         ChainedTopicBuilder{
             next_config: self,
             dbwriter: db,
             _phantom: PhantomData,
         }
-    }
+    }   
 }
 
 impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC> 
 where 
-    T: Clone + Send + Sync,
+    T: Clone + Send,
     NXC: TypedTopicConfig + 'a,
 {
-    pub fn persist_to<'b : 'a, T1: Clone + Send + Sync>(self, db : &'b database::DatabaseWriter<T1>) 
+    pub fn persist_to<'b : 'a, T1: Clone + Send>(self, db : &'b database::DatabaseWriter<T1>) 
         -> ChainedTopicBuilder<'a, T1, Deco<NXC::BaseMsgType>, Self>
     {
         ChainedTopicBuilder{
@@ -258,10 +252,305 @@ where
             _phantom: PhantomData,
         }
     }
+
+    pub fn with_tr<UT1>(self) -> ChainedTopicBuilder<'a, T, UT1, NXC>
+    {
+        ChainedTopicBuilder{
+            next_config: self.next_config,
+            dbwriter: self.dbwriter,
+            _phantom: PhantomData,
+        }
+    }
+    
+/*    pub fn auto_commit<'r, 'C : RdConsumerExt + 'static + Sync>(&self, cr : &'r C) {
+        //self.dbwriter
+    }*/
+
 }
 
+#[derive(Debug, Clone)]
+pub enum NotifyTrackItem {
+    Left(u64),
+    Right(u64),
+}
+
+impl NotifyTrackItem {
+
+    fn is_left(&self) -> bool {
+        match self {
+            NotifyTrackItem::Left(_) => true,
+            NotifyTrackItem::Right(_) => false,
+        }    
+    }
+    fn is_right(&self) -> bool { !self.is_left()}
+
+    fn val(&self) -> u64 { 
+        match self {
+            NotifyTrackItem::Left(v) => *v,
+            NotifyTrackItem::Right(v) => *v,
+        }
+    }
+
+    fn val_into(self) -> u64 { 
+        match self {
+            NotifyTrackItem::Left(v) => v,
+            NotifyTrackItem::Right(v) => v,
+        }
+    }
+
+    fn resolve(&mut self, another : NotifyTrackItem) -> u64 {
+        let self_v = self.val();
+        let another_v = another.val();
+
+        if self_v < another_v {
+            *self = another;
+            self_v
+        }else {
+            another_v
+        }
+    }
+
+    //demo: https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=b62ca543775ab42eaa79a76a0d29dd22
+    fn merge(&mut self, another : NotifyTrackItem) -> Option<u64> {
+        match self {
+            NotifyTrackItem::Left(v) => {
+                if another.is_left() {
+                    *v = std::cmp::max(*v, another.val());
+                    None
+                }else {
+                    Some(self.resolve(another))
+                }
+            },
+            NotifyTrackItem::Right(v) => {
+                if another.is_right() {
+                    *v = std::cmp::max(*v, another.val());
+                    None
+                }else {
+                    Some(self.resolve(another))
+                }
+            }
+        }
+    }
+}
+
+use std::collections::HashMap;
+use database::TaskNotifyFlag;
+
+
+pub struct NotifyTracker (HashMap<i32, NotifyTrackItem>);
+
+impl std::ops::Deref for NotifyTracker {
+    type Target = HashMap<i32, NotifyTrackItem>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for NotifyTracker {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl NotifyTracker {
+
+    fn map_to(input : &TaskNotifyFlag, mf : fn(u64) -> NotifyTrackItem) -> NotifyTracker {
+        NotifyTracker(input.iter().map(|item| {
+            let (k, v) = item;
+            (*k, mf(*v))
+        }).collect())
+    }
+
+    fn merge(&mut self, another : NotifyTracker) -> TaskNotifyFlag {
+        another.0.into_iter().filter_map(|item|{
+            let (k, v) = item;
+            self.entry(k).or_insert(v.clone()).merge(v).map(|u|(k, u))
+        }).collect()
+    }
+}
+
+//stack-base recuisive tracker receiver
+pub struct NotifyTrackerReceiver
+{
+    status: NotifyTracker,
+    listener: tokio::sync::watch::Receiver<TaskNotifyFlag>,
+    next: Option<Box<NotifyTrackerReceiver>>,
+}
+
+impl NotifyTrackerReceiver
+{
+    fn final_status(self) -> TaskNotifyFlag {
+        self.status.0.into_iter().map(|item|{
+            let (k, v) = item;
+            (k, v.val_into())
+        }).collect()
+    }
+
+    fn changed(&mut self) -> consumer::PinBox<dyn futures::Future<Output = Option<TaskNotifyFlag>> + Send + '_>
+    {
+        let listener = &mut self.listener;
+        let status = &mut self.status;
+        if let Some(next_iter) = self.next.as_mut() {
+            let async_block = async move {
+                loop {
+                    tokio::select! {
+                        Ok(_) = listener.changed() => {
+                            let ret = status.merge(NotifyTracker::map_to(&listener.borrow(), NotifyTrackItem::Left));
+                            if !ret.is_empty() {
+                                return Some(ret);
+                            }
+                        }
+                        may_nc = next_iter.changed() => {
+                            if let Some(nc) = may_nc {
+                                let ret = status.merge(NotifyTracker::map_to(&nc, NotifyTrackItem::Right));
+                                if !ret.is_empty() {
+                                    return Some(ret);
+                                }
+                            }else {
+                                //we die from botton
+                                return None
+                            }
+                            
+                        }
+                    }    
+                }
+            };
+            Box::pin(async_block)
+
+        }else {
+            Box::pin(async move{
+                match listener.changed().await {
+                    Ok(_) => {
+                        let ret = listener.borrow();
+                        status.merge(NotifyTracker::map_to(&ret, NotifyTrackItem::Left));
+                        Some(ret.clone())
+                    }
+                    _ => None
+                }
+            })
+        }
+    }
+}
+
+pub trait HandleWriterNotify {
+    fn get_tracker(&self) -> Option<NotifyTrackerReceiver>;
+}
+
+
+impl<U> HandleWriterNotify for TopicConfig<U>
+{
+    fn get_tracker(&self) -> Option<NotifyTrackerReceiver> {None}
+}
+
+
+impl<'a, T, UT, NXC> HandleWriterNotify for ChainedTopicBuilder<'a, T, UT, NXC> 
+where 
+    T: Clone + Send,
+    NXC: HandleWriterNotify + 'a,
+{
+    fn get_tracker(&self) -> Option<NotifyTrackerReceiver> {
+
+        Some(NotifyTrackerReceiver {
+            status: NotifyTracker(HashMap::new()),
+            listener: self.dbwriter.listen_notify(),
+            next: self.next_config.get_tracker().map(Box::new),
+        })
+    }
+}
+
+use rdkafka::topic_partition_list::{TopicPartitionList, Offset};
+use rdkafka::consumer::Consumer;
+
+pub struct AutoCommitRet (tokio::task::JoinHandle<TaskNotifyFlag>, String, tokio::sync::oneshot::Sender<()>);
+
+impl<'a, T, UT, NXC> ChainedTopicBuilder<'a, T, UT, NXC> 
+where 
+    T: Clone + Send, 
+    NXC: HandleWriterNotify + TypedTopicConfig + 'a,
+{
+    pub fn auto_commit_start<C>(&self, cr: std::sync::Arc<C>) -> AutoCommitRet
+    where 
+        C: RdConsumerExt + Send + Sync + 'static,
+    {
+        
+        let mut receiver = HandleWriterNotify::get_tracker(self).expect("should ensure it");
+        let topic_name = TypedTopicConfig::topic_name(self).to_string();
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
+
+        AutoCommitRet(tokio::spawn(async move {
+
+            log::info!("start auto commiting for topic {}", topic_name);
+            let cr = cr.to_self();
+            loop {
+                tokio::select! {
+                    may_notify = receiver.changed() => {
+                        if let Some(notify) = may_notify {
+
+                            let mut tplist = TopicPartitionList::new();
+            
+                            for (k, v) in notify.into_iter() {
+                                log::debug!("Commit {} for offset {}@{}", &topic_name, k, v+1);
+                                tplist.add_partition_offset(&topic_name, k, Offset::from_raw(v as i64+1)).ok();
+                            }
+            
+                            if let Err(e) = cr.commit(&tplist, rdkafka::consumer::CommitMode::Async) {
+                                //omit error, just log it
+                                log::error!("Encounter error in kafka commit: {}", e);
+                            }
+                            
+                        }else {
+                            break;
+                        }
+            
+                    }
+                    _ = &mut rx => {break;}
+                }    
+            }
+            log::info!("exit auto commiting for topic {}", topic_name);
+            receiver.final_status()
+        }),
+        TypedTopicConfig::topic_name(self).to_string(),
+        tx)
+        
+    }
+}
+
+impl AutoCommitRet
+{
+    async fn commit<C: RdConsumerExt>(thread_h : tokio::task::JoinHandle<TaskNotifyFlag>, topic: &str, cr: &C){
+        let cr = cr.to_self();
+        let ret_notify = thread_h.await.unwrap();
+        log::debug!("Enter final Commit for topic {}: {:?}", topic, ret_notify);
+        if !ret_notify.is_empty() {
+            let mut tplist = TopicPartitionList::new();
+            
+            for (k, v) in ret_notify.into_iter() {
+                log::debug!("Final Commit {} for offset {}@{}", topic, k, v+1);
+                tplist.add_partition_offset(topic, k, Offset::from_raw(v as i64 + 1)).ok();
+            }
+
+            cr.commit(&tplist, rdkafka::consumer::CommitMode::Async).unwrap();
+        }        
+    }
+
+    pub async fn interrut_and_commit<C: RdConsumerExt>(self, cr: &C) {
+        let AutoCommitRet(ret_h, topic, tx) = self;
+        tx.send(()).unwrap();
+        Self::commit(ret_h, &topic, cr).await    
+    }
+
+    pub async fn final_commit<C: RdConsumerExt>(self, cr: &C){
+        let AutoCommitRet(ret_h, topic, _) = self;
+        Self::commit(ret_h, &topic, cr).await        
+    }
+}
+
+/*------ Mixed some transform here -------- */
+use crate::market;
+use crate::utils::FTimestamp;
+
 impl<'r> From<&'r super::Trade> for models::TradeRecord {
-    fn from(origin: &'r super::Trade) -> models::TradeRecord {
+    fn from(origin: &'r super::Trade) -> Self {
         models::TradeRecord {
             time: utils::FTimestamp(origin.timestamp).into(),
             market: origin.market.clone(),
@@ -274,6 +563,83 @@ impl<'r> From<&'r super::Trade> for models::TradeRecord {
             } else {
                 OrderSide::ASK
             },
+        }
+    }
+}
+
+impl<'r> From<&'r super::OrderMessage> for models::OrderHistory {
+    fn from(origin: &'r super::OrderMessage) -> Self {
+        models::OrderHistory::from(&origin.order)
+    }
+}
+
+use crate::models::DecimalDbType;
+use std::str::FromStr;
+
+fn decimal_warning<E: std::error::Error>(e: E) -> DecimalDbType {
+    log::error!("Decimal decode fail {}", e);
+    DecimalDbType::default()
+}
+
+impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
+    fn from(origin: &'r super::BalanceMessage) -> Self {
+        models::BalanceHistory {
+            time: utils::FTimestamp::from(&origin.timestamp).into(),
+            user_id: origin.user_id as i32,
+            asset: origin.asset.clone(),
+            business: origin.business.clone(),
+            change: DecimalDbType::from_str(&origin.change)
+                .unwrap_or_else(decimal_warning),
+            balance: DecimalDbType::from_str(&origin.balance)
+                .unwrap_or_else(decimal_warning),
+            detail: origin.detail.clone(),
+        }
+    }
+}
+
+
+pub struct AskTrade ();
+
+impl MsgDataTransformer<models::TradeHistory> for AskTrade {
+    type MsgType = super::Trade;
+    fn into<'r>(trade: &'r Self::MsgType) -> models::TradeHistory {
+        models::TradeHistory {
+            time: FTimestamp(trade.timestamp).into(),
+            user_id: trade.ask_user_id as i32,
+            market: trade.market.clone(),
+            trade_id: trade.id as i64,
+            order_id: trade.ask_order_id as i64,
+            counter_order_id: trade.bid_order_id as i64, // counter order
+            side: market::OrderSide::ASK as i16,
+            role: trade.ask_role as i16,
+            price: trade.price,
+            amount: trade.amount,
+            quote_amount: trade.quote_amount,
+            fee: trade.ask_fee,
+            counter_order_fee: trade.bid_fee, // counter order
+        }        
+    }
+}
+
+pub struct BidTrade ();
+
+impl MsgDataTransformer<models::TradeHistory> for BidTrade {
+    type MsgType = super::Trade;
+    fn into<'r>(trade: &'r Self::MsgType) -> models::TradeHistory {
+        models::TradeHistory {
+            time: FTimestamp(trade.timestamp).into(),
+            user_id: trade.bid_user_id as i32,
+            market: trade.market.clone(),
+            trade_id: trade.id as i64,
+            order_id: trade.bid_order_id as i64,
+            counter_order_id: trade.ask_order_id as i64, // counter order
+            side: market::OrderSide::BID as i16,
+            role: trade.bid_role as i16,
+            price: trade.price,
+            amount: trade.amount,
+            quote_amount: trade.quote_amount,
+            fee: trade.bid_fee,
+            counter_order_fee: trade.ask_fee, // counter order
         }
     }
 }

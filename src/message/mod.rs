@@ -44,9 +44,11 @@ pub struct BalanceMessage {
     pub asset: String,
     pub business: String,
     pub change: String,
+    pub balance: String,
+    pub detail: String,
 }
 
-#[derive(Debug, Serialize)] //, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] //, Deserialize)]
 pub struct OrderMessage {
     pub event: OrderEventType,
     pub order: Order,

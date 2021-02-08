@@ -135,6 +135,11 @@ pub type TaskNotifyFlag = HashMap<i32, u64>;
 pub struct TaskNotification(i32, u64);
 
 impl TaskNotification {
+
+    pub fn new<T1: Into<i32>, T2: Into<u64>>(v1: T1, v2: T2) -> Self{
+        TaskNotification(v1.into(), v2.into())
+    }
+
     fn add_to(self, target: &mut TaskNotifyFlag) {
         if let Some(old) = target.insert(self.0, self.1) {
             if old > self.1 {
