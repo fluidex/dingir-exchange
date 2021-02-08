@@ -32,4 +32,7 @@ async function main() {
     assert.equal(ticker.quote_volume, 4.4);
   }
 }
-main().catch(console.log);
+main().catch(function(e) {
+  console.log(e);
+  throw e;
+});
