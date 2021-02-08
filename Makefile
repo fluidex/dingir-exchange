@@ -21,7 +21,8 @@ startall:
 	cargo build
 	mkdir -p logs
 	./target/$(BUILD_MODE)/matchengine 1>logs/matchengine.log 2>&1 &
-	./target/$(BUILD_MODE)/persistor 1>logs/persistor.log 2>&1 &
+	# fix the migrator order problem
+	sleep 3; ./target/$(BUILD_MODE)/persistor 1>logs/persistor.log 2>&1 &
 	./target/$(BUILD_MODE)/restapi 1>logs/restapi.log 2>&1 &
 pgrep:
 	pgrep -l $(PROCESSES) || true
