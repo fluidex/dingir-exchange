@@ -26,7 +26,7 @@ crossbeam-channel = "0.5.0"
 rdkafka = { version = "0.25.0", features = ["cmake-build"] }
 nix = "0.19.1"
 anyhow = "1.0.38"
-sqlx = { git = "https://github.com/launchbadge/sqlx.git", features=["runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ]  }
+sqlx = { version = "0.5.1", features=["runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ]  }
 chrono = { version = "0.4.19", features = ["serde"] }
 rust_decimal = { version = "1.10.1", features = ["postgres", "bytes", "byteorder"] }
 rust_decimal_macros = "1.10.1"
