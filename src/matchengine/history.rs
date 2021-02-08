@@ -8,7 +8,7 @@ use anyhow::Result;
 
 type BalanceWriter = DatabaseWriter<models::BalanceHistory>;
 type OrderWriter = DatabaseWriter<models::OrderHistory>;
-type TradeWriter = DatabaseWriter<models::TradeHistory>;
+type TradeWriter = DatabaseWriter<models::UserTrade>;
 
 pub trait HistoryWriter {
     fn is_block(&self) -> bool;
@@ -93,7 +93,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
     }
 
     fn append_trade_history(&mut self, trade: &Trade) {
-        let ask_trade = models::TradeHistory {
+        let ask_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
             market: trade.market.clone(),
@@ -108,7 +108,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
             fee: trade.ask_fee,
             counter_order_fee: trade.bid_fee, // counter order
         };
-        let bid_trade = models::TradeHistory {
+        let bid_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
             market: trade.market.clone(),

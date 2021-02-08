@@ -4,7 +4,7 @@ use actix_web::web::Json;
 
 use crate::models::{
     self,
-    tablenames::{TRADEHISTORY, TRADERECORD},
+    tablenames::{USERTRADE, TRADERECORD},
 };
 use core::cmp::min;
 
@@ -75,7 +75,7 @@ pub async fn order_trades(
     price, amount, quote_amount, fee
     from {} where market = $1 and order_id = $2 
     order by trade_id, time asc",
-        TRADEHISTORY
+        USERTRADE
     );
 
     let trades: Vec<QueriedTradeHistory> = sqlx::query_as(&sql_query)

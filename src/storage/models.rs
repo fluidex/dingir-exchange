@@ -10,7 +10,7 @@ pub type TimestampDbType = NaiveDateTime;
 pub mod tablenames {
     pub const BALANCEHISTORY: &str = "balance_history";
     pub const ORDERHISTORY: &str = "order_history";
-    pub const TRADEHISTORY: &str = "trade_history";
+    pub const USERTRADE: &str = "user_trade";
     pub const OPERATIONLOG: &str = "operation_log";
     pub const ORDERSLICE: &str = "order_slice";
     pub const BALANCESLICE: &str = "balance_slice";
@@ -55,7 +55,7 @@ pub struct OrderHistory {
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
-pub struct TradeHistory {
+pub struct UserTrade {
     pub time: TimestampDbType,
     pub user_id: i32,
     pub market: String,
@@ -178,10 +178,10 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
 
 impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for BalanceHistory {}
 
-/* --------------------- models::TradeHistory -----------------------------*/
-impl sqlxextend::TableSchemas for TradeHistory {
+/* --------------------- models::UserTrade -----------------------------*/
+impl sqlxextend::TableSchemas for UserTrade {
     fn table_name() -> &'static str {
-        TRADEHISTORY
+        USERTRADE
     }
     const ARGN: i32 = 13;
     fn default_argsn() -> Vec<i32> {
@@ -189,7 +189,7 @@ impl sqlxextend::TableSchemas for TradeHistory {
     }
 }
 
-impl sqlxextend::BindQueryArg<'_, DbType> for TradeHistory {
+impl sqlxextend::BindQueryArg<'_, DbType> for UserTrade {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
         arg.add(self.user_id);
@@ -207,7 +207,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for TradeHistory {
     }
 }
 
-impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for TradeHistory {}
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for UserTrade {}
 
 /* --------------------- models::OrderHistory -----------------------------*/
 impl sqlxextend::TableSchemas for OrderHistory {
