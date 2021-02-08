@@ -6,24 +6,12 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use types::{ConnectionType, DbType};
+use std::pin::Pin;
+use types::DbType;
 
-use rdkafka::consumer::{stream_consumer, ConsumerContext, DefaultConsumerContext, StreamConsumer};
+use rdkafka::consumer::StreamConsumer;
 
-use message::persist::MIGRATOR;
-
-//use sqlx::Connection;
-struct AppliedConsumer<C: ConsumerContext + 'static = DefaultConsumerContext>(stream_consumer::StreamConsumer<C>);
-
-impl<C: ConsumerContext + 'static> message::consumer::RdConsumerExt for AppliedConsumer<C> {
-    type CTXType = stream_consumer::StreamConsumerContext<C>;
-    type SelfType = stream_consumer::StreamConsumer<C>;
-    fn to_self(&self) -> &Self::SelfType {
-        &self.0
-    }
-}
-
-use sqlx::Connection;
+use message::persist::{self, TopicConfig, MIGRATOR};
 
 fn main() {
     dotenv::dotenv().ok();
@@ -46,33 +34,57 @@ fn main() {
             .set("group.id", &settings.consumer_group)
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "6000")
-            .set("enable.auto.commit", "true")
+            .set("enable.auto.commit", "false")
+            .set("auto.offset.reset", "earliest")
             .create()
             .unwrap();
-        let consumer = AppliedConsumer(consumer);
 
-        MIGRATOR
-            .run(&mut ConnectionType::connect(&settings.db_history).await.unwrap())
-            .await
-            .ok();
+        let consumer = std::sync::Arc::new(consumer);
 
         let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
-        let persistor: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&DatabaseWriterConfig {
+        MIGRATOR.run(&pool).await.ok();
+
+        let write_config = DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
             capability_limit: 8192,
-        })
-        .start_schedule(&pool)
-        .unwrap();
+        };
+
+        let persistor_kline: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+
+        //following is equal to writers in history.rs
+        let persistor_trade: DatabaseWriter<models::TradeHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+
+        let persistor_order: DatabaseWriter<models::OrderHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+
+        let persistor_balance: DatabaseWriter<models::BalanceHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+
+        let trade_cfg = TopicConfig::<message::Trade>::new(message::TRADES_TOPIC)
+            .persist_to(&persistor_kline)
+            .persist_to(&persistor_trade)
+            .with_tr::<persist::AskTrade>()
+            .persist_to(&persistor_trade)
+            .with_tr::<persist::BidTrade>();
+
+        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC).persist_to(&persistor_order);
+
+        let balance_cfg = TopicConfig::<message::BalanceMessage>::new(message::BALANCES_TOPIC).persist_to(&persistor_balance);
+
+        let auto_commit = vec![
+            trade_cfg.auto_commit_start(consumer.clone()),
+            order_cfg.auto_commit_start(consumer.clone()),
+            balance_cfg.auto_commit_start(consumer.clone()),
+        ];
+        let consumer = consumer.as_ref();
 
         loop {
-            let cr_main = message::consumer::SimpleConsumer::new(&consumer)
-                .add_topic(
-                    message::TRADES_TOPIC,
-                    message::persist::MsgDataPersistor::<_, types::Trade>::new(&persistor),
-                )
-                .unwrap();
+            let cr_main = message::consumer::SimpleConsumer::new(consumer)
+                .add_topic_config(&trade_cfg).unwrap()
+                .add_topic_config(&order_cfg).unwrap()
+                .add_topic_config(&balance_cfg).unwrap()
+//                .add_topic(message::TRADES_TOPIC, MsgDataPersistor::new(&persistor).handle_message::<message::Trade>())
+                ;
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
@@ -86,6 +98,18 @@ fn main() {
             }
         }
 
-        persistor.finish().await.unwrap();
+        tokio::try_join!(
+            persistor_kline.finish(),
+            persistor_trade.finish(),
+            persistor_order.finish(),
+            persistor_balance.finish(),
+        )
+        .expect("all persistor should success finish");
+        let final_commits: Vec<Pin<Box<dyn std::future::Future<Output = ()> + Send>>> = auto_commit
+            .into_iter()
+            .map(|ac| -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> { Box::pin(ac.final_commit(consumer)) })
+            .collect();
+        futures::future::join_all(final_commits).await;
+        //auto_commit.final_commit(consumer).await;
     })
 }

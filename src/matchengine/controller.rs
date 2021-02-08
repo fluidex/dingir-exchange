@@ -30,13 +30,7 @@ use sqlx::Executor;
 use serde::Serialize;
 use std::str::FromStr;
 
-#[derive(Copy, Clone)]
-enum PersistPolicy {
-    Dummy,
-    Both,
-    ToDB,
-    ToMessege,
-}
+pub use config::PersistPolicy;
 
 pub struct Persistor {
     history_writer: DatabaseHistoryWriter,
@@ -54,7 +48,7 @@ impl<'c> PersistorGen<'c> {
         match self.policy {
             PersistPolicy::Dummy => Box::new(market::DummyPersistor(false)),
             PersistPolicy::ToDB => Box::new(market::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessege => Box::new(market::persistor_for_message(
+            PersistPolicy::ToMessage => Box::new(market::persistor_for_message(
                 self.base.message_manager.as_mut().unwrap(),
                 market_tag,
             )),
@@ -69,7 +63,7 @@ impl<'c> PersistorGen<'c> {
         match self.policy {
             PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
             PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessege => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+            PersistPolicy::ToMessage => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
             PersistPolicy::Both => Box::new((
                 asset::persistor_for_db(&mut self.base.history_writer),
                 asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
@@ -153,7 +147,7 @@ impl Controller {
         .start_schedule(&main_pool)
         .unwrap();
 
-        let persist_policy = PersistPolicy::Both;
+        let persist_policy = settings.history_persist_policy;
 
         Controller {
             settings,

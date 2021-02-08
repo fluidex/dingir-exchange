@@ -50,10 +50,48 @@ impl PartialOrd for MarketKeyBid {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
+pub enum MarketString {
+    Left(&'static str),
+    Right(String),
+}
+
+impl From<&'static str> for MarketString {
+    fn from(str: &'static str) -> Self {
+        MarketString::Left(str)
+    }
+}
+
+impl std::ops::Deref for MarketString {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MarketString::Left(str) => *str,
+            MarketString::Right(stri) => stri.as_str(),
+        }
+    }
+}
+
+impl serde::ser::Serialize for MarketString {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            MarketString::Left(str) => serializer.serialize_str(*str),
+            MarketString::Right(stri) => serializer.serialize_str(stri.as_str()),
+        }
+    }
+}
+
+impl<'de> serde::de::Deserialize<'de> for MarketString {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(MarketString::Right(s))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Order {
     pub id: u64,
-    pub market: &'static str,
+    pub market: MarketString,
     #[serde(rename = "type")]
     pub type_: OrderType, // enum
     pub side: OrderSide,
@@ -71,6 +109,32 @@ pub struct Order {
     pub finished_fee: Decimal,
 }
 
+fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> Result<&'static str, D::Error> {
+    Ok("Test")
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Trade {
+    pub id: u64,
+    pub timestamp: f64, // unix epoch timestamp,
+    pub market: String,
+    pub base: String,
+    pub quote: String,
+    pub price: rust_decimal::Decimal,
+    pub amount: rust_decimal::Decimal,
+    pub quote_amount: rust_decimal::Decimal,
+
+    pub ask_user_id: u32,
+    pub ask_order_id: u64,
+    pub ask_role: MarketRole, // take/make
+    pub ask_fee: rust_decimal::Decimal,
+
+    pub bid_user_id: u32,
+    pub bid_order_id: u64,
+    pub bid_role: MarketRole,
+    pub bid_fee: rust_decimal::Decimal,
+}
+
 impl Order {
     pub fn get_ask_key(&self) -> MarketKeyAsk {
         MarketKeyAsk {
@@ -85,8 +149,6 @@ impl Order {
         }
     }
 }
-
-pub use types::Trade;
 
 #[derive(Clone, Debug)]
 pub struct OrderRc(Arc<RwLock<Order>>);
@@ -110,7 +172,7 @@ impl OrderRc {
     }
 
     fn deep(&self) -> Order {
-        *(self.borrow())
+        self.borrow().clone()
     }
 }
 
@@ -168,7 +230,7 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
         self.0.push_order_message(&OrderMessage {
             event: at_step,
-            order: *order,
+            order: order.clone(),
             base: self.1 .0.clone(),
             quote: self.1 .1.clone(),
         });
@@ -317,6 +379,7 @@ impl Market {
         debug_assert!(!self.orders.contains_key(&order.id));
         //println!("order insert {}", &order.id);
         let order_rc = OrderRc::new(order);
+        let order = order_rc.borrow();
         self.orders.insert(order.id, order_rc.clone());
         let user_map = self.users.entry(order.user).or_insert_with(BTreeMap::new);
         debug_assert!(!user_map.contains_key(&order.id));
@@ -430,7 +493,7 @@ impl Market {
             if persistor.real_persist() {
                 // emit the trade
                 let trade_id = sequencer.next_trade_id();
-                let trade = types::Trade {
+                let trade = Trade {
                     id: trade_id,
                     timestamp: utils::current_timestamp(),
                     market: self.name.to_string(),
@@ -509,7 +572,7 @@ impl Market {
 
             let maker_finished = maker.remain.is_zero();
             if maker_finished {
-                finished_orders.push(*maker);
+                finished_orders.push(maker.clone());
             } else {
                 // When maker_finished, `order_finish` will send message.
                 // So we don't need to send the finish message here.
@@ -602,7 +665,7 @@ impl Market {
             side: order_input.side,
             create_time: t,
             update_time: t,
-            market: &self.name,
+            market: self.name.into(),
             user: order_input.user_id,
             price: order_input.price,
             amount: order_input.amount,
@@ -626,7 +689,7 @@ impl Market {
     }
     pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {
         let order = self.orders.get(&order_id).unwrap();
-        let order_struct = *order.borrow();
+        let order_struct = order.deep();
         self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
         order_struct
     }
@@ -641,7 +704,7 @@ impl Market {
         let total = order_ids.len();
         for order_id in order_ids {
             let order = self.orders.get(&order_id).unwrap();
-            let order_struct = *order.borrow();
+            let order_struct = order.deep();
             self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
         }
         total

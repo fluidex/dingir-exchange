@@ -1,5 +1,5 @@
 use crate::market::Order;
-use crate::types::{OrderEventType, SimpleResult, Trade};
+use crate::types::{OrderEventType, SimpleResult};
 use core::cell::RefCell;
 
 use anyhow::{anyhow, Result};
@@ -44,15 +44,20 @@ pub struct BalanceMessage {
     pub asset: String,
     pub business: String,
     pub change: String,
+    pub balance: String,
+    pub detail: String,
 }
 
-#[derive(Debug, Serialize)] //, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] //, Deserialize)]
 pub struct OrderMessage {
     pub event: OrderEventType,
     pub order: Order,
     pub base: String,
     pub quote: String,
 }
+
+//re-export from market, act as TradeMessage
+pub use crate::market::Trade;
 
 #[derive(Serialize, Deserialize)]
 pub struct MessageSenderStatus {

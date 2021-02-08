@@ -1,7 +1,7 @@
 use crate::database::{DatabaseWriter, DatabaseWriterConfig};
 use crate::market;
 use crate::models;
-use crate::types::Trade;
+use market::Trade;
 
 use crate::utils::FTimestamp;
 use anyhow::Result;
@@ -41,6 +41,27 @@ impl DatabaseHistoryWriter {
             trade_writer: TradeWriter::new(config).start_schedule(pool)?,
             order_writer: OrderWriter::new(config).start_schedule(pool)?,
         })
+    }
+}
+
+impl<'r> From<&'r market::Order> for models::OrderHistory {
+    fn from(order: &'r market::Order) -> Self {
+        models::OrderHistory {
+            id: order.id as i64,
+            create_time: FTimestamp(order.create_time).into(),
+            finish_time: FTimestamp(order.update_time).into(),
+            user_id: order.user as i32,
+            market: order.market.to_string(),
+            order_type: order.type_,
+            order_side: order.side,
+            price: order.price,
+            amount: order.amount,
+            taker_fee: order.taker_fee,
+            maker_fee: order.maker_fee,
+            finished_base: order.finished_base,
+            finished_quote: order.finished_quote,
+            finished_fee: order.finished_fee,
+        }
     }
 }
 

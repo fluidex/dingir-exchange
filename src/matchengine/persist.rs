@@ -138,7 +138,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 side: order.order_side,
                 create_time: FTimestamp::from(&order.create_time).0,
                 update_time: FTimestamp::from(&order.update_time).0,
-                market: market.name,
+                market: market.name.into(),
                 user: order.user_id as u32,
                 price: order.price,
                 amount: order.amount,

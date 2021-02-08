@@ -45,7 +45,7 @@ async fn prepare() -> anyhow::Result<Controller> {
 
 async fn grpc_run(stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse().unwrap();
-    let grpc = GrpcHandler::new(stub);
+    let mut grpc = GrpcHandler::new(stub);
     log::info!("Starting gprc service");
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();

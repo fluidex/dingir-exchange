@@ -48,12 +48,37 @@ impl Default for Market {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum PersistPolicy {
+    Dummy,
+    Both,
+    ToDB,
+    ToMessage,
+}
+
+use serde::de;
+
+impl<'de> de::Deserialize<'de> for PersistPolicy {
+    fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+
+        match s.as_ref() {
+            "Both" | "both" => Ok(PersistPolicy::Both),
+            "Db" | "db" | "DB" => Ok(PersistPolicy::ToDB),
+            "Message" | "message" => Ok(PersistPolicy::ToMessage),
+            "Dummy" | "dummy" => Ok(PersistPolicy::Dummy),
+            _ => Err(serde::de::Error::custom("unexpected specification for persist policy")),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub debug: bool,
     pub db_log: String,
     pub db_history: String,
+    pub history_persist_policy: PersistPolicy,
     pub assets: Vec<Asset>,
     pub markets: Vec<Market>,
     pub brokers: String,
@@ -71,6 +96,7 @@ impl Default for Settings {
             debug: false,
             db_log: Default::default(),
             db_history: Default::default(),
+            history_persist_policy: PersistPolicy::Both,
             assets: Vec::new(),
             markets: Vec::new(),
             consumer_group: "kline_data_fetcher".to_string(),
