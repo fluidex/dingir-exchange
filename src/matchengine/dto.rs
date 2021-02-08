@@ -13,7 +13,7 @@ use std::str::FromStr;
 pub fn order_to_proto(o: &market::Order) -> OrderInfo {
     OrderInfo {
         id: o.id,
-        market: String::from(o.market),
+        market: String::from(&*o.market),
         order_type: if o.type_ == market::OrderType::LIMIT {
             OrderType::Limit as i32
         } else {
