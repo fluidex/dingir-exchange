@@ -4,7 +4,7 @@ use actix_web::web::Json;
 
 use crate::models::{
     self,
-    tablenames::{USERTRADE, MARKETTRADE},
+    tablenames::{MARKETTRADE, USERTRADE},
 };
 use core::cmp::min;
 
