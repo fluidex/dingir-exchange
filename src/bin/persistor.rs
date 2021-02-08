@@ -54,7 +54,7 @@ fn main() {
         let persistor_kline: DatabaseWriter<models::TradeRecord> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
         //following is equal to writers in history.rs
-        let persistor_trade: DatabaseWriter<models::TradeHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
+        let persistor_trade: DatabaseWriter<models::UserTrade> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
         let persistor_order: DatabaseWriter<models::OrderHistory> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 

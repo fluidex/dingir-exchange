@@ -29,7 +29,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> impl 
 
     // Here we use the kline trade table, which is more market-centric
     // and more suitable for fetching latest trades on a market.
-    // models::TradeHistory is designed for a user to fetch his trades.
+    // models::UserTrade is designed for a user to fetch his trades.
 
     let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", TRADERECORD, limit);
 
@@ -39,7 +39,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> impl 
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
-struct QueriedTradeHistory {
+struct QueriedUserTrade {
     pub time: TimestampDbType,
     pub user_id: i32,
     pub trade_id: i64,
@@ -53,7 +53,7 @@ struct QueriedTradeHistory {
 #[cfg(sqlxverf)]
 fn sqlverf_ticker() {
     sqlx::query_as!(
-        QueriedTradeHistory,
+        QueriedUserTrade,
         "select time, user_id, trade_id, order_id,
         price, amount, quote_amount, fee
         from user_trade where market = $1 and order_id = $2 
@@ -78,7 +78,7 @@ pub async fn order_trades(
         USERTRADE
     );
 
-    let trades: Vec<QueriedTradeHistory> = sqlx::query_as(&sql_query)
+    let trades: Vec<QueriedUserTrade> = sqlx::query_as(&sql_query)
         .bind(market_name)
         .bind(order_id)
         .fetch_all(&app_state.db)
