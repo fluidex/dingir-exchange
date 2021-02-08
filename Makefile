@@ -27,6 +27,8 @@ startall:
 pgrep:
 	pgrep -l $(PROCESSES) || true
 
+taillogs:
+	tail -n 15 logs/*
 
 viewlogs:
 	watch -n 0.5 tail -n 5 logs/*

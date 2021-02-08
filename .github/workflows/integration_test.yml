@@ -59,5 +59,8 @@ jobs:
       - name: Start exchange server daemon
         run: make startall
 
+      - name: Check services status
+        run: sleep 5 && make taillogs && docker-compose --file "./docker/docker-compose.yaml" logs --tail=20
+
       - name: Run trading tests
-        run: cd ./examples/js/ && node trade.js && node print_orders.js 
+        run: cd ./examples/js/ && node trade.js && sleep 5 && node print_orders.js 
