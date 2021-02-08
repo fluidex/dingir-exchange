@@ -17,7 +17,7 @@ type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<
 pub struct GrpcHandler {
     stub: StubType,
     task_dispacther: mpsc::Sender<ControllerAction>,
-    set_close: mpsc::Sender<()>,
+    set_close: Option<oneshot::Sender<()>>,
 }
 
 struct ControllerDispatch<OT>(ControllerAction, oneshot::Receiver<OT>);
@@ -60,11 +60,11 @@ fn map_dispatch_ret<OT: 'static>(recv_ret: Result<ControllerRet<OT>, oneshot::er
     }
 }
 
-pub struct ServerLeave(mpsc::Sender<ControllerAction>, mpsc::Sender<()>);
+pub struct ServerLeave(mpsc::Sender<ControllerAction>, oneshot::Sender<()>);
 
 impl ServerLeave {
     pub async fn leave(self) {
-        self.1.send(()).await.unwrap();
+        self.1.send(()).unwrap();
         self.0.closed().await;
     }
 }
@@ -76,13 +76,13 @@ impl GrpcHandler {
         let stub = Arc::new(RwLock::new(stub));
         //we always wait so the size of channel is no matter
         let (tx, mut rx) = mpsc::channel(16);
-        let (tx_close, mut rx_close) = mpsc::channel(1);
+        let (tx_close, mut rx_close) = oneshot::channel();
 
         let stub_for_dispatch = stub.clone();
 
         let ret = GrpcHandler {
             task_dispacther: tx,
-            set_close: tx_close,
+            set_close: Some(tx_close),
             stub,
         };
 
@@ -91,11 +91,8 @@ impl GrpcHandler {
             loop {
                 tokio::select! {
                     may_task = rx.recv() => {
-                        if let Some(task) = may_task {
-                            task(stub_for_dispatch.clone()).await;
-                        }else {
-                            break;
-                        }
+                        let task = may_task.expect("Server scheduler has unexpected exit");
+                        task(stub_for_dispatch.clone()).await;
                     }
                     _ = persist_interval.tick() => {
                         let stub_rd = stub_for_dispatch.read().await;
@@ -104,11 +101,17 @@ impl GrpcHandler {
                             crate::persist::fork_and_make_slice(&*stub_rd);
                         }
                     }
-                    _ = rx_close.recv() => {
+                    _ = &mut rx_close => {
                         log::info!("Server scheduler is notified to close");
                         rx.close();
+                        break;
                     }
                 }
+            }
+
+            //drain unhandled task
+            while let Some(task) = rx.recv().await {
+                task(stub_for_dispatch.clone()).await;
             }
 
             log::warn!("Server scheduler has exited");
@@ -117,8 +120,8 @@ impl GrpcHandler {
         ret
     }
 
-    pub fn on_leave(&self) -> ServerLeave {
-        ServerLeave(self.task_dispacther.clone(), self.set_close.clone())
+    pub fn on_leave(&mut self) -> ServerLeave {
+        ServerLeave(self.task_dispacther.clone(), self.set_close.take().expect("Do not call twice with on_leave"))
     }
 }
 
