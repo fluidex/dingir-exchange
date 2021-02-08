@@ -56,7 +56,7 @@ fn sqlverf_ticker() {
         QueriedTradeHistory,
         "select time, user_id, trade_id, order_id,
         price, amount, quote_amount, fee
-        from trade_history where market = $1 and order_id = $2 
+        from user_trade where market = $1 and order_id = $2 
         order by trade_id, time asc",
         "USDT_ETH",
         10000,
