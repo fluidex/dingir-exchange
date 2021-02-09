@@ -551,9 +551,9 @@ impl AutoCommitRet {
 use crate::market;
 use crate::utils::FTimestamp;
 
-impl<'r> From<&'r super::Trade> for models::TradeRecord {
+impl<'r> From<&'r super::Trade> for models::MarketTrade {
     fn from(origin: &'r super::Trade) -> Self {
-        models::TradeRecord {
+        models::MarketTrade {
             time: utils::FTimestamp(origin.timestamp).into(),
             market: origin.market.clone(),
             trade_id: origin.id as i64,
@@ -599,10 +599,10 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
 
 pub struct AskTrade();
 
-impl MsgDataTransformer<models::TradeHistory> for AskTrade {
+impl MsgDataTransformer<models::UserTrade> for AskTrade {
     type MsgType = super::Trade;
-    fn into(trade: &Self::MsgType) -> models::TradeHistory {
-        models::TradeHistory {
+    fn into(trade: &Self::MsgType) -> models::UserTrade {
+        models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
             market: trade.market.clone(),
@@ -622,10 +622,10 @@ impl MsgDataTransformer<models::TradeHistory> for AskTrade {
 
 pub struct BidTrade();
 
-impl MsgDataTransformer<models::TradeHistory> for BidTrade {
+impl MsgDataTransformer<models::UserTrade> for BidTrade {
     type MsgType = super::Trade;
-    fn into(trade: &Self::MsgType) -> models::TradeHistory {
-        models::TradeHistory {
+    fn into(trade: &Self::MsgType) -> models::UserTrade {
+        models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
             market: trade.market.clone(),

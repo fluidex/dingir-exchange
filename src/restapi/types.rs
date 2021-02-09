@@ -47,7 +47,7 @@ pub struct UserInfo {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TradeRecord {
+pub struct MarketTrade {
     pub time: i32,
     pub amount: f32,
     pub quote_amount: f32,
@@ -57,5 +57,5 @@ pub struct TradeRecord {
 
 #[derive(Serialize, Deserialize)]
 pub struct OrderTradeResult {
-    pub trades: Vec<TradeRecord>,
+    pub trades: Vec<MarketTrade>,
 }

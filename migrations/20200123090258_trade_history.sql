@@ -32,7 +32,7 @@ CREATE TABLE order_history (
 
 CREATE INDEX order_history_idx_user_market ON order_history (user_id, market);
 
-CREATE TABLE trade_history (
+CREATE TABLE user_trade (
     id SERIAL PRIMARY KEY,
     time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
@@ -49,5 +49,5 @@ CREATE TABLE trade_history (
     counter_order_fee DECIMAL(30, 16) NOT NULL
 );
 
-CREATE INDEX trade_history_idx_user_market ON trade_history (user_id, market);
+CREATE INDEX user_trade_idx_user_market ON user_trade (user_id, market);
 

@@ -499,7 +499,7 @@ impl Controller {
                 tablenames::SLICEHISTORY,
                 tablenames::OPERATIONLOG,
                 tablenames::ORDERHISTORY,
-                tablenames::TRADEHISTORY,
+                tablenames::USERTRADE,
                 tablenames::ORDERSLICE);
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here

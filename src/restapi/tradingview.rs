@@ -13,7 +13,7 @@ use crate::restapi::state;
 
 use super::mock;
 
-use crate::models::tablenames::TRADERECORD;
+use crate::models::tablenames::MARKETTRADE;
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
@@ -95,7 +95,7 @@ pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 fn sqlverf_ticker() {
     sqlx::query!(
         "select first(price, time), last(price, time), max(price), min(price), 
-        sum(amount), sum(quote_amount) as quote_sum from trade_record where market = $1 and time > $2",
+        sum(amount), sum(quote_amount) as quote_sum from market_trade where market = $1 and time > $2",
         "USDT_ETH",
         NaiveDateTime::from_timestamp(100_000_000, 0)
     );
@@ -141,7 +141,7 @@ pub async fn ticker(
     let core_query = format!(
         "select first(price, time), last(price, time), max(price), min(price), 
         sum(amount), sum(quote_amount) as quote_sum from {} where market = $1 and time > $2",
-        TRADERECORD
+        MARKETTRADE
     );
 
     let from_ts = now_ts
@@ -236,7 +236,7 @@ pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) 
     last(price, time), max(price), min(price), sum(amount) from {} 
     where market = $2 and time > $3 and time < $4
     group by ts order by ts asc",
-        TRADERECORD
+        MARKETTRADE
     );
 
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
@@ -265,7 +265,7 @@ pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) 
     log::debug!("Query {} results", out_t.len());
 
     if out_t.is_empty() {
-        let next_query = format!("select time from {} where time < $1 order by time desc limit 1", TRADERECORD);
+        let next_query = format!("select time from {} where time < $1 order by time desc limit 1", MARKETTRADE);
         let nxt = sqlx::query_scalar(&next_query)
             .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
             .fetch_optional(&app_state.db)
