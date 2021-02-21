@@ -5,7 +5,7 @@ use crate::utils;
 use crate::{config, utils::FTimestamp};
 pub use models::BalanceHistory;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -328,7 +328,7 @@ impl BalanceUpdateController {
         business_id: u64,
         change: Decimal,
         mut detail: serde_json::Value,
-    ) -> bool {
+    ) -> Result<()> {
         let cache_key = BalanceUpdateKey {
             user_id,
             asset: asset.to_string(),
@@ -336,13 +336,19 @@ impl BalanceUpdateController {
             business_id,
         };
         if self.cache.contains_key(&cache_key) {
-            return false;
+            bail!("duplicate request");
         }
+        let old_balance = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
         let abs_change = change.abs();
-        let new_balance = if abs_change.is_sign_positive() || abs_change.is_zero() {
+        let new_balance = if change.is_sign_positive() {
             balance_manager.add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
-        } else {
+        } else if change.is_sign_negative() {
+            if old_balance < abs_change {
+                bail!("balance not enough");
+            }
             balance_manager.sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
+        } else {
+            old_balance
         };
         log::debug!("change user balance: {} {} {}", user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
@@ -359,7 +365,7 @@ impl BalanceUpdateController {
                 detail: detail.to_string(),
             });
         }
-        true
+        Ok(())
     }
 }
 
