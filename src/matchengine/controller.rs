@@ -365,16 +365,18 @@ impl Controller {
         } else {
             serde_json::from_str(req.detail.as_str()).map_err(|_| Status::invalid_argument("invalid detail"))?
         };
-        let _is_valid = self.update_controller.update_user_balance(
-            &mut self.balance_manager,
-            self.persistor.is_real(real).persist_for_balance(),
-            req.user_id,
-            req.asset.as_str(),
-            req.business.clone(),
-            req.business_id,
-            change,
-            detail_json,
-        );
+        self.update_controller
+            .update_user_balance(
+                &mut self.balance_manager,
+                self.persistor.is_real(real).persist_for_balance(),
+                req.user_id,
+                req.asset.as_str(),
+                req.business.clone(),
+                req.business_id,
+                change,
+                detail_json,
+            )
+            .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
         // TODO how to handle this error?
         // TODO operation_log after exec or before exec?

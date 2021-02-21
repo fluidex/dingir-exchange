@@ -10,7 +10,12 @@ service Matchengine {
       get : "/balances/{user_id}"
     };
   }
-  rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {}
+  rpc BalanceUpdate(BalanceUpdateRequest) returns (BalanceUpdateResponse) {
+    option (google.api.http) = {
+      post : "/updatebalance"
+      body : "*"
+    };
+  }
   rpc AssetList(AssetListRequest) returns (AssetListResponse) {
     option (google.api.http) = {
       get : "/assets"
@@ -131,7 +136,7 @@ message OrderPutRequest {
   OrderSide order_side = 3;
   OrderType order_type = 4;
   string amount = 5; // always amount for base, even for market bid
-  string price = 6; // should be empty or zero for market order
+  string price = 6;  // should be empty or zero for market order
   string taker_fee = 7;
   string maker_fee = 8;
 }
