@@ -184,7 +184,6 @@ async function main() {
   try {
     await mainTest(false);
     console.error("Catched error:");
-    process.exit(1);
   } catch (error) {
 
   }
