@@ -152,7 +152,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
 async function simpleTest() {
   await setupAsset();
   await orderTest();
-  return await tradeTest();
+  await tradeTest();
 }
 
 function checkMessages(messages) {
