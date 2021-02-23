@@ -97,7 +97,8 @@ async function main() {
   try {
     await stressTest({ parallel: 50, interval: 500, repeat: 50 });
   } catch (error) {
-    console.error("Catched error:", error);
+    console.error("Caught error:", error);
+    process.exit(1);
   }
 }
 main();
