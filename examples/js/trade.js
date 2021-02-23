@@ -183,8 +183,9 @@ async function mainTest(withMQ) {
 async function main() {
   try {
     await mainTest(false);
+    console.error("Catched error:");
   } catch (error) {
-    console.error("Catched error:", error);
+
   }
 }
 main();
