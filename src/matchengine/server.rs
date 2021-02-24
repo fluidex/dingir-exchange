@@ -5,6 +5,7 @@ pub use crate::dto::*;
 
 //use crate::me_history::HistoryWriter;
 use crate::controller::Controller;
+use crate::storage::config::MarketConfigs;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<
 
 pub struct GrpcHandler {
     stub: StubType,
+    market_cfg: RwLock<MarketConfigs>,
     task_dispacther: mpsc::Sender<ControllerAction>,
     set_close: Option<oneshot::Sender<()>>,
 }
@@ -70,7 +72,7 @@ impl ServerLeave {
 }
 
 impl GrpcHandler {
-    pub fn new(stub: Controller) -> Self {
+    pub fn new(stub: Controller, market_cfg: MarketConfigs) -> Self {
         let mut persist_interval = tokio::time::interval(std::time::Duration::from_secs(stub.settings.persist_interval as u64));
 
         let stub = Arc::new(RwLock::new(stub));
@@ -84,6 +86,7 @@ impl GrpcHandler {
             task_dispacther: tx,
             set_close: Some(tx_close),
             stub,
+            market_cfg: RwLock::new(market_cfg),
         };
 
         tokio::spawn(async move {

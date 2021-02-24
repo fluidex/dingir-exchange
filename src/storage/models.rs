@@ -8,6 +8,8 @@ pub type DecimalDbType = rust_decimal::Decimal;
 pub type TimestampDbType = NaiveDateTime;
 
 pub mod tablenames {
+    pub const ASSET: &str = "asset";
+    pub const MARKET: &str = "market";
     pub const BALANCEHISTORY: &str = "balance_history";
     pub const ORDERHISTORY: &str = "order_history";
     pub const USERTRADE: &str = "user_trade";
@@ -19,6 +21,28 @@ pub mod tablenames {
 }
 
 use tablenames::*;
+
+#[derive(sqlx::FromRow, Debug, Clone)]
+pub struct AssetDesc {
+    pub asset_name: String,
+    pub precision_stor: i16,
+    pub precision_show: i16,
+    pub create_time: Option<TimestampDbType>,
+}
+
+#[derive(sqlx::FromRow, Debug, Clone)]
+pub struct MarketDesc {
+    pub id: i32,
+    pub create_time: Option<TimestampDbType>,
+    pub base_asset: String,
+    pub quote_asset: String,
+    pub precision_base: i16,
+    pub precision_quote: i16,
+    pub precision_fee: i16,
+    pub min_amount: DecimalDbType,
+    pub market_name: Option<String>,
+}
+
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct BalanceHistory {
@@ -150,7 +174,7 @@ pub struct MarketTrade {
 */
 use crate::sqlxextend;
 use crate::types;
-use types::DbType;
+pub use types::DbType;
 
 /* --------------------- models::BalanceHistory -----------------------------*/
 impl sqlxextend::TableSchemas for BalanceHistory {

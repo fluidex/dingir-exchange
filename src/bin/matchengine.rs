@@ -23,29 +23,37 @@ fn main() {
         .expect("build runtime");
 
     rt.block_on(async {
-        let stub = prepare().await.expect("Init state error");
-        grpc_run(stub).await
+        let server = prepare().await.expect("Init state error");
+        grpc_run(server).await
     })
     .unwrap();
 }
 
-async fn prepare() -> anyhow::Result<Controller> {
+async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut conf = config_rs::Config::new();
     let config_file = dotenv::var("CONFIG_FILE")?;
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
-    let settings: config::Settings = conf.try_into().unwrap();
+    let mut settings: config::Settings = conf.try_into().unwrap();
     println!("Settings: {:?}", settings);
 
     let mut conn = ConnectionType::connect(&settings.db_log).await?;
     persist::MIGRATOR.run(&mut conn).await?;
+
+    let market_cfg = if settings.market_from_db {
+        persist::init_config_from_db(&mut conn, &mut settings).await?
+    }else {
+        persist::MarketConfigs::new()
+    };
+
     let mut grpc_stub = Controller::new(settings);
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
-    Ok(grpc_stub)
+
+    let grpc = GrpcHandler::new(grpc_stub, market_cfg);
+    Ok(grpc)
 }
 
-async fn grpc_run(stub: Controller) -> Result<(), Box<dyn std::error::Error>> {
+async fn grpc_run(mut grpc: GrpcHandler) -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse().unwrap();
-    let mut grpc = GrpcHandler::new(stub);
     log::info!("Starting gprc service");
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();

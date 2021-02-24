@@ -94,6 +94,7 @@ impl BalanceManager {
             balances: HashMap::new(),
         })
     }
+
     pub fn reset(&mut self) {
         self.balances.clear()
     }
