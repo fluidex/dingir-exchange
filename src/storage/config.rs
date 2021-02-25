@@ -75,18 +75,9 @@ impl MarketConfigs {
         }
     }
 
-    pub async fn init_asset_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Asset>>
-    where T: sqlx::Executor<'e, Database=DbType>
-    {
+    pub fn reset_load_time(&mut self) {
         self.assets_load_time = TimestampDbType::from_timestamp(0, 0);
-        self.load_asset_from_db(db_conn).await
-    }
-
-    pub async fn init_market_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Market>>
-    where T: sqlx::Executor<'e, Database=DbType> + Send
-    {
         self.market_load_time = TimestampDbType::from_timestamp(0, 0);
-        self.load_market_from_db(db_conn).await
     }
 
     //this load market config from database, instead of loading them from the config

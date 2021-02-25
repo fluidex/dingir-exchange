@@ -45,10 +45,10 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
         persist::MarketConfigs::new()
     };
 
-    let mut grpc_stub = Controller::new(settings);
+    let mut grpc_stub = Controller::new((settings, market_cfg));
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
 
-    let grpc = GrpcHandler::new(grpc_stub, market_cfg);
+    let grpc = GrpcHandler::new(grpc_stub);
     Ok(grpc)
 }
 

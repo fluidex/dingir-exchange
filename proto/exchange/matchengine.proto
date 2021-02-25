@@ -60,6 +60,7 @@ service Matchengine {
     };
   }
 
+  rpc ReloadMarkets(ReloadMarketsRequest) returns (SimpleSuccessResponse) {}
   rpc MarketSummary(MarketSummaryRequest) returns (MarketSummaryResponse) {}
 
   // Used only in development
@@ -249,6 +250,12 @@ message MarketSummaryResponse {
   }
   repeated MarketSummary market_summaries = 1;
 }
+
+message ReloadMarketsRequest {
+  bool from_scratch = 1;
+}
+
+message SimpleSuccessResponse {}
 
 message DebugDumpRequest {}
 message DebugDumpResponse {}

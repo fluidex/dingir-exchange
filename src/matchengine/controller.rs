@@ -1,5 +1,6 @@
-use crate::asset::{self, AssetManager, BalanceManager, BalanceType, BalanceUpdateController};
+use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::database::OperationLogSender;
+use crate::storage::config::MarketConfigs;
 use crate::market;
 use crate::sequencer::Sequencer;
 use crate::utils::FTimestamp;
@@ -96,12 +97,13 @@ pub struct Controller {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
     pub balance_manager: BalanceManager,
-    pub asset_manager: AssetManager,
+//    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
     pub persistor: Persistor,
     dbg_pool: sqlx::Pool<DbType>,
+    market_load_cfg: MarketConfigs,
     //pub(crate) rt: tokio::runtime::Handle,
 }
 
@@ -112,9 +114,10 @@ const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
 
 impl Controller {
-    pub fn new(settings: config::Settings) -> Controller {
+    pub fn new(cfgs: (config::Settings, MarketConfigs)) -> Controller {
+        let settings = cfgs.0;
         let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
-        let mut balance_manager = BalanceManager::new(&settings.assets).unwrap();
+        let balance_manager = BalanceManager::new(&settings.assets).unwrap();
         let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
         let history_writer = DatabaseHistoryWriter::new(
             &DatabaseWriterConfig {
@@ -126,11 +129,11 @@ impl Controller {
         )
         .unwrap();
         let update_controller = BalanceUpdateController::new();
-        let asset_manager = AssetManager::new(&settings.assets).unwrap();
+//        let asset_manager = AssetManager::new(&settings.assets).unwrap();
         let sequencer = Sequencer::default();
         let mut markets = HashMap::new();
         for entry in &settings.markets {
-            let market = market::Market::new(entry, &mut balance_manager).unwrap();
+            let market = market::Market::new(entry, &balance_manager).unwrap();
             markets.insert(entry.name.clone(), market);
         }
         let main_pool = if settings.db_log == settings.db_history {
@@ -152,7 +155,7 @@ impl Controller {
         Controller {
             settings,
             sequencer,
-            asset_manager,
+//            asset_manager,
             balance_manager,
             update_controller,
             markets,
@@ -163,6 +166,7 @@ impl Controller {
                 policy: persist_policy,
             },
             dbg_pool: main_pool,
+            market_load_cfg: cfgs.1,
             //            rt: tokio::runtime::Handle::current(),
         }
     }
@@ -298,16 +302,15 @@ impl Controller {
 
     pub fn market_list(&self, _req: MarketListRequest) -> Result<MarketListResponse, Status> {
         let markets = self
-            .settings
             .markets
-            .iter()
+            .values()
             .map(|market| market_list_response::MarketInfo {
-                name: market.name.clone(),
-                base: market.base.name.clone(),
-                quote: market.quote.name.clone(),
+                name: String::from(market.name),
+                base: market.base.clone(),
+                quote: market.quote.clone(),
                 fee_precision: market.fee_prec,
-                base_precision: market.base.prec,
-                quote_precision: market.quote.prec,
+                base_precision: market.base_prec,
+                quote_precision: market.quote_prec,
                 min_amount: market.min_amount.to_string(),
             })
             .collect();
@@ -354,10 +357,10 @@ impl Controller {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
-        if !self.asset_manager.asset_exist(&req.asset) {
+        if !self.balance_manager.asset_manager.asset_exist(&req.asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let prec = self.asset_manager.asset_prec_show(&req.asset);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(&req.asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
         let change = change_result.round_dp(prec);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
@@ -470,6 +473,41 @@ impl Controller {
         self.update_controller.reset();
         self.balance_manager.reset();
         //Ok(())
+    }
+
+    pub async fn market_reload(&mut self, from_scratch : bool) -> Result<(), Status> {
+
+        if from_scratch {
+            self.market_load_cfg.reset_load_time();
+        }
+
+        //assets and markets can be updated respectively, and must be handled one
+        //after another
+        let new_assets = self.market_load_cfg.load_asset_from_db(&self.dbg_pool)
+            .await.map_err(|e| tonic::Status::internal(e.to_string()))?;
+        
+        self.balance_manager.asset_manager.append(&new_assets);
+
+        let new_markets = self.market_load_cfg.load_market_from_db(&self.dbg_pool)
+        .await.map_err(|e| tonic::Status::internal(e.to_string()))?;
+
+        for entry in new_markets.into_iter() {
+            let handle_ret = if self.markets.get(&entry.name).is_none() {
+                market::Market::new(&entry, &self.balance_manager)
+                    .and_then(|mk| {
+                        self.markets.insert(entry.name, mk);
+                        Ok(())
+                    })
+            }else {
+                Err(anyhow!("market {} is duplicated", entry.name))
+            };
+
+            if let Err(e) = handle_ret {
+                log::error!("On handle append market fail: {}", e);
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {

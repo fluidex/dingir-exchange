@@ -5,7 +5,6 @@ pub use crate::dto::*;
 
 //use crate::me_history::HistoryWriter;
 use crate::controller::Controller;
-use crate::storage::config::MarketConfigs;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -17,7 +16,6 @@ type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<
 
 pub struct GrpcHandler {
     stub: StubType,
-    market_cfg: RwLock<MarketConfigs>,
     task_dispacther: mpsc::Sender<ControllerAction>,
     set_close: Option<oneshot::Sender<()>>,
 }
@@ -72,7 +70,7 @@ impl ServerLeave {
 }
 
 impl GrpcHandler {
-    pub fn new(stub: Controller, market_cfg: MarketConfigs) -> Self {
+    pub fn new(stub: Controller) -> Self {
         let mut persist_interval = tokio::time::interval(std::time::Duration::from_secs(stub.settings.persist_interval as u64));
 
         let stub = Arc::new(RwLock::new(stub));
@@ -86,7 +84,6 @@ impl GrpcHandler {
             task_dispacther: tx,
             set_close: Some(tx_close),
             stub,
-            market_cfg: RwLock::new(market_cfg),
         };
 
         tokio::spawn(async move {
@@ -207,6 +204,16 @@ impl Matchengine for GrpcHandler {
 
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
+    }
+
+    async fn reload_markets(&self, request: Request<ReloadMarketsRequest>) -> Result<Response<SimpleSuccessResponse>, Status> {
+
+        //there should be no need to queue the opeartion
+        let mut stub = self.stub.write().await;      
+
+        stub.market_reload(request.into_inner().from_scratch).await?;
+
+        Ok(Response::new(SimpleSuccessResponse {}))
     }
 
     // This is the only blocking call of the server

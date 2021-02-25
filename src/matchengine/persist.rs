@@ -218,8 +218,8 @@ pub async fn init_config_from_db(conn: &mut ConnectionType, config: &mut config:
     let mut market_cfg = MarketConfigs::new();
 
     //replace configs data with which loadedfrom db
-    config.assets = market_cfg.init_asset_from_db(&mut *conn).await?;
-    config.markets = market_cfg.init_market_from_db(&mut *conn).await?;
+    config.assets = market_cfg.load_asset_from_db(&mut *conn).await?;
+    config.markets = market_cfg.load_market_from_db(&mut *conn).await?;
     Ok(market_cfg)
 }
 
