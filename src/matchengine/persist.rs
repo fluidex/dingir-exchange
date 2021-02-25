@@ -23,8 +23,8 @@ use types::ConnectionType;
 pub static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
 #[cfg(sqlxverf)]
-fn sqlverf_get_last_slice() {
-    sqlx::query!("select * from slice_history order by id desc limit 1");
+fn sqlverf_get_last_slice() -> impl std::any::Any{
+    sqlx::query!("select * from slice_history order by id desc limit 1")
 }
 
 #[test]

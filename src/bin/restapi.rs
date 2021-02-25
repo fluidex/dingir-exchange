@@ -5,14 +5,16 @@
 #![allow(clippy::single_char_pattern)]
 #![allow(clippy::await_holding_refcell_ref)] // FIXME
 
-use actix_web::{web, App, HttpRequest, HttpServer, Responder};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use sqlx::postgres::Postgres;
 use sqlx::Pool;
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::convert::TryFrom;
 
 use dingir_exchange::restapi;
 
+use restapi::manage::market;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
@@ -51,10 +53,22 @@ async fn main() -> std::io::Result<()> {
     let dburl = conf.get_str("db_history").unwrap();
     log::debug!("Prepared db connection: {}", &dburl);
 
+    let config : restapi::config::Settings = 
+        restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default);
+
+    let manage_channel = if let Some(ep_str) = &config.manage_endpoint {
+        log::info!("Connect to manage channel {}", ep_str);
+        Some(tonic::transport::Endpoint::try_from(ep_str.clone()).ok()
+        .unwrap().connect().await.unwrap())
+    }else{
+        None
+    };
+
     let user_map = web::Data::new(AppState {
         user_addr_map: Mutex::new(HashMap::new()),
+        manage_channel,
         db: Pool::<Postgres>::connect(&dburl).await.unwrap(),
-        config: restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default),
+        config,
     });
 
     let workers = user_map.config.workers;
@@ -74,6 +88,20 @@ async fn main() -> std::io::Result<()> {
                         .route("/config", web::get().to(chart_config))
                         .route("/symbols", web::get().to(symbols))
                         .route("/history", web::get().to(history)),
+                )
+                .service(
+                    if user_map.manage_channel.is_some() {
+                        web::scope("/manage")
+                            .service(web::scope("/market")
+                                .route("/reload", web::post().to(market::reload))
+                                .route("/addpair", web::post().to(market::add_pair))
+                                .route("/assets", web::post().to(market::add_assets)))
+                    }else {
+                        web::scope("/manage")
+                        .service(web::resource("/").to(||
+                            HttpResponse::Forbidden()
+                            .body(String::from("No manage endpoint"))))
+                    }                   
                 ),
         )
     });

@@ -92,13 +92,13 @@ struct TickerItem {
 pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 
 #[cfg(sqlxverf)]
-fn sqlverf_ticker() {
+fn sqlverf_ticker() -> impl std::any::Any{
     sqlx::query!(
         "select first(price, time), last(price, time), max(price), min(price), 
         sum(amount), sum(quote_amount) as quote_sum from market_trade where market = $1 and time > $2",
         "USDT_ETH",
         NaiveDateTime::from_timestamp(100_000_000, 0)
-    );
+    )
 }
 
 pub async fn ticker(

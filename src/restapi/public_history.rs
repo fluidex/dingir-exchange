@@ -51,7 +51,7 @@ struct QueriedUserTrade {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_ticker() {
+fn sqlverf_ticker() -> impl std::any::Any{
     sqlx::query_as!(
         QueriedUserTrade,
         "select time, user_id, trade_id, order_id,
@@ -60,7 +60,7 @@ fn sqlverf_ticker() {
         order by trade_id, time asc",
         "USDT_ETH",
         10000,
-    );
+    )
 }
 
 pub async fn order_trades(

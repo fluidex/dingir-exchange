@@ -138,18 +138,45 @@ impl MarketConfigs {
 
 }
 
-pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset) -> Result<()>
+
+#[cfg(sqlxverf)]
+fn sqlverf_persist_asset_to_db() -> impl std::any::Any{
+    let asset = config::Asset{
+        name: String::from("test"),
+        prec_save: 0,
+        prec_show: 0,
+    };
+
+    sqlx::query!(
+        "insert into asset (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
+        on conflict (asset_name) do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
+        &asset.name,
+        asset.prec_save as i16,
+        asset.prec_show as i16
+    )
+}
+
+pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset, force: bool) -> Result<()>
 where T: sqlx::Executor<'e, Database=DbType>
 {
-    sqlx::query(
-        &format!("insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3)", tablenames::ASSET)
-    ).bind(&asset.name)
+    let query_template = if force {
+        format!("insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
+        on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
+        tablenames::ASSET)
+    } else {
+        format!("insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
+        tablenames::ASSET)
+    };
+
+    sqlx::query(&query_template)
+    .bind(&asset.name)
     .bind(asset.prec_save as i16)
     .bind(asset.prec_show as i16)
     .execute(db_conn).await?;
 
     Ok(())
 }
+
 
 pub async fn persist_market_to_db<'c, 'e, T>(db_conn: T, market: &config::Market) -> Result<()>
 where T: sqlx::Executor<'e, Database=DbType>

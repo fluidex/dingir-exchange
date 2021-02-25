@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::config::{Asset, Market};
 
 #[derive(Deserialize, Debug)]
 pub struct KlineReq {
@@ -60,3 +61,21 @@ pub struct MarketTrade {
 pub struct OrderTradeResult {
     pub trades: Vec<MarketTrade>,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct NewAssetReq {
+    pub assets: Vec<Asset>,
+    pub force_update: bool,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct NewTradePairReq {
+    pub market: Market,
+    #[serde(default)]
+    pub asset_base: Option<Asset>,
+    #[serde(default)]
+    pub asset_quote: Option<Asset>,
+    pub not_reload: bool,
+}
+
+

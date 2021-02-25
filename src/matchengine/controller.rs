@@ -624,8 +624,8 @@ impl Controller {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_clear_slice() {
-    sqlx::query!("drop table if exists balance_history, balance_slice");
+fn sqlverf_clear_slice() -> impl std::any::Any{
+    sqlx::query!("drop table if exists balance_history, balance_slice")
 }
 
 //use the ownership should make us has no dangling pointer
