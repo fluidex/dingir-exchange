@@ -12,7 +12,7 @@ async function main() {
   ).data;
   console.log(closedOrders);
   if (isCI) {
-    assert.equal(closedOrders.orders.length, 3);
+    assert.equal(closedOrders.orders.length, 2);
   }
   console.log("active orders:");
   const openOrders = (
