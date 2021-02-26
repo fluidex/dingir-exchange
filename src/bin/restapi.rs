@@ -94,7 +94,7 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/manage")
                             .service(web::scope("/market")
                                 .route("/reload", web::post().to(market::reload))
-                                .route("/addpair", web::post().to(market::add_pair))
+                                .route("/tradepairs", web::post().to(market::add_pair))
                                 .route("/assets", web::post().to(market::add_assets)))
                     }else {
                         web::scope("/manage")

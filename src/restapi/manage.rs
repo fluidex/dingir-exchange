@@ -12,13 +12,14 @@ pub mod market {
     use super::*;
 
     pub async fn add_assets(
-        req: web::Form<types::NewAssetReq>,
+        req: web::Json<types::NewAssetReq>,
         app_state: web::Data<state::AppState>
     ) -> impl Responder {
     
         let assets_req = req.into_inner();
 
         for asset in &assets_req.assets {
+            log::debug!("Add asset {:?}", asset);
             if let Err(e) = storage::config::persist_asset_to_db(&app_state.db, asset, assets_req.force_update).await
             {
                 return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
@@ -44,12 +45,22 @@ pub mod market {
     }
 
     pub async fn add_pair(
-        req: web::Form<types::NewTradePairReq>,
+        req: web::Json<types::NewTradePairReq>,
         app_state: web::Data<state::AppState>
     ) -> impl Responder {
     
         let trade_pair = req.into_inner();
-    
+
+        if trade_pair.asset_base.as_ref().and_then(|asset| 
+            if asset.name != trade_pair.market.base.name {Some(())} else {None}).is_some(){
+            return (String::from("Base asset not match"), http::StatusCode::BAD_REQUEST);
+        }
+
+        if trade_pair.asset_quote.as_ref().and_then(|asset| 
+            if asset.name != trade_pair.market.quote.name {Some(())} else {None}).is_some(){
+            return (String::from("Quote asset not match"), http::StatusCode::BAD_REQUEST);
+        }
+
         if let Some(Err(e)) = OptionFuture::from(trade_pair.asset_base.as_ref().map(
             |base_asset| storage::config::persist_asset_to_db(&app_state.db, base_asset, false)
         )).await {

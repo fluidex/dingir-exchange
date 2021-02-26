@@ -182,7 +182,7 @@ pub async fn persist_market_to_db<'c, 'e, T>(db_conn: T, market: &config::Market
 where T: sqlx::Executor<'e, Database=DbType>
 {
     sqlx::query(
-        &format!("insert into {} (abase_asset, quote_asset, precision_base, 
+        &format!("insert into {} (base_asset, quote_asset, precision_base, 
             precision_quote, precision_fee, min_amount, market_name) 
             values ($1, $2, $3, $4, $5, $6, $7)", tablenames::MARKET)
     ).bind(&market.base.name)
