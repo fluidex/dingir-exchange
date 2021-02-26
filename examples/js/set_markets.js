@@ -6,7 +6,7 @@ const isCI = !!process.env.GITHUB_ACTIONS;
 
 const new_asset = {
   "assets": [{"name":"BTC", "prec_save":4, "prec_show":4}],
-  "force_update": false
+  "not_reload": true
 }
 
 const new_market1 = {
@@ -67,7 +67,7 @@ async function main() {
   if (isCI) {
     assert.equal(ret3, "done");
   }
-  const {markets2} = (
+  const {markets: markets2} = (
     await axios.get(`http://${server}/api/markets`)
   ).data;
   console.log(markets2);

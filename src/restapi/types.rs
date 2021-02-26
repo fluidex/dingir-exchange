@@ -66,7 +66,7 @@ pub struct OrderTradeResult {
 pub struct NewAssetReq {
     pub assets: Vec<Asset>,
     #[serde(default)]
-    pub force_update: bool,
+    pub not_reload: bool,
 }
 
 #[derive(Serialize, Deserialize, Default)]
