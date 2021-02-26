@@ -98,7 +98,7 @@ impl Default for Settings {
             db_log: Default::default(),
             db_history: Default::default(),
             history_persist_policy: PersistPolicy::ToMessage,
-            market_from_db: false,
+            market_from_db: true,
             assets: Vec::new(),
             markets: Vec::new(),
             consumer_group: "kline_data_fetcher".to_string(),
