@@ -48,11 +48,12 @@ pub struct UserInfo {
 
 #[derive(Serialize, Deserialize)]
 pub struct MarketTrade {
-    pub time: i32,
-    pub amount: f32,
-    pub quote_amount: f32,
-    pub price: f32,
-    pub fee: f32,
+    pub time: String,
+    pub trade_id: i64,
+    pub amount: String,
+    pub quote_amount: String,
+    pub price: String,
+    pub fee: String,
 }
 
 #[derive(Serialize, Deserialize)]

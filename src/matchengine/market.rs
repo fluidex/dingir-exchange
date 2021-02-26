@@ -109,9 +109,11 @@ pub struct Order {
     pub finished_fee: Decimal,
 }
 
+/*
 fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> Result<&'static str, D::Error> {
     Ok("Test")
 }
+*/
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Trade {

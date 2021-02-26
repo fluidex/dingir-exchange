@@ -15,7 +15,7 @@ pub struct MsgDataPersistor<T: Clone + Send, UM = ()> {
 
 pub trait MsgDataTransformer<T: Clone + Send>: Send {
     type MsgType: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
-    fn into(msg: &Self::MsgType) -> T;
+    fn into(msg: &Self::MsgType) -> Option<T>;
 }
 
 use rdkafka::{message::BorrowedMessage, Message};
@@ -27,9 +27,11 @@ where
     C: RdConsumerExt + 'static,
 {
     type DataType = UM::MsgType;
-    fn on_message(&self, msg: &Self::DataType, origin_msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) {
-        let notify = database::TaskNotification::new(origin_msg.partition(), origin_msg.offset() as u64);
-        self.writer.borrow_mut().gen().append_with_notify(UM::into(msg), Some(notify)).ok();
+    fn on_message(&self, msg_origin: &Self::DataType, origin_msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) {
+        if let Some(msg) = UM::into(msg_origin) {
+            let notify = database::TaskNotification::new(origin_msg.partition(), origin_msg.offset() as u64);
+            self.writer.borrow_mut().gen().append_with_notify(msg, Some(notify)).ok();
+        }
     }
     fn on_no_msg(&self, _cr: &'c C::SelfType) {} //do nothing
 }
@@ -43,8 +45,8 @@ where
     for<'r> &'r UM: Into<T>,
 {
     type MsgType = UM;
-    fn into(msg: &Self::MsgType) -> T {
-        Into::into(msg)
+    fn into(msg: &Self::MsgType) -> Option<T> {
+        Some(Into::into(msg))
     }
 }
 
@@ -88,13 +90,12 @@ where
 
 pub struct ChainedHandler<T1, T2>(T1, T2);
 
-impl<'c, C, U, UM, UT, T> TypedMessageHandlerAsync<'c, C> for ChainedHandler<MsgDataPersistor<U, UT>, T>
+impl<'c, C, UM, T1, T2> TypedMessageHandlerAsync<'c, C> for ChainedHandler<T1, T2>
 where
     C: RdConsumerExt + 'static,
     UM: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
-    UT: MsgDataTransformer<U, MsgType = UM>,
-    U: Clone + Send,
-    T: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
+    T1: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
+    T2: TypedMessageHandlerAsync<'c, C, DataType = UM> + 'static,
 {
     type DataType = UM;
     fn on_message(
@@ -103,11 +104,20 @@ where
         origin_msg: &BorrowedMessage<'c>,
         cr: &'c C::SelfType,
     ) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send> {
-        TypedMessageHandler::<'c, C>::on_message(&self.0, msg, origin_msg, cr);
-        self.1.on_message(msg, origin_msg, cr)
+        let f0 = self.0.on_message(msg, origin_msg, cr);
+        let f1 = self.1.on_message(msg, origin_msg, cr);
+        std::boxed::Box::pin(async move {
+            f0.await;
+            f1.await;
+        })
     }
     fn on_no_msg(&self, cr: &'c C::SelfType) -> consumer::PinBox<dyn futures::Future<Output = ()> + Send> {
-        self.1.on_no_msg(cr)
+        let f0 = self.0.on_no_msg(cr);
+        let f1 = self.1.on_no_msg(cr);
+        std::boxed::Box::pin(async move {
+            f0.await;
+            f1.await;
+        })
     }
 }
 
@@ -117,13 +127,9 @@ pub trait TypedTopicConfig {
     fn topic_name(&self) -> &str;
 }
 
-pub trait FromTopicConfig<T> {
-    fn from_config<C: RdConsumerExt>(cfg: &T) -> Self;
-}
-
 pub trait TypedTopicHandlerData<C: RdConsumerExt>: Sized {
     type DataType: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send;
-    type HandlerType: for<'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + FromTopicConfig<Self> + 'static;
+    type HandlerType: for<'r> TypedMessageHandlerAsync<'r, C, DataType = Self::DataType> + for<'r> From<&'r Self> + 'static;
 }
 
 pub struct TopicConfig<U> {
@@ -138,11 +144,11 @@ impl<U> TypedTopicConfig for TopicConfig<U> {
     }
 }
 
-impl<U> FromTopicConfig<TopicConfig<U>> for consumer::Synced<EmptyHandler<U>>
+impl<U> From<&TopicConfig<U>> for consumer::Synced<EmptyHandler<U>>
 where
     U: 'static + for<'de> Deserialize<'de> + std::fmt::Debug + Send,
 {
-    fn from_config<C: RdConsumerExt>(_origin: &TopicConfig<U>) -> Self {
+    fn from(_origin: &TopicConfig<U>) -> Self {
         consumer::Synced::from(EmptyHandler { _phantom: PhantomData })
     }
 }
@@ -176,15 +182,15 @@ where
     }
 }
 
-impl<'a, T, UT, NXC, T1> FromTopicConfig<ChainedTopicBuilder<'a, T, UT, NXC>> for ChainedHandler<MsgDataPersistor<T, UT>, T1>
+impl<'a, T, UT, NXC, T1> From<&ChainedTopicBuilder<'a, T, UT, NXC>> for ChainedHandler<consumer::Synced<MsgDataPersistor<T, UT>>, T1>
 where
     T: Clone + Send,
-    T1: FromTopicConfig<NXC>,
+    T1: for<'r> From<&'r NXC>,
 {
-    fn from_config<C: RdConsumerExt>(origin: &ChainedTopicBuilder<'a, T, UT, NXC>) -> Self {
+    fn from(origin: &ChainedTopicBuilder<'a, T, UT, NXC>) -> Self {
         ChainedHandler(
-            MsgDataPersistor::new(origin.dbwriter).set_transformer(),
-            T1::from_config::<C>(&origin.next_config),
+            MsgDataPersistor::new(origin.dbwriter).set_transformer().into(),
+            T1::from(&origin.next_config),
         )
     }
 }
@@ -199,7 +205,7 @@ where
     NXC: TypedTopicHandlerData<C, DataType = U>,
 {
     type DataType = U;
-    type HandlerType = ChainedHandler<MsgDataPersistor<T, UT>, NXC::HandlerType>;
+    type HandlerType = ChainedHandler<consumer::Synced<MsgDataPersistor<T, UT>>, NXC::HandlerType>;
 }
 
 impl<'a, C, T, U, UT, NXC> consumer::TopicBuilder<C> for ChainedTopicBuilder<'a, T, UT, NXC>
@@ -216,7 +222,7 @@ where
         <Self as TypedTopicConfig>::topic_name(&self)
     }
     fn topic_handler(&self) -> Self::HandlerType {
-        consumer::Typed::from(<<Self as TypedTopicHandlerData<C>>::HandlerType>::from_config::<C>(&self))
+        consumer::Typed::from(<<Self as TypedTopicHandlerData<C>>::HandlerType>::from(self))
     }
 }
 
@@ -569,14 +575,27 @@ impl<'r> From<&'r super::Trade> for models::MarketTrade {
     }
 }
 
+use crate::models::DecimalDbType;
+use crate::types::OrderEventType;
+use std::str::FromStr;
+
 impl<'r> From<&'r super::OrderMessage> for models::OrderHistory {
     fn from(origin: &'r super::OrderMessage) -> Self {
         models::OrderHistory::from(&origin.order)
     }
 }
 
-use crate::models::DecimalDbType;
-use std::str::FromStr;
+pub struct ClosedOrder();
+
+impl MsgDataTransformer<models::OrderHistory> for ClosedOrder {
+    type MsgType = super::OrderMessage;
+    fn into(order: &Self::MsgType) -> Option<models::OrderHistory> {
+        match order.event {
+            OrderEventType::FINISH => Some(order.into()),
+            _ => None,
+        }
+    }
+}
 
 fn decimal_warning<E: std::error::Error>(e: E) -> DecimalDbType {
     log::error!("Decimal decode fail {}", e);
@@ -601,8 +620,8 @@ pub struct AskTrade();
 
 impl MsgDataTransformer<models::UserTrade> for AskTrade {
     type MsgType = super::Trade;
-    fn into(trade: &Self::MsgType) -> models::UserTrade {
-        models::UserTrade {
+    fn into(trade: &Self::MsgType) -> Option<models::UserTrade> {
+        Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
             market: trade.market.clone(),
@@ -616,7 +635,7 @@ impl MsgDataTransformer<models::UserTrade> for AskTrade {
             quote_amount: trade.quote_amount,
             fee: trade.ask_fee,
             counter_order_fee: trade.bid_fee, // counter order
-        }
+        })
     }
 }
 
@@ -624,8 +643,8 @@ pub struct BidTrade();
 
 impl MsgDataTransformer<models::UserTrade> for BidTrade {
     type MsgType = super::Trade;
-    fn into(trade: &Self::MsgType) -> models::UserTrade {
-        models::UserTrade {
+    fn into(trade: &Self::MsgType) -> Option<models::UserTrade> {
+        Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
             market: trade.market.clone(),
@@ -639,6 +658,6 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
             quote_amount: trade.quote_amount,
             fee: trade.bid_fee,
             counter_order_fee: trade.ask_fee, // counter order
-        }
+        })
     }
 }
