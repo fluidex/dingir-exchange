@@ -9,8 +9,8 @@ use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use sqlx::postgres::Postgres;
 use sqlx::Pool;
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::convert::TryFrom;
+use std::sync::Mutex;
 
 use dingir_exchange::restapi;
 
@@ -53,14 +53,19 @@ async fn main() -> std::io::Result<()> {
     let dburl = conf.get_str("db_history").unwrap();
     log::debug!("Prepared db connection: {}", &dburl);
 
-    let config : restapi::config::Settings = 
-        restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default);
+    let config: restapi::config::Settings = restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default);
 
     let manage_channel = if let Some(ep_str) = &config.manage_endpoint {
         log::info!("Connect to manage channel {}", ep_str);
-        Some(tonic::transport::Endpoint::try_from(ep_str.clone()).ok()
-        .unwrap().connect().await.unwrap())
-    }else{
+        Some(
+            tonic::transport::Endpoint::try_from(ep_str.clone())
+                .ok()
+                .unwrap()
+                .connect()
+                .await
+                .unwrap(),
+        )
+    } else {
         None
     };
 
@@ -89,20 +94,17 @@ async fn main() -> std::io::Result<()> {
                         .route("/symbols", web::get().to(symbols))
                         .route("/history", web::get().to(history)),
                 )
-                .service(
-                    if user_map.manage_channel.is_some() {
-                        web::scope("/manage")
-                            .service(web::scope("/market")
-                                .route("/reload", web::post().to(market::reload))
-                                .route("/tradepairs", web::post().to(market::add_pair))
-                                .route("/assets", web::post().to(market::add_assets)))
-                    }else {
-                        web::scope("/manage")
-                        .service(web::resource("/").to(||
-                            HttpResponse::Forbidden()
-                            .body(String::from("No manage endpoint"))))
-                    }                   
-                ),
+                .service(if user_map.manage_channel.is_some() {
+                    web::scope("/manage").service(
+                        web::scope("/market")
+                            .route("/reload", web::post().to(market::reload))
+                            .route("/tradepairs", web::post().to(market::add_pair))
+                            .route("/assets", web::post().to(market::add_assets)),
+                    )
+                } else {
+                    web::scope("/manage")
+                        .service(web::resource("/").to(|| HttpResponse::Forbidden().body(String::from("No manage endpoint"))))
+                }),
         )
     });
 

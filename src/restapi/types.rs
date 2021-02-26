@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::config::{Asset, Market};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 pub struct KlineReq {
@@ -79,5 +79,3 @@ pub struct NewTradePairReq {
     #[serde(default)]
     pub not_reload: bool,
 }
-
-

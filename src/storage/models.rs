@@ -43,7 +43,6 @@ pub struct MarketDesc {
     pub market_name: Option<String>,
 }
 
-
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct BalanceHistory {
     //for renaming, add #[sqlx(type_name = "<row name>")] in corresponding

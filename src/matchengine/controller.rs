@@ -1,8 +1,8 @@
 use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::database::OperationLogSender;
-use crate::storage::config::MarketConfigs;
 use crate::market;
 use crate::sequencer::Sequencer;
+use crate::storage::config::MarketConfigs;
 use crate::utils::FTimestamp;
 use crate::{config, utils};
 use anyhow::anyhow;
@@ -97,7 +97,7 @@ pub struct Controller {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
     pub balance_manager: BalanceManager,
-//    pub asset_manager: AssetManager,
+    //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
     pub log_handler: OperationLogSender,
@@ -129,7 +129,7 @@ impl Controller {
         )
         .unwrap();
         let update_controller = BalanceUpdateController::new();
-//        let asset_manager = AssetManager::new(&settings.assets).unwrap();
+        //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
         let sequencer = Sequencer::default();
         let mut markets = HashMap::new();
         for entry in &settings.markets {
@@ -155,7 +155,7 @@ impl Controller {
         Controller {
             settings,
             sequencer,
-//            asset_manager,
+            //            asset_manager,
             balance_manager,
             update_controller,
             markets,
@@ -475,30 +475,33 @@ impl Controller {
         //Ok(())
     }
 
-    pub async fn market_reload(&mut self, from_scratch : bool) -> Result<(), Status> {
-
+    pub async fn market_reload(&mut self, from_scratch: bool) -> Result<(), Status> {
         if from_scratch {
             self.market_load_cfg.reset_load_time();
         }
 
         //assets and markets can be updated respectively, and must be handled one
         //after another
-        let new_assets = self.market_load_cfg.load_asset_from_db(&self.dbg_pool)
-            .await.map_err(|e| tonic::Status::internal(e.to_string()))?;
-        
+        let new_assets = self
+            .market_load_cfg
+            .load_asset_from_db(&self.dbg_pool)
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+
         self.balance_manager.asset_manager.append(&new_assets);
 
-        let new_markets = self.market_load_cfg.load_market_from_db(&self.dbg_pool)
-        .await.map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let new_markets = self
+            .market_load_cfg
+            .load_market_from_db(&self.dbg_pool)
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         for entry in new_markets.into_iter() {
             let handle_ret = if self.markets.get(&entry.name).is_none() {
-                market::Market::new(&entry, &self.balance_manager)
-                    .and_then(|mk| {
-                        self.markets.insert(entry.name, mk);
-                        Ok(())
-                    })
-            }else {
+                market::Market::new(&entry, &self.balance_manager).map(|mk| {
+                    self.markets.insert(entry.name, mk);
+                })
+            } else {
                 Err(anyhow!("market {} is duplicated", entry.name))
             };
 
@@ -624,7 +627,7 @@ impl Controller {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_clear_slice() -> impl std::any::Any{
+fn sqlverf_clear_slice() -> impl std::any::Any {
     sqlx::query!("drop table if exists balance_history, balance_slice")
 }
 

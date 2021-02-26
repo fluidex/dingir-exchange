@@ -1,12 +1,12 @@
 use crate::asset;
 use crate::asset::BalanceManager;
 use crate::controller::Controller;
-use crate::{config, storage};
 use crate::database;
 use crate::models;
 use crate::types::SimpleResult;
 use crate::utils;
 use crate::utils::FTimestamp;
+use crate::{config, storage};
 use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
 
 use crate::sqlxextend::*;
@@ -23,7 +23,7 @@ use types::ConnectionType;
 pub static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
 #[cfg(sqlxverf)]
-fn sqlverf_get_last_slice() -> impl std::any::Any{
+fn sqlverf_get_last_slice() -> impl std::any::Any {
     sqlx::query!("select * from slice_history order by id desc limit 1")
 }
 
@@ -47,20 +47,22 @@ pub async fn get_last_slice(conn: &mut ConnectionType) -> Option<SliceHistory> {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_load_slice_from_db() -> impl std::any::Any{
+fn sqlverf_load_slice_from_db() -> impl std::any::Any {
     let last_balance_id = 0;
     let slice_id: i64 = 1;
     let order_id: i64 = 0;
-    (sqlx::query!(
-        "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
-        slice_id,
-        last_balance_id
-    ),
-    sqlx::query!(
-        "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
-        slice_id,
-        order_id
-    ))
+    (
+        sqlx::query!(
+            "select * from balance_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
+            slice_id,
+            last_balance_id
+        ),
+        sqlx::query!(
+            "select * from order_slice where slice_id = $1 and id > $2 order by id asc limit 1000",
+            slice_id,
+            order_id
+        ),
+    )
 }
 
 #[test]
@@ -163,7 +165,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_load_operation_log_from_db() -> impl std::any::Any{
+fn sqlverf_load_operation_log_from_db() -> impl std::any::Any {
     let operation_log_start_id: i64 = 0;
     sqlx::query!(
         "select * from operation_log where id > $1 order by id asc limit 1000",
@@ -338,7 +340,7 @@ pub async fn dump_to_db(conn: &mut ConnectionType, slice_id: i64, controller: &C
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_delete_slice() -> impl std::any::Any{
+fn sqlverf_delete_slice() -> impl std::any::Any {
     let slice_id: i64 = 0;
     sqlx::query!("delete from balance_slice where slice_id = $1", slice_id)
 }
@@ -374,10 +376,12 @@ pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleRes
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_clear_slice() -> impl std::any::Any{
+fn sqlverf_clear_slice() -> impl std::any::Any {
     let slice_id: i64 = 0;
-    (sqlx::query!("select count(*) from slice_history where time > $1", slice_id),
-    sqlx::query!("select time from slice_history where time <= $1", slice_id))
+    (
+        sqlx::query!("select count(*) from slice_history where time > $1", slice_id),
+        sqlx::query!("select time from slice_history where time <= $1", slice_id),
+    )
 }
 
 #[test]

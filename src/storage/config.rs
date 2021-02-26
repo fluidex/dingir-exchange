@@ -1,7 +1,6 @@
+use super::models::{tablenames, AssetDesc, DbType, MarketDesc, TimestampDbType};
 use crate::config;
-use super::models::{DbType, TimestampDbType, tablenames, AssetDesc, MarketDesc};
 use anyhow::Result;
-
 
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
@@ -13,13 +12,9 @@ impl From<AssetDesc> for config::Asset {
     }
 }
 
-impl From<MarketDesc> for config::Market
-{
-    fn from(origin: MarketDesc) -> Self
-    {
-        let market_name = origin.market_name.unwrap_or(
-            origin.base_asset.clone() + "_" + &origin.quote_asset
-        );
+impl From<MarketDesc> for config::Market {
+    fn from(origin: MarketDesc) -> Self {
+        let market_name = origin.market_name.unwrap_or(origin.base_asset.clone() + "_" + &origin.quote_asset);
 
         config::Market {
             base: config::MarketUnit {
@@ -29,7 +24,7 @@ impl From<MarketDesc> for config::Market
             quote: config::MarketUnit {
                 name: origin.quote_asset,
                 prec: origin.precision_quote as u32,
-            }, 
+            },
             fee_prec: origin.precision_fee as u32,
             name: market_name,
             min_amount: origin.min_amount,
@@ -43,7 +38,7 @@ pub struct MarketConfigs {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_loadasset_from_db() -> impl std::any::Any{
+fn sqlverf_loadasset_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
     sqlx::query_as!(
         AssetDesc,
@@ -52,8 +47,14 @@ fn sqlverf_loadasset_from_db() -> impl std::any::Any{
     )
 }
 
+impl Default for MarketConfigs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(sqlxverf)]
-fn sqlverf_loadmarket_from_db() -> impl std::any::Any{
+fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
     sqlx::query_as!(
         MarketDesc,
@@ -67,7 +68,6 @@ fn sqlverf_loadmarket_from_db() -> impl std::any::Any{
 use futures::TryStreamExt;
 
 impl MarketConfigs {
-
     pub fn new() -> Self {
         MarketConfigs {
             assets_load_time: TimestampDbType::from_timestamp(0, 0),
@@ -83,24 +83,23 @@ impl MarketConfigs {
     //this load market config from database, instead of loading them from the config
     //file
     pub async fn load_asset_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Asset>>
-    where T: sqlx::Executor<'e, Database=DbType> + Send
+    where
+        T: sqlx::Executor<'e, Database = DbType> + Send,
     {
-        let query = format!("select asset_name, precision_stor, 
+        let query = format!(
+            "select asset_name, precision_stor, 
         precision_show, create_time from {} where create_time > $1",
-        tablenames::ASSET);
+            tablenames::ASSET
+        );
 
-        let mut ret : Vec<config::Asset> = Vec::new();
+        let mut ret: Vec<config::Asset> = Vec::new();
         let mut rows = sqlx::query_as::<_, AssetDesc>(&query).bind(self.market_load_time).fetch(db_conn);
 
         while let Some(item) = rows.try_next().await? {
-
-            self.assets_load_time = item.create_time.and_then(|t| {
-                if self.assets_load_time < t {
-                    Some(t)
-                }else{
-                    None
-                }
-            }).unwrap_or(self.assets_load_time);
+            self.assets_load_time = item
+                .create_time
+                .and_then(|t| if self.assets_load_time < t { Some(t) } else { None })
+                .unwrap_or(self.assets_load_time);
             ret.push(item.into());
         }
 
@@ -109,39 +108,35 @@ impl MarketConfigs {
     }
 
     pub async fn load_market_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Market>>
-    where T: sqlx::Executor<'e, Database=DbType>
+    where
+        T: sqlx::Executor<'e, Database = DbType>,
     {
-
-        let query = format!("select id, create_time, base_asset, quote_asset, 
+        let query = format!(
+            "select id, create_time, base_asset, quote_asset, 
         precision_base, precision_quote, precision_fee,
         min_amount, market_name from {} where create_time > $1",
-        tablenames::MARKET);
+            tablenames::MARKET
+        );
 
-        let mut ret : Vec<config::Market> = Vec::new();
+        let mut ret: Vec<config::Market> = Vec::new();
         let mut rows = sqlx::query_as::<_, MarketDesc>(&query).bind(self.market_load_time).fetch(db_conn);
 
         while let Some(item) = rows.try_next().await? {
-
-            self.market_load_time = item.create_time.and_then(|t| {
-                if self.market_load_time < t {
-                    Some(t)
-                }else{
-                    None
-                }
-            }).unwrap_or(self.market_load_time);
+            self.market_load_time = item
+                .create_time
+                .and_then(|t| if self.market_load_time < t { Some(t) } else { None })
+                .unwrap_or(self.market_load_time);
             ret.push(item.into());
         }
 
         log::info!("Load {} market and update load time to {}", ret.len(), self.market_load_time);
         Ok(ret)
     }
-
 }
 
-
 #[cfg(sqlxverf)]
-fn sqlverf_persist_asset_to_db() -> impl std::any::Any{
-    let asset = config::Asset{
+fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
+    let asset = config::Asset {
         name: String::from("test"),
         prec_save: 0,
         prec_show: 0,
@@ -157,42 +152,51 @@ fn sqlverf_persist_asset_to_db() -> impl std::any::Any{
 }
 
 pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset, force: bool) -> Result<()>
-where T: sqlx::Executor<'e, Database=DbType>
+where
+    T: sqlx::Executor<'e, Database = DbType>,
 {
     let query_template = if force {
-        format!("insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
+        format!(
+            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
-        tablenames::ASSET)
+            tablenames::ASSET
+        )
     } else {
-        format!("insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
-        tablenames::ASSET)
+        format!(
+            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
+            tablenames::ASSET
+        )
     };
 
     sqlx::query(&query_template)
-    .bind(&asset.name)
-    .bind(asset.prec_save as i16)
-    .bind(asset.prec_show as i16)
-    .execute(db_conn).await?;
+        .bind(&asset.name)
+        .bind(asset.prec_save as i16)
+        .bind(asset.prec_show as i16)
+        .execute(db_conn)
+        .await?;
 
     Ok(())
 }
 
-
 pub async fn persist_market_to_db<'c, 'e, T>(db_conn: T, market: &config::Market) -> Result<()>
-where T: sqlx::Executor<'e, Database=DbType>
+where
+    T: sqlx::Executor<'e, Database = DbType>,
 {
-    sqlx::query(
-        &format!("insert into {} (base_asset, quote_asset, precision_base, 
+    sqlx::query(&format!(
+        "insert into {} (base_asset, quote_asset, precision_base, 
             precision_quote, precision_fee, min_amount, market_name) 
-            values ($1, $2, $3, $4, $5, $6, $7)", tablenames::MARKET)
-    ).bind(&market.base.name)
+            values ($1, $2, $3, $4, $5, $6, $7)",
+        tablenames::MARKET
+    ))
+    .bind(&market.base.name)
     .bind(&market.quote.name)
     .bind(market.base.prec as i16)
     .bind(market.quote.prec as i16)
     .bind(market.fee_prec as i16)
     .bind(market.min_amount)
     .bind(&market.name)
-    .execute(db_conn).await?;
+    .execute(db_conn)
+    .await?;
 
     Ok(())
 }

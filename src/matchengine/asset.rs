@@ -57,7 +57,7 @@ impl AssetManager {
         }
         Ok(AssetManager { assets })
     }
-    
+
     pub fn append(&mut self, asset_config: &[config::Asset]) {
         //log::info()
         for item in asset_config.iter() {
@@ -68,12 +68,12 @@ impl AssetManager {
                     prec_show: item.prec_show,
                 },
             );
-            if let Some(_) = ret {
+            if ret.is_some() {
                 log::info!("Update asset {}", item.name);
-            }else {
+            } else {
                 log::info!("Append new asset {}", item.name);
-            }            
-        }        
+            }
+        }
     }
 
     pub fn asset_exist(&self, name: &str) -> bool {

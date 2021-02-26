@@ -41,7 +41,7 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
 
     let market_cfg = if settings.market_from_db {
         persist::init_config_from_db(&mut conn, &mut settings).await?
-    }else {
+    } else {
         persist::MarketConfigs::new()
     };
 

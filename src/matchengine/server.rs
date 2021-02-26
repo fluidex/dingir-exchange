@@ -207,9 +207,8 @@ impl Matchengine for GrpcHandler {
     }
 
     async fn reload_markets(&self, request: Request<ReloadMarketsRequest>) -> Result<Response<SimpleSuccessResponse>, Status> {
-
         //there should be no need to queue the opeartion
-        let mut stub = self.stub.write().await;      
+        let mut stub = self.stub.write().await;
 
         stub.market_reload(request.into_inner().from_scratch).await?;
 
