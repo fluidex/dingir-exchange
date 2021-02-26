@@ -316,7 +316,7 @@ const MAP_INIT_CAPACITY: usize = 1024;
 // TODO: is it ok to match with oneself's order?
 // TODO: precision
 impl Market {
-    pub fn new(market_conf: &config::Market, balance_manager: &mut BalanceManager) -> Result<Market> {
+    pub fn new(market_conf: &config::Market, balance_manager: &BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {

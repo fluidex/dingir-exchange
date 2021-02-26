@@ -88,6 +88,10 @@ export async function marketSummary(req) {
   return resp;
 }
 
+export async function reloadMarkets(full) {
+  return await client.ReloadMarkets({ from_scratch: full || false });
+}
+
 export async function orderCancel(user_id, market, order_id) {
   return await client.OrderCancel({ user_id, market, order_id });
 }

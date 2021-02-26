@@ -8,6 +8,7 @@ use std::sync::Mutex;
 pub struct AppState {
     pub user_addr_map: Mutex<HashMap<String, UserInfo>>,
     pub db: sqlx::pool::Pool<Postgres>,
+    pub manage_channel: Option<tonic::transport::channel::Channel>,
     pub config: Settings,
 }
 
