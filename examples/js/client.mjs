@@ -72,8 +72,20 @@ export async function orderDetail(market, order_id) {
   return await client.OrderDetail({ market, order_id });
 }
 
-export async function marketSummary(market) {
-  return (await client.MarketSummary({ market: [market] })).market_summaries;
+export async function marketSummary(req) {
+  let markets;
+  if (req == null) {
+    markets = [];
+  } else if (typeof req === "string") {
+    markets = [req];
+  } else if (Array.isArray(req)) {
+    markets = req;
+  }
+  let resp = (await client.MarketSummary({ markets })).market_summaries;
+  if (typeof req === "string") {
+    return resp.find(item => item.name === req);
+  }
+  return resp;
 }
 
 export async function orderCancel(user_id, market, order_id) {

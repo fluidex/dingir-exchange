@@ -151,8 +151,10 @@ where
         if let Some(pl) = msg.payload() {
             match String::from_utf8(pl.to_vec())
                 .map_err(|e| format_err!("Decode kafka message fail: {}", e))
-                .and_then(|json_str| serde_json::from_str::<U::DataType>(&json_str).map_err(|e| format_err!("Decode json fail: {}", e)))
-            {
+                .and_then(|json_str| {
+                    serde_json::from_str::<U::DataType>(&json_str)
+                        .map_err(|e| format_err!("Decode json fail: {}, payload: {}", e, json_str))
+                }) {
                 Ok(t) => {
                     log::debug!("{:?}", t);
                     U::on_message(&self.0, &t, msg, cr)

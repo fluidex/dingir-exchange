@@ -32,6 +32,7 @@ import whynoderun from "why-is-node-running";
 async function infoList() {
   console.log(await assetList([]));
   console.log(await marketList([]));
+  console.log(await marketSummary(market));
 }
 
 async function setupAsset() {
@@ -72,7 +73,7 @@ async function orderTest() {
   const orderPending = await orderDetail(market, order.id);
   assert.deepEqual(orderPending, order);
 
-  const summary = (await marketSummary(market))[0];
+  const summary = await marketSummary(market);
   decimalEqual(summary.bid_amount, "10");
   assert.equal(summary.bid_count, 1);
 
@@ -135,7 +136,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   }, /invalid order_id/);
 
   // should check trade price is 1.1 rather than 1.0 here.
-  const summary = (await marketSummary(market))[0];
+  const summary = await marketSummary(market);
   decimalEqual(summary.bid_amount, "6");
   assert.equal(summary.bid_count, 1);
 
