@@ -10,13 +10,13 @@ use std::cmp::{min, Ordering};
 use std::collections::BTreeMap;
 use std::iter::Iterator;
 use std::sync::Arc;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub use types::{OrderSide, OrderType};
 
@@ -113,26 +113,55 @@ fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> R
     Ok("Test")
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct VerboseOrderState {
+    price: Decimal,
+    amount: Decimal,
+    finished_base: Decimal,
+    finished_quote: Decimal,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct VerboseBalanceState {
+    pub bid_user_base: Decimal,
+    pub bid_user_quote: Decimal,
+    pub ask_user_base: Decimal,
+    pub ask_user_quote: Decimal,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct VerboseTradeState {
+    // emit all the related state
+    pub ask_order_state: VerboseOrderState,
+    pub bid_order_state: VerboseOrderState,
+    pub balance: VerboseBalanceState,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Trade {
     pub id: u64,
     pub timestamp: f64, // unix epoch timestamp,
     pub market: String,
     pub base: String,
     pub quote: String,
-    pub price: rust_decimal::Decimal,
-    pub amount: rust_decimal::Decimal,
-    pub quote_amount: rust_decimal::Decimal,
+    pub price: Decimal,
+    pub amount: Decimal,
+    pub quote_amount: Decimal,
 
     pub ask_user_id: u32,
     pub ask_order_id: u64,
     pub ask_role: MarketRole, // take/make
-    pub ask_fee: rust_decimal::Decimal,
+    pub ask_fee: Decimal,
 
     pub bid_user_id: u32,
     pub bid_order_id: u64,
     pub bid_role: MarketRole,
-    pub bid_fee: rust_decimal::Decimal,
+    pub bid_fee: Decimal,
+
+    #[cfg(feature = "verbose_trade")]
+    pub state_before: VerboseTradeState,
+    #[cfg(feature = "verbose_trade")]
+    pub state_after: VerboseTradeState,
 }
 
 impl Order {
@@ -215,13 +244,47 @@ impl PersistExector for Box<dyn PersistExector + '_> {
     }
 }
 
-pub(super) struct DummyPersistor(pub(super) bool);
+pub(super) struct DummyPersistor {
+    pub(super) real_persist: bool,
+    orders: Vec<Order>,
+    trades: Vec<Trade>,
+}
+impl DummyPersistor {
+    pub(super) fn new(real_persist: bool) -> Self {
+        Self {
+            real_persist,
+            orders: Vec::new(),
+            trades: Vec::new(),
+        }
+    }
+}
+impl PersistExector for &mut DummyPersistor {
+    fn real_persist(&self) -> bool {
+        self.real_persist
+    }
+    fn put_order(&mut self, order: &Order, _as_step: OrderEventType) {
+        if self.real_persist {
+            self.orders.push(order.clone())
+        }
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        if self.real_persist {
+            self.trades.push(trade.clone())
+        }
+    }
+}
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
-        self.0
+        self.real_persist
     }
-    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
-    fn put_trade(&mut self, _: &Trade) {}
+    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {
+        // the DummyPersistor object is created and released soon.
+        // If you are going to store data inside it, you are doing something wrong...
+        unimplemented!()
+    }
+    fn put_trade(&mut self, _trade: &Trade) {
+        unimplemented!()
+    }
 }
 
 pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
@@ -294,6 +357,9 @@ impl BalanceManagerWrapper<'_> {
     }
     pub fn balance_get(&mut self, user_id: u32, balance_type: BalanceType, asset: &str) -> Decimal {
         self.inner.get(user_id, balance_type, asset)
+    }
+    pub fn balance_total(&mut self, user_id: u32, asset: &str) -> Decimal {
+        self.inner.get(user_id, BalanceType::FREEZE, asset) + self.inner.get(user_id, BalanceType::AVAILABLE, asset)
     }
     pub fn balance_sub(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) {
         self.inner.sub(user_id, balance_type, asset, amount);
@@ -417,6 +483,42 @@ impl Market {
         persistor.put_order(order, OrderEventType::FINISH);
     }
 
+    // TODO: better naming
+    fn get_trade_state(
+        ask: &Order,
+        bid: &Order,
+        balance_manager: &mut BalanceManagerWrapper<'_>,
+        base: &str,
+        quote: &str,
+    ) -> VerboseTradeState {
+        let ask_order_state = VerboseOrderState {
+            price: ask.price,
+            amount: ask.amount,
+            finished_base: ask.finished_base,
+            finished_quote: ask.finished_quote,
+        };
+        let bid_order_state = VerboseOrderState {
+            price: bid.price,
+            amount: bid.amount,
+            finished_base: bid.finished_base,
+            finished_quote: bid.finished_quote,
+        };
+        let ask_user_base = balance_manager.balance_total(ask.user, base);
+        let ask_user_quote = balance_manager.balance_total(ask.user, quote);
+        let bid_user_base = balance_manager.balance_total(bid.user, base);
+        let bid_user_quote = balance_manager.balance_total(bid.user, quote);
+        VerboseTradeState {
+            ask_order_state,
+            bid_order_state,
+            balance: VerboseBalanceState {
+                ask_user_base,
+                ask_user_quote,
+                bid_user_base,
+                bid_user_quote,
+            },
+        }
+    }
+
     // the last parameter `quote_limit`, is only used for market bid order,
     // it indicates the `quote` balance of the user,
     // so the sum of all the trades' quote amount cannot exceed this value
@@ -462,6 +564,8 @@ impl Market {
             } else {
                 (&mut *maker, &mut taker)
             };
+            //let ask_order_id: u64 = ask_order.id;
+            //let bid_order_id: u64 = bid_order.id;
             if is_limit_order && ask_order.price.gt(&bid_order.price) {
                 break;
             }
@@ -490,30 +594,33 @@ impl Market {
             ask_order.update_time = timestamp;
             bid_order.update_time = timestamp;
 
-            if persistor.real_persist() {
-                // emit the trade
-                let trade_id = sequencer.next_trade_id();
-                let trade = Trade {
-                    id: trade_id,
-                    timestamp: utils::current_timestamp(),
-                    market: self.name.to_string(),
-                    base: self.base.clone(),
-                    quote: self.quote.clone(),
-                    price,
-                    amount: traded_base_amount,
-                    quote_amount: traded_quote_amount,
-                    ask_user_id: ask_order.user,
-                    ask_order_id: ask_order.id,
-                    ask_role: if taker_is_ask { MarketRole::TAKER } else { MarketRole::MAKER },
-                    ask_fee,
-                    bid_user_id: bid_order.user,
-                    bid_order_id: bid_order.id,
-                    bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
-                    bid_fee,
-                };
-                persistor.put_trade(&trade);
-                self.trade_count += 1;
-            }
+            // emit the trade
+            let trade_id = sequencer.next_trade_id();
+            let trade = Trade {
+                id: trade_id,
+                timestamp: utils::current_timestamp(),
+                market: self.name.to_string(),
+                base: self.base.clone(),
+                quote: self.quote.clone(),
+                price,
+                amount: traded_base_amount,
+                quote_amount: traded_quote_amount,
+                ask_user_id: ask_order.user,
+                ask_order_id: ask_order.id,
+                ask_role: if taker_is_ask { MarketRole::TAKER } else { MarketRole::MAKER },
+                ask_fee,
+                bid_user_id: bid_order.user,
+                bid_order_id: bid_order.id,
+                bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
+                bid_fee,
+                #[cfg(feature = "verbose_trade")]
+                state_before: Default::default(),
+                #[cfg(feature = "verbose_trade")]
+                state_after: Default::default(),
+            };
+            #[cfg(feature = "verbose_trade")]
+            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            self.trade_count += 1;
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
@@ -561,13 +668,19 @@ impl Market {
             if bid_fee.is_sign_positive() {
                 balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
             }
+            #[cfg(feature = "verbose_trade")]
+            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
 
-            /*          //Not need
-            let (_, maker_mut) = if taker_is_ask {
-                (ask_order, bid_order)
-            } else {
-                (bid_order, ask_order)
-            };*/
+            if persistor.real_persist() {
+                let trade = Trade {
+                    #[cfg(feature = "verbose_trade")]
+                    state_after,
+                    #[cfg(feature = "verbose_trade")]
+                    state_before,
+                    ..trade
+                };
+                persistor.put_trade(&trade)
+            }
             maker.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
 
             let maker_finished = maker.remain.is_zero();
@@ -822,6 +935,12 @@ mod tests {
     use super::*;
     use crate::asset::AssetManager;
     use rust_decimal_macros::*;
+    use std::fs::File;
+    use std::io::Write;
+    //use std::fmt::{Error};
+    //use std::io::prelude::*;
+    use rand::Rng;
+    use rust_decimal::prelude::FromPrimitive;
 
     fn get_simple_market_config() -> config::Market {
         config::Market {
@@ -858,19 +977,62 @@ mod tests {
     fn get_simple_balance_manager() -> BalanceManager {
         BalanceManager::new(&get_simple_asset_config()).unwrap()
     }
-    fn init_balance(balance_manager: &mut BalanceManager) {
-        balance_manager.add(101, BalanceType::AVAILABLE, &usdt(), &dec!(300));
-        balance_manager.add(102, BalanceType::AVAILABLE, &usdt(), &dec!(300));
-        balance_manager.add(101, BalanceType::AVAILABLE, &eth(), &dec!(1000));
-        balance_manager.add(102, BalanceType::AVAILABLE, &eth(), &dec!(1000));
+
+    #[cfg(feature = "verbose_trade")]
+    #[test]
+    fn test_multi_orders() {
+        // export some trades.
+        let balance_manager = &mut get_simple_balance_manager();
+        let uid0 = 0;
+        let uid1 = 1;
+        balance_manager.add(uid0, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
+        balance_manager.add(uid0, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
+        balance_manager.add(uid1, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
+        balance_manager.add(uid1, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
+
+        let sequencer = &mut Sequencer::default();
+        let mut persistor = DummyPersistor::new(true);
+        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
+            let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
+            let amount: f64 = rng.gen_range(1.0..10.0);
+            let price: f64 = rng.gen_range(120.0..140.0);
+            let order = OrderInput {
+                user_id,
+                side,
+                type_: OrderType::LIMIT,
+                amount: Decimal::from_f64(amount).unwrap(),
+                price: Decimal::from_f64(price).unwrap(),
+                taker_fee: dec!(0),
+                maker_fee: dec!(0),
+                market: market.name.to_string(),
+            };
+            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
+        }
+        let output_file_name = "output.txt";
+        let mut file = File::create(output_file_name).unwrap();
+        for item in persistor.trades {
+            let s = serde_json::to_string(&item).unwrap();
+            file.write_fmt(format_args!("{}\n", s)).unwrap();
+        }
+        println!("output done")
+        // rust file need not to be closed manually
     }
 
     #[test]
     fn test_market_taker_is_bid() {
         //let mut market = get_simple_market_with_data();
         let balance_manager = &mut get_simple_balance_manager();
-        init_balance(balance_manager);
+
+        balance_manager.add(101, BalanceType::AVAILABLE, &usdt(), &dec!(300));
+        balance_manager.add(102, BalanceType::AVAILABLE, &usdt(), &dec!(300));
+        balance_manager.add(101, BalanceType::AVAILABLE, &eth(), &dec!(1000));
+        balance_manager.add(102, BalanceType::AVAILABLE, &eth(), &dec!(1000));
+
         let sequencer = &mut Sequencer::default();
+        let mut persistor = DummyPersistor::new(true);
         let ask_user_id = 101;
         let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
@@ -884,7 +1046,7 @@ mod tests {
             market: market.name.to_string(),
         };
         let ask_order = market
-            .put_order(sequencer, balance_manager.into(), DummyPersistor(false), ask_order_input)
+            .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
             .unwrap();
         assert_eq!(ask_order.id, 1);
         assert_eq!(ask_order.remain, dec!(20.0));
@@ -901,7 +1063,7 @@ mod tests {
             market: market.name.to_string(),
         };
         let bid_order = market
-            .put_order(sequencer, balance_manager.into(), DummyPersistor(false), bid_order_input)
+            .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
             .unwrap();
         // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
@@ -930,5 +1092,8 @@ mod tests {
 
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &usdt()), dec!(299));
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &usdt()), dec!(0));
+
+        assert_eq!(persistor.orders.len(), 3);
+        assert_eq!(persistor.trades.len(), 1);
     }
 }

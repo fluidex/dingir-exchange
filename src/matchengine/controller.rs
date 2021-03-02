@@ -46,7 +46,7 @@ pub struct PersistorGen<'c> {
 impl<'c> PersistorGen<'c> {
     fn persist_for_market(self, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
         match self.policy {
-            PersistPolicy::Dummy => Box::new(market::DummyPersistor(false)),
+            PersistPolicy::Dummy => Box::new(market::DummyPersistor::new(false)),
             PersistPolicy::ToDB => Box::new(market::persistor_for_db(&mut self.base.history_writer)),
             PersistPolicy::ToMessage => Box::new(market::persistor_for_message(
                 self.base.message_manager.as_mut().unwrap(),
