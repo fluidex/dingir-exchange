@@ -22,6 +22,7 @@ impl Default for Trading {
 #[serde(default)]
 pub struct Settings {
     pub workers: Option<usize>,
+    pub manage_endpoint: Option<String>,
     pub trading: Trading,
 }
 
@@ -29,6 +30,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             workers: None,
+            manage_endpoint: None,
             trading: Default::default(),
         }
     }

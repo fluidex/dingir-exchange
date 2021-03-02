@@ -25,6 +25,24 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo target
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install libpq
         run: sudo apt-get install libpq-dev
 
@@ -42,7 +60,9 @@ jobs:
           node-version: '14'
 
       - name: NPM install
-        run: cd ./examples/js/ && npm install
+        run: |
+          cd ./examples/js/
+          npm install
 
       - name: Up docker-compose
         run: docker-compose --file "./docker/docker-compose.yaml" up --detach # db zookeeper kafka
@@ -60,7 +80,14 @@ jobs:
         run: make startall
 
       - name: Check services status
-        run: sleep 5 && make taillogs && docker-compose --file "./docker/docker-compose.yaml" logs --tail=20
+        run: |
+          sleep 5
+          make taillogs
+          docker-compose --file "./docker/docker-compose.yaml" logs --tail=20
 
       - name: Run trading tests
-        run: cd ./examples/js/ && node trade.js && sleep 5 && node print_orders.js 
+        run: |
+          cd ./examples/js/
+          node trade.js
+          sleep 5
+          node print_orders.js 

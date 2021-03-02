@@ -57,6 +57,25 @@ impl AssetManager {
         }
         Ok(AssetManager { assets })
     }
+
+    pub fn append(&mut self, asset_config: &[config::Asset]) {
+        //log::info()
+        for item in asset_config.iter() {
+            let ret = self.assets.insert(
+                item.name.clone(),
+                AssetInfo {
+                    prec_save: item.prec_save,
+                    prec_show: item.prec_show,
+                },
+            );
+            if ret.is_some() {
+                log::info!("Update asset {}", item.name);
+            } else {
+                log::info!("Append new asset {}", item.name);
+            }
+        }
+    }
+
     pub fn asset_exist(&self, name: &str) -> bool {
         self.assets.contains_key(name)
     }
@@ -94,6 +113,7 @@ impl BalanceManager {
             balances: HashMap::new(),
         })
     }
+
     pub fn reset(&mut self) {
         self.balances.clear()
     }

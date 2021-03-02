@@ -1,3 +1,4 @@
+use crate::config::{Asset, Market};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -48,14 +49,33 @@ pub struct UserInfo {
 
 #[derive(Serialize, Deserialize)]
 pub struct MarketTrade {
-    pub time: i32,
-    pub amount: f32,
-    pub quote_amount: f32,
-    pub price: f32,
-    pub fee: f32,
+    pub time: String,
+    pub trade_id: i64,
+    pub amount: String,
+    pub quote_amount: String,
+    pub price: String,
+    pub fee: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct OrderTradeResult {
     pub trades: Vec<MarketTrade>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewAssetReq {
+    pub assets: Vec<Asset>,
+    #[serde(default)]
+    pub not_reload: bool,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct NewTradePairReq {
+    pub market: Market,
+    #[serde(default)]
+    pub asset_base: Option<Asset>,
+    #[serde(default)]
+    pub asset_quote: Option<Asset>,
+    #[serde(default)]
+    pub not_reload: bool,
 }

@@ -24,9 +24,8 @@ import {
 } from "./util.mjs";
 
 async function stressTest({ parallel, interval, repeat }) {
-  const tradeCountBefore = (await marketSummary()).find(
-    item => item.name == market
-  ).trade_count;
+  const tradeCountBefore = (await marketSummary(market)).trade_count;
+  console.log("cancel", tradeCountBefore, "trades");
   console.log(await orderCancelAll(userId, market));
   await depositAssets({ USDT: "10000000", ETH: "10000" });
   const balancesBefore = await balanceQuery(userId);
@@ -82,9 +81,7 @@ async function stressTest({ parallel, interval, repeat }) {
   );
   decimalEqual(USDTAfter, USDTBefore);
   decimalEqual(ETHAfter, ETHBefore);
-  const tradeCountAfter = (await marketSummary()).find(
-    item => item.name == market
-  ).trade_count;
+  const tradeCountAfter = (await marketSummary(market)).trade_count;
   console.log("avg orders/s:", (parallel * repeat) / totalTime);
   console.log(
     "avg trades/s:",
@@ -96,6 +93,7 @@ async function stressTest({ parallel, interval, repeat }) {
 async function main() {
   try {
     await stressTest({ parallel: 50, interval: 500, repeat: 50 });
+    //await stressTest({ parallel: 1, interval: 500, repeat: 0 });
   } catch (error) {
     console.error("Caught error:", error);
     process.exit(1);

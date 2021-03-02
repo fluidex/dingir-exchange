@@ -67,7 +67,9 @@ fn main() {
             .persist_to(&persistor_trade)
             .with_tr::<persist::BidTrade>();
 
-        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC).persist_to(&persistor_order);
+        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC)
+            .persist_to(&persistor_order)
+            .with_tr::<persist::ClosedOrder>();
 
         let balance_cfg = TopicConfig::<message::BalanceMessage>::new(message::BALANCES_TOPIC).persist_to(&persistor_balance);
 

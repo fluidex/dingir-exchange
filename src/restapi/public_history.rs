@@ -9,8 +9,8 @@ use crate::models::{
 use core::cmp::min;
 
 use super::{errors::RpcError, state::AppState, types};
+use chrono::{DateTime, SecondsFormat, Utc};
 use models::{DecimalDbType, TimestampDbType};
-use rust_decimal::prelude::*;
 
 fn check_market_exists(_market: &str) -> bool {
     // TODO
@@ -51,7 +51,7 @@ struct QueriedUserTrade {
 }
 
 #[cfg(sqlxverf)]
-fn sqlverf_ticker() {
+fn sqlverf_ticker() -> impl std::any::Any {
     sqlx::query_as!(
         QueriedUserTrade,
         "select time, user_id, trade_id, order_id,
@@ -60,7 +60,7 @@ fn sqlverf_ticker() {
         order by trade_id, time asc",
         "USDT_ETH",
         10000,
-    );
+    )
 }
 
 pub async fn order_trades(
@@ -88,11 +88,12 @@ pub async fn order_trades(
         trades: trades
             .into_iter()
             .map(|v| types::MarketTrade {
-                time: v.time.timestamp() as i32,
-                amount: v.amount.to_f32().unwrap_or(0.0),
-                quote_amount: v.quote_amount.to_f32().unwrap_or(0.0),
-                price: v.price.to_f32().unwrap_or(0.0),
-                fee: v.fee.to_f32().unwrap_or(0.0),
+                trade_id: v.trade_id,
+                time: DateTime::<Utc>::from_utc(v.time, Utc).to_rfc3339_opts(SecondsFormat::Secs, true),
+                amount: v.amount.to_string(),
+                quote_amount: v.quote_amount.to_string(),
+                price: v.price.to_string(),
+                fee: v.fee.to_string(),
             })
             .collect(),
     }))
