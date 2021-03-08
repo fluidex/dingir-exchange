@@ -16,8 +16,8 @@ import {
   balanceUpdate,
   assetList,
   marketList,
-  orderDetail,
   marketSummary,
+  orderDetail,
   orderCancel,
   orderDepth,
   debugReset,
@@ -98,8 +98,8 @@ export function getRandomInt(min, max) {
 export async function putRandOrder() {
   // TODO: market order?
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
-  const price = getRandomFloat(200, 1200);
-  const amount = getRandomFloat(1, 5);
+  const price = getRandomFloat(1350, 1450);
+  const amount = getRandomFloat(0.5, 1.5);
   const order = await putLimitOrder(side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }

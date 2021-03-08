@@ -22,7 +22,7 @@ services:
       - "50052:50052"
     command: api.proto -I ../../.. -p 50052 -g host.docker.internal:50051 -m /api    
   db:
-    image: timescale/timescaledb:2.0.1-pg12
+    image: timescale/timescaledb:2.1.0-pg13
     container_name: exchange_pq
     restart: always
     volumes:
