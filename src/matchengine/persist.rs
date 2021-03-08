@@ -476,6 +476,7 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
 
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+            .thread_name("matchengine_dumper")
             .enable_all()
             .build()
             .expect("build another runtime for slice-making");

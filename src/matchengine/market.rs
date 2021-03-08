@@ -280,12 +280,16 @@ impl PersistExector for DummyPersistor {
         self.real_persist
     }
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {
-        // the DummyPersistor object is created and released soon.
-        // If you are going to store data inside it, you are doing something wrong...
-        unimplemented!()
+        if self.real_persist {
+            // the DummyPersistor object is created and released soon.
+            // If you are going to store data inside it, you are doing something wrong...
+            unimplemented!()
+        }
     }
     fn put_trade(&mut self, _trade: &Trade) {
-        unimplemented!()
+        if self.real_persist {
+            unimplemented!()
+        }
     }
 }
 

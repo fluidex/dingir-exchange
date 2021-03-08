@@ -1,7 +1,9 @@
 DB="postgres://exchange:exchange_AA9944@127.0.0.1/exchange"
 DB_RESET_DIR="migrations/reset"
 BUILD_MODE="debug"
-PROCESSES="restapi|persistor|matchengine"
+
+# tokio-runtime-worker does not work well, do not know why...
+PROCESSES="restapi|persistor|matchengine|tokio-runtime-w"
 
 fmtproto:
 	clang-format -i proto/exchange/matchengine.proto
@@ -31,11 +33,11 @@ taillogs:
 	tail -n 15 logs/*
 
 viewlogs:
-	watch -n 0.5 tail -n 5 logs/*
+	watch -n 0.5 tail -n 4 logs/*
 
 stopall:
 	pkill -INT $(PROCESSES) || true
-	(pgrep -l $(PROCESSES) && (echo '"pkill -INT" failed, force kill'; pkill -l $(PROCESSES))) || true
+	(pgrep -l $(PROCESSES) && (echo '"pkill -INT" failed, force kill'; pkill $(PROCESSES))) || true
 
 conn:
 	psql $(DB)

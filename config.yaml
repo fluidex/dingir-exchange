@@ -1,23 +1,6 @@
 debug: true
 db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
 db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
-assets:
-  - name: ETH
-    prec_save: 6
-    prec_show: 6
-  - name: USDT
-    prec_save: 6
-    prec_show: 6
-markets:
-  - name: ETH_USDT
-    base:
-      name: ETH
-      prec: 4
-    quote:
-      name: USDT
-      prec: 2
-    fee_prec: 2
-    min_amount: '0.001'
 brokers: '127.0.0.1:9092'
 slice_interval: 3600
 slice_keeptime: 259200
