@@ -1,4 +1,5 @@
 //#![macro_use]
+#![allow(clippy::upper_case_acronyms)]
 
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};

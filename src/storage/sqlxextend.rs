@@ -149,10 +149,7 @@ where
             }
             None => self.0.next(),
         };
-        match ret {
-            Some(i) => Some(Some(i)),
-            None => None,
-        }
+        ret.map(Some)
     }
 }
 
