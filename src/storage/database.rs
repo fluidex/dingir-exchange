@@ -1,6 +1,6 @@
 use std::collections::{hash_map, HashMap, VecDeque};
 use std::marker::PhantomData;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::{sync, task};
 
@@ -269,6 +269,7 @@ struct DatabaseWriterTask<T> {
     data: Vec<T>,
     notify_flag: Option<TaskNotifyFlag>,
     benchmark: Option<(Instant, u32)>,
+    err_count: u32,
 }
 
 impl<T> DatabaseWriterTask<T> {
@@ -277,6 +278,7 @@ impl<T> DatabaseWriterTask<T> {
             data: Vec::new(),
             notify_flag: None,
             benchmark: None,
+            err_count: 0,
         }
     }
 
@@ -338,6 +340,9 @@ where
                 ret.send(WriterMsg::Done(self)).await
             }
             Err((resident, e)) => {
+                //TODO: we can adjust waiting time by err_count
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                self.err_count += 1;
                 self.data = resident;
                 ret.send(WriterMsg::Fail(e, self)).await
             }

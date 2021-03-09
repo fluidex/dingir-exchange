@@ -517,10 +517,10 @@ impl Market {
             ask_order_state,
             bid_order_state,
             balance: VerboseBalanceState {
-                ask_user_base,
-                ask_user_quote,
                 bid_user_base,
                 bid_user_quote,
+                ask_user_base,
+                ask_user_quote,
             },
         }
     }
@@ -723,8 +723,8 @@ impl Market {
         let price = order_input.price.round_dp(quote_prec);
         //println!("decimal {} {} {} {} ", self.base, base_prec, self.quote, quote_prec);
         let order_input = OrderInput {
-            price,
             amount,
+            price,
             ..order_input
         };
         if order_input.type_ == OrderType::MARKET {
@@ -734,11 +734,10 @@ impl Market {
             if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
                 return Err(anyhow!("no counter orders"));
             }
-        } else {
-            if order_input.price.is_zero() {
-                return Err(anyhow!("invalid price for limit order"));
-            }
+        } else if order_input.price.is_zero() {
+            return Err(anyhow!("invalid price for limit order"));
         }
+
         if order_input.side == OrderSide::ASK {
             if balance_manager
                 .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)

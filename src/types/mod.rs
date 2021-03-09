@@ -1,5 +1,3 @@
-//#![macro_use]
-
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
