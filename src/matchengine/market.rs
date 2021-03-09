@@ -940,12 +940,12 @@ mod tests {
     use super::*;
     use crate::asset::AssetManager;
     use rust_decimal_macros::*;
-    use std::fs::File;
-    use std::io::Write;
+    // use std::fs::File;
+    // use std::io::Write;
     //use std::fmt::{Error};
     //use std::io::prelude::*;
-    use rand::Rng;
-    use rust_decimal::prelude::FromPrimitive;
+    // use rand::Rng;
+    // use rust_decimal::prelude::FromPrimitive;
 
     fn get_simple_market_config() -> config::Market {
         config::Market {

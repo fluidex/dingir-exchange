@@ -244,19 +244,19 @@ impl Matchengine for GrpcHandler {
     }
 
     #[cfg(not(debug_assertions))]
-    async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
+    async fn debug_dump(&self, _request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {
         println!("Warning: Not avaliable in release build");
         Ok(Response::new(DebugDumpResponse {}))
     }
 
     #[cfg(not(debug_assertions))]
-    async fn debug_reset(&self, request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
+    async fn debug_reset(&self, _request: Request<DebugResetRequest>) -> Result<Response<DebugResetResponse>, Status> {
         println!("Warning: Not avaliable in release build");
         Ok(Response::new(DebugResetResponse {}))
     }
 
     #[cfg(not(debug_assertions))]
-    async fn debug_reload(&self, request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
+    async fn debug_reload(&self, _request: Request<DebugReloadRequest>) -> Result<Response<DebugReloadResponse>, Status> {
         println!("Warning: Not avaliable in release build");
         Ok(Response::new(DebugReloadResponse {}))
     }
