@@ -1,3 +1,4 @@
+#![allow(clippy::if_same_then_else)]
 use crate::asset::{BalanceManager, BalanceType};
 use crate::config;
 use crate::history::HistoryWriter;
@@ -227,6 +228,9 @@ pub struct Market {
     pub bids: BTreeMap<MarketKeyBid, OrderRc>,
 
     pub trade_count: u64,
+
+    // other options
+    pub disable_self_trade: bool,
 }
 
 pub trait PersistExector {
@@ -413,6 +417,7 @@ impl Market {
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
             trade_count: 0,
+            disable_self_trade: market_conf.disable_self_trade,
         };
         Ok(market)
     }
@@ -554,8 +559,14 @@ impl Market {
             Box::new(self.asks.values_mut())
         };
 
+        // TODO: find a more elegant way to handle this
+        let mut need_cancel = false;
         for maker_ref in counter_orders {
             let mut maker = maker_ref.borrow_mut();
+            if taker.user == maker.user && self.disable_self_trade {
+                need_cancel = true;
+                break;
+            }
             if taker.remain.is_zero() {
                 break;
             }
@@ -627,6 +638,9 @@ impl Market {
             #[cfg(feature = "verbose_trade")]
             let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
             self.trade_count += 1;
+            if self.disable_self_trade {
+                debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
+            }
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
@@ -701,6 +715,26 @@ impl Market {
 
         for item in finished_orders.iter() {
             self.order_finish(&mut *balance_manager, &mut *persistor, item);
+        }
+
+        if need_cancel {
+            // now only self trade orders will be canceled here
+            persistor.put_order(&taker, OrderEventType::FINISH);
+        } else if taker.type_ == OrderType::MARKET {
+            // market order can either filled or not
+            // if it is filled, `FINISH` is ok
+            // if it is not filled, `CANCELED` may be a better choice?
+            persistor.put_order(&taker, OrderEventType::FINISH);
+        } else {
+            // now the order type is limit
+            if taker.remain.is_zero() {
+                persistor.put_order(&taker, OrderEventType::FINISH);
+            } else {
+                persistor.put_order(&taker, OrderEventType::PUT);
+                // `insert_order` will update the order info
+                taker = self.insert_order(taker);
+                self.frozen_balance(balance_manager, &taker);
+            }
         }
 
         taker
@@ -795,14 +829,7 @@ impl Market {
             finished_quote: Decimal::zero(),
             finished_fee: Decimal::zero(),
         };
-        let mut order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
-        if order.type_ == OrderType::LIMIT && !order.remain.is_zero() {
-            persistor.put_order(&order, OrderEventType::PUT);
-            order = self.insert_order(order);
-            self.frozen_balance(&mut balance_manager, &order);
-        } else {
-            persistor.put_order(&order, OrderEventType::FINISH);
-        }
+        let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
         Ok(order)
     }
     pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {
@@ -939,13 +966,9 @@ struct BalanceHistoryFromFee {
 mod tests {
     use super::*;
     use crate::asset::AssetManager;
+    use rand::Rng;
+    use rust_decimal::prelude::FromPrimitive;
     use rust_decimal_macros::*;
-    // use std::fs::File;
-    // use std::io::Write;
-    //use std::fmt::{Error};
-    //use std::io::prelude::*;
-    // use rand::Rng;
-    // use rust_decimal::prelude::FromPrimitive;
 
     fn get_simple_market_config() -> config::Market {
         config::Market {
@@ -954,19 +977,30 @@ mod tests {
             quote: config::MarketUnit { name: usdt(), prec: 2 }, // price xx.xx
             fee_prec: 3,
             min_amount: dec!(0.01),
+            disable_self_trade: false,
         }
     }
-    fn get_simple_asset_config() -> Vec<config::Asset> {
+    fn get_integer_prec_market_config() -> config::Market {
+        config::Market {
+            name: String::from("ETH_USDT"),
+            base: config::MarketUnit { name: eth(), prec: 0 },
+            quote: config::MarketUnit { name: usdt(), prec: 0 },
+            fee_prec: 0,
+            min_amount: dec!(0),
+            disable_self_trade: true,
+        }
+    }
+    fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
         vec![
             config::Asset {
                 name: usdt(),
-                prec_save: 8,
-                prec_show: 8,
+                prec_save: prec,
+                prec_show: prec,
             },
             config::Asset {
                 name: eth(),
-                prec_show: 8,
-                prec_save: 8,
+                prec_show: prec,
+                prec_save: prec,
             },
         ]
     }
@@ -976,18 +1010,20 @@ mod tests {
     fn eth() -> String {
         String::from("ETH")
     }
-    fn get_simple_asset_manager() -> AssetManager {
-        AssetManager::new(&get_simple_asset_config()).unwrap()
+    fn get_simple_asset_manager(assets: Vec<config::Asset>) -> AssetManager {
+        AssetManager::new(&assets).unwrap()
     }
-    fn get_simple_balance_manager() -> BalanceManager {
-        BalanceManager::new(&get_simple_asset_config()).unwrap()
+    fn get_simple_balance_manager(assets: Vec<config::Asset>) -> BalanceManager {
+        BalanceManager::new(&assets).unwrap()
     }
 
     #[cfg(feature = "verbose_trade")]
     #[test]
     fn test_multi_orders() {
+        use std::fs::File;
+        use std::io::Write;
         // export some trades.
-        let balance_manager = &mut get_simple_balance_manager();
+        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(0));
         let uid0 = 0;
         let uid1 = 1;
         balance_manager.add(uid0, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
@@ -997,19 +1033,19 @@ mod tests {
 
         let sequencer = &mut Sequencer::default();
         let mut persistor = DummyPersistor::new(true);
-        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
+        let mut market = Market::new(&get_integer_prec_market_config(), balance_manager).unwrap();
         let mut rng = rand::thread_rng();
         for _ in 0..100 {
             let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
             let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
-            let amount: f64 = rng.gen_range(1.0..10.0);
-            let price: f64 = rng.gen_range(120.0..140.0);
+            let amount: i32 = rng.gen_range(1..10);
+            let price: i32 = rng.gen_range(120..140);
             let order = OrderInput {
                 user_id,
                 side,
                 type_: OrderType::LIMIT,
-                amount: Decimal::from_f64(amount).unwrap(),
-                price: Decimal::from_f64(price).unwrap(),
+                amount: Decimal::from_f64(amount as f64).unwrap(),
+                price: Decimal::from_f64(price as f64).unwrap(),
                 taker_fee: dec!(0),
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
@@ -1028,8 +1064,7 @@ mod tests {
 
     #[test]
     fn test_market_taker_is_bid() {
-        //let mut market = get_simple_market_with_data();
-        let balance_manager = &mut get_simple_balance_manager();
+        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
         balance_manager.add(101, BalanceType::AVAILABLE, &usdt(), &dec!(300));
         balance_manager.add(102, BalanceType::AVAILABLE, &usdt(), &dec!(300));
