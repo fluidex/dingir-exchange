@@ -103,9 +103,10 @@ fn sqlverf_ticker() -> impl std::any::Any {
 
 pub async fn ticker(
     req: HttpRequest,
-    web::Path((TickerInv(ticker_inv), market_name)): web::Path<(TickerInv, String)>,
+    path: web::Path<(TickerInv, String)>,
     app_state: Data<state::AppState>,
 ) -> Result<Json<TickerResult>, RpcError> {
+    let (TickerInv(ticker_inv), market_name) = path.into_inner();
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;

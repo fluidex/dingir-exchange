@@ -65,8 +65,9 @@ fn sqlverf_ticker() -> impl std::any::Any {
 
 pub async fn order_trades(
     app_state: web::Data<AppState>,
-    web::Path((market_name, order_id)): web::Path<(String, i64)>,
+    path: web::Path<(String, i64)>,
 ) -> Result<Json<types::OrderTradeResult>, RpcError> {
+    let (market_name, order_id): (String, i64) = path.into_inner();
     log::debug!("order_trades market {} order_id {}", market_name, order_id);
 
     let sql_query = format!(
