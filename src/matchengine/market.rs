@@ -966,8 +966,8 @@ struct BalanceHistoryFromFee {
 mod tests {
     use super::*;
     use crate::asset::AssetManager;
-    use rand::Rng;
-    use rust_decimal::prelude::FromPrimitive;
+    // use rand::Rng;
+    // use rust_decimal::prelude::FromPrimitive;
     use rust_decimal_macros::*;
 
     fn get_simple_market_config() -> config::Market {
