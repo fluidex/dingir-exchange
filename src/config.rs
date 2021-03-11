@@ -25,6 +25,7 @@ pub struct Market {
     pub quote: MarketUnit,
     pub fee_prec: u32,
     pub min_amount: Decimal,
+    pub disable_self_trade: bool,
 }
 
 impl Default for MarketUnit {
@@ -44,6 +45,7 @@ impl Default for Market {
             min_amount: Decimal::from_str("0.01").unwrap(),
             base: Default::default(),
             quote: Default::default(),
+            disable_self_trade: false,
         }
     }
 }
