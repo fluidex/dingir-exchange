@@ -63,6 +63,10 @@ impl From<QueryPayloadError> for RpcError {
 
 impl From<sqlx::Error> for RpcError {
     fn from(original: sqlx::Error) -> RpcError {
-        RpcError::unknown(&original.to_string())
+        match original {
+            sqlx::error::Error::RowNotFound => RpcError::new(ErrorType::NotFound, "db query nothing".to_string()),
+            sqlx::error::Error::Database(e) => RpcError::bad_request(&e.to_string()),
+            _ => RpcError::unknown(&original.to_string()),
+        }
     }
 }

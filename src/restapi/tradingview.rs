@@ -13,14 +13,23 @@ use crate::restapi::state;
 
 use super::mock;
 
-use crate::models::tablenames::MARKETTRADE;
+use crate::models::{
+    tablenames::{MARKET, MARKETTRADE},
+    MarketDesc,
+};
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
 pub async fn unix_timestamp(_req: HttpRequest) -> impl Responder {
     format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
 }
+
+static DEFAULT_EXCHANGE: &str = "test";
+static DEFAULT_SYMBOL: &str = "tradepair";
+static DEFAULT_SESSION: &str = "24x7";
+
 pub async fn chart_config(_req: HttpRequest) -> impl Responder {
+    log::debug!("request config");
     let value = json!({
         "supports_search": true,
         "supports_group_request": false,
@@ -30,27 +39,168 @@ pub async fn chart_config(_req: HttpRequest) -> impl Responder {
         "exchanges": [
             {
 
-                "value": "STOCK",
-                "name": "Exchange",
-                "desc": ""
+                "value": "test",
+                "name": "Test Zone",
+                "desc": "Current default exchange"
             }
         ],
-        "symbols_types": [{"name": "ETH_USDT", "value": "ETH_USDT"}],
+        "symbols_types": [],
         "supported_resolutions": [1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080] // minutes
     });
     value.to_string()
 }
 
-// TODO: Result<web::Json<T>, RpcError>
-pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
-    let qstring = qstring::QString::from(req.query_string());
-    let symbol = qstring.get("symbol");
-    if symbol.is_none() {
-        return Err(RpcError::bad_request("no `symbol` param"));
+#[derive(Deserialize)]
+pub struct SymbolQueryReq {
+    symbol: String,
+}
+
+#[derive(Serialize)]
+pub struct Symbol {
+    name: String,
+    ticker: String,
+    #[serde(rename = "type")]
+    sym_type: String,
+    session: String,
+    exchange: String,
+    listed_exchange: String,
+    //TODO: we can use a enum
+    timezone: String,
+    minmov: u32,
+    pricescale: u32,
+    //TODO: this two field may has been deprecated
+    minmovement2: u32,
+    minmov2: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    minmove2: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fractional: Option<bool>,
+    has_intraday: bool,
+    has_daily: bool,
+    has_weekly_and_monthly: bool,
+}
+
+impl Default for Symbol {
+    fn default() -> Self {
+        Symbol {
+            name: String::default(),
+            ticker: String::default(),
+            sym_type: DEFAULT_SYMBOL.to_string(),
+            session: DEFAULT_SESSION.to_string(),
+            exchange: DEFAULT_EXCHANGE.to_string(),
+            listed_exchange: DEFAULT_EXCHANGE.to_string(),
+            timezone: "Etc/UTC".to_string(),
+            minmov: 1,
+            pricescale: 100,
+            minmovement2: 0,
+            minmov2: 0,
+            minmove2: None,
+            fractional: None,
+            has_intraday: true,
+            has_daily: true,
+            has_weekly_and_monthly: true,
+        }
+    }
+}
+
+type SymNameAndTicker = String;
+type FullName = String;
+
+/*
+   According to the symbology of chart [https://github.com/serdimoa/charting/blob/master/Symbology.md],
+   it may refer a symbol by EXCHANGE:SYMBOL format, to made things easy, our symbology always specify
+   a ticker which is identify with symbol name itself, which is the market_name used in matchingengine
+   and db record ({base asset}_{quote asset} or an specified name), to keep all API running correct,
+   and the user of chart libaray can use symbol() method to acquire current symbol name for their API
+*/
+fn symbology(origin: &MarketDesc) -> (SymNameAndTicker, FullName) {
+    let s_name = format!("{}_{}", origin.base_asset, origin.quote_asset);
+    (
+        origin.market_name.clone().unwrap_or_else(|| s_name.clone()),
+        origin
+            .market_name
+            .clone()
+            .map_or_else(|| s_name.clone(), |n| format!("{}({})", n, s_name)),
+    )
+}
+
+impl From<MarketDesc> for Symbol {
+    fn from(origin: MarketDesc) -> Self {
+        let (name, _) = symbology(&origin);
+        let pricescale = 10u32.pow(origin.min_amount.scale());
+        //simply pick the lo part
+        let minmov = origin.min_amount.unpack().lo;
+
+        Symbol {
+            name: name.clone(),
+            ticker: name,
+            sym_type: DEFAULT_SYMBOL.to_string(),
+            session: DEFAULT_SESSION.to_string(),
+            exchange: DEFAULT_EXCHANGE.to_string(),
+            listed_exchange: DEFAULT_EXCHANGE.to_string(),
+            timezone: "Etc/UTC".to_string(),
+            minmov,
+            pricescale,
+            minmovement2: 0,
+            minmov2: 0,
+            minmove2: None,
+            fractional: None,
+            has_intraday: true,
+            has_daily: true,
+            has_weekly_and_monthly: true,
+        }
+    }
+}
+
+#[cfg(sqlxverf)]
+fn sqlverf_symbol_resolve() -> impl std::any::Any {
+    (
+        sqlx::query_as!(
+            MarketDesc,
+            "select * from market where 
+        (base_asset = $1 AND quote_asset = $2) OR
+        (base_asset = $2 AND quote_asset = $1)",
+            "UNI",
+            "ETH"
+        ),
+        sqlx::query_as!(MarketDesc, "select * from market where market_name = $1", "Any spec name"),
+    )
+}
+
+pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<state::AppState>) -> Result<web::Json<Symbol>, RpcError> {
+    let symbol = symbol_req.into_inner().symbol;
+    log::debug!("resolve symbol {:?}", symbol);
+
+    let as_asset: Vec<&str> = symbol.split(&[':', '_'][..]).collect();
+    let mut queried_market: Option<MarketDesc> = None;
+    //try asset first
+    if as_asset.len() == 2 {
+        log::debug!("query market from asset {}:{}", as_asset[0], as_asset[1]);
+        let symbol_query_1 = format!(
+            "select * from {} where 
+            (base_asset = $1 AND quote_asset = $2) OR
+            (base_asset = $2 AND quote_asset = $1)",
+            MARKET
+        );
+        queried_market = sqlx::query_as(&symbol_query_1)
+            .bind(as_asset[0])
+            .bind(as_asset[1])
+            .fetch_optional(&app_state.db)
+            .await?;
+    }
+
+    let queried_market = if queried_market.is_none() {
+        log::debug!("query market from name {}", symbol);
+        let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
+        //TODO: would this returning correct? should we just
+        //response 404?
+        sqlx::query_as(&symbol_query_2).bind(&symbol).fetch_one(&app_state.db).await?
+    } else {
+        queried_market.unwrap()
     };
-    let _market = symbol.unwrap().split(':').last().unwrap();
-    log::debug!("kline get symbol {:?}", symbol);
-    Ok(json!(
+
+    Ok(Json(Symbol::from(queried_market)))
+    /*    Ok(json!(
         {
             "name": "ETH_USDT",
             "ticker": "ETH_USDT",
@@ -70,7 +220,96 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
             "minmov2": 0
         }
     )
-    .to_string())
+    .to_string())*/
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SymbolSearchQueryReq {
+    query: String,
+    #[serde(default, rename = "type")]
+    sym_type: Option<String>,
+    #[serde(default)]
+    exchange: Option<String>,
+    #[serde(default)]
+    limit: u32,
+}
+
+#[derive(Serialize)]
+pub struct SymbolDesc {
+    symbol: String,
+    full_name: String, // e.g. BTCE:BTCUSD
+    description: String,
+    exchange: String,
+    ticker: String,
+    #[serde(rename = "type")]
+    sym_type: String,
+}
+
+impl From<MarketDesc> for SymbolDesc {
+    fn from(origin: MarketDesc) -> Self {
+        let (name, full_name) = symbology(&origin);
+
+        SymbolDesc {
+            symbol: name.clone(),
+            full_name: format!("{}:{}", DEFAULT_EXCHANGE, full_name),
+            description: String::default(),
+            sym_type: DEFAULT_SYMBOL.to_string(),
+            ticker: name,
+            exchange: DEFAULT_EXCHANGE.to_string(),
+        }
+    }
+}
+
+#[cfg(sqlxverf)]
+fn sqlverf_symbol_search() -> impl std::any::Any {
+    sqlx::query_as!(
+        MarketDesc,
+        "select * from market where base_asset = $1 OR quote_asset = $1 OR market_name = $1",
+        "UNI"
+    )
+}
+
+pub async fn search_symbols(
+    symbol_search_req: web::Query<SymbolSearchQueryReq>,
+    app_state: Data<state::AppState>,
+) -> Result<web::Json<Vec<SymbolDesc>>, RpcError> {
+    let symbol_query = symbol_search_req.into_inner();
+    log::debug!("search symbol {:?}", symbol_query);
+
+    let as_asset: Vec<&str> = symbol_query.query.split(&[':', '_'][..]).collect();
+    let limit_query = if symbol_query.limit == 0 {
+        "".to_string()
+    } else {
+        format!(" limit {}", symbol_query.limit)
+    };
+    //use different query type
+    //try asset first
+
+    let ret: Vec<MarketDesc> = if as_asset.len() == 2 {
+        log::debug!("query symbol as trade pair {}:{}", as_asset[0], as_asset[1]);
+        let symbol_query_1 = format!(
+            "select * from {} where (base_asset = $1 AND quote_asset = $2) OR
+            (base_asset = $2 AND quote_asset = $1){}",
+            MARKET, limit_query
+        );
+        sqlx::query_as(&symbol_query_1)
+            .bind(as_asset[0])
+            .bind(as_asset[1])
+            .fetch_all(&app_state.db)
+            .await?
+    } else {
+        log::debug!("query symbol as name {}", symbol_query.query);
+        let symbol_query_2 = format!(
+            "select * from {} where base_asset = $1 OR quote_asset = $1 OR market_name = $1{}",
+            MARKET, limit_query
+        );
+        sqlx::query_as(&symbol_query_2)
+            .bind(&symbol_query.query)
+            .fetch_all(&app_state.db)
+            .await?
+    };
+
+    Ok(Json(ret.into_iter().map(From::from).collect()))
 }
 
 use chrono::{self, DurationRound};

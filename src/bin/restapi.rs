@@ -18,7 +18,7 @@ use restapi::manage::market;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
-use restapi::tradingview::{chart_config, history, symbols, ticker, unix_timestamp};
+use restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
 use restapi::types::UserInfo;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
@@ -91,6 +91,7 @@ async fn main() -> std::io::Result<()> {
                     web::scope("/tradingview")
                         .route("/time", web::get().to(unix_timestamp))
                         .route("/config", web::get().to(chart_config))
+                        .route("/search", web::get().to(search_symbols))
                         .route("/symbols", web::get().to(symbols))
                         .route("/history", web::get().to(history)),
                 )
