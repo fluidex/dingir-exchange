@@ -441,6 +441,9 @@ pub fn do_forking() -> bool {
 #[cfg(not(target_family = "windows"))]
 fn do_forking() -> bool {
     unsafe {
+        // clean last child process by waitpid
+        let wait_res = nix::sys::wait::waitpid(nix::unistd::Pid::from_raw(-1), Some(nix::sys::wait::WaitPidFlag::WNOHANG));
+        println!("waitpid result: {:#?}", wait_res);
         match nix::unistd::fork() {
             Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
                 println!("Continuing execution in parent process, new child has pid: {}", child);
