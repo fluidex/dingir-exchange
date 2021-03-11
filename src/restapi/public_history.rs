@@ -34,6 +34,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> impl 
     let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", MARKETTRADE, limit);
 
     let trades: Vec<models::MarketTrade> = sqlx::query_as(&sql_query).bind(market).fetch_all(&data.db).await?;
+    log::debug!("query {} recent_trades records", trades.len());
 
     Ok(Json(trades))
 }
