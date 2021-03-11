@@ -13,13 +13,18 @@ use crate::restapi::state;
 
 use super::mock;
 
-use crate::models::tablenames::MARKETTRADE;
+use crate::models::{MarketDesc, tablenames::{MARKET, MARKETTRADE}};
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
 pub async fn unix_timestamp(_req: HttpRequest) -> impl Responder {
     format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
 }
+
+static DEFAULT_EXCHANGE : &str = "test";
+static DEFAULT_SYMBOL : &str = "tradepair";
+static DEFAULT_SESSION : &str = "24x7";
+
 pub async fn chart_config(_req: HttpRequest) -> impl Responder {
     let value = json!({
         "supports_search": true,
@@ -30,27 +35,152 @@ pub async fn chart_config(_req: HttpRequest) -> impl Responder {
         "exchanges": [
             {
 
-                "value": "STOCK",
-                "name": "Exchange",
-                "desc": ""
+                "value": "test",
+                "name": "Test Zone",
+                "desc": "Current default exchange"
             }
         ],
-        "symbols_types": [{"name": "ETH_USDT", "value": "ETH_USDT"}],
+        "symbols_types": [],
         "supported_resolutions": [1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080] // minutes
     });
     value.to_string()
 }
 
-// TODO: Result<web::Json<T>, RpcError>
-pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
-    let qstring = qstring::QString::from(req.query_string());
-    let symbol = qstring.get("symbol");
-    if symbol.is_none() {
-        return Err(RpcError::bad_request("no `symbol` param"));
-    };
-    let _market = symbol.unwrap().split(':').last().unwrap();
+#[derive(Deserialize)]
+pub struct SymbolQueryReq {
+   symbol: String,
+}
+
+#[derive(Serialize)]
+pub struct Symbol {
+    name: String,
+    ticker: String,
+    #[serde(rename = "type")]
+   sym_type: String,
+   session: String,
+   exchange: String,
+   listed_exchange: String,
+   //TODO: we can use a enum
+   timezone: String,
+   minmov: u32,
+   pricescale: u32,
+   //TODO: this two field may has been deprecated
+   minmovement2: u32,
+   minmov2: u32,
+   #[serde(skip_serializing_if = "Option::is_none")]
+   minmove2: Option<u32>,
+   #[serde(skip_serializing_if = "Option::is_none")]
+   fractional: Option<bool>,
+   has_intraday: bool,
+   has_daily: bool,
+   has_weekly_and_monthly: bool,
+}
+
+impl Default for Symbol {
+    fn default() -> Self {
+        Symbol {
+           name: String::default(),
+           ticker: String::default(),
+           sym_type: DEFAULT_SYMBOL.to_string(),
+           session: DEFAULT_SESSION.to_string(),
+           exchange: DEFAULT_EXCHANGE.to_string(),
+           listed_exchange: DEFAULT_EXCHANGE.to_string(),
+           timezone: "Etc/UTC".to_string(),
+           minmov: 1,
+           pricescale: 100,
+           minmovement2: 0,
+           minmov2: 0,
+           minmove2: None,
+           fractional: None,
+           has_intraday: true,
+           has_daily: true,
+           has_weekly_and_monthly: true,
+        }        
+    }
+}
+
+impl From<MarketDesc> for Symbol {
+    fn from(origin : MarketDesc) -> Self {
+        let s_name = format!("{}_{}", origin.base_asset, origin.quote_asset);
+        let ticker = origin.market_name.unwrap_or(s_name.clone());
+
+        let pricescale = 10u32.pow(origin.min_amount.scale());
+        //simply pick the lo part 
+        let minmov = origin.min_amount.unpack().lo;
+
+        Symbol {
+            name: s_name,
+            ticker: ticker,
+            sym_type: DEFAULT_SYMBOL.to_string(),
+            session: DEFAULT_SESSION.to_string(),
+            exchange: DEFAULT_EXCHANGE.to_string(),
+            listed_exchange: DEFAULT_EXCHANGE.to_string(),
+            timezone: "Etc/UTC".to_string(),
+            minmov,
+            pricescale,
+            minmovement2: 0,
+            minmov2: 0,
+            minmove2: None,
+            fractional: None,
+            has_intraday: true,
+            has_daily: true,
+            has_weekly_and_monthly: true,
+        }
+    }
+}
+
+#[cfg(sqlxverf)]
+fn sqlverf_symbol_search() -> impl std::any::Any {
+    (sqlx::query_as!(
+        MarketDesc,
+        "select * from market where base_asset = $1 AND quote_asset = $2",
+        "UNI", "ETH"),
+    sqlx::query_as!(
+        MarketDesc,
+        "select * from market where market_name = $1",
+        "Any spec name"),                
+    )
+}
+
+pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, 
+    app_state: Data<state::AppState>) -> Result<web::Json<Symbol>, RpcError> {
+    let symbol = symbol_req.into_inner().symbol;
     log::debug!("kline get symbol {:?}", symbol);
-    Ok(json!(
+
+    let as_asset : Vec<&str> = symbol.split(&[':','_'][..]).collect();
+    let mut queried_market : Option<MarketDesc> = None;
+    //try asset first
+    if as_asset.len() == 2 {
+        log::debug!("query market from asset {}:{}", as_asset[0], as_asset[1]);
+        let symbol_query_1 = format!(
+            "select * from {} where base_asset = $1 AND quote_asset = $2",
+            MARKET
+        );
+        queried_market = sqlx::query_as(&symbol_query_1)
+            .bind(as_asset[0])
+            .bind(as_asset[1])
+            .fetch_optional(&app_state.db)
+            .await?;
+    }
+
+    let queried_market = if queried_market.is_none() {
+        log::debug!("query market from name {}", symbol);
+        let symbol_query_2 = format!(
+            "select * from {} where market_name = $1",
+            MARKET
+        );
+        //TODO: would this returning correct? should we just
+        //response 404?
+        sqlx::query_as(&symbol_query_2)
+            .bind(&symbol)
+            .fetch_one(&app_state.db)
+            .await?
+    }else{
+        queried_market.unwrap()
+    };
+
+    Ok(Json(Symbol::from(queried_market)))
+/*    Ok(json!(
         {
             "name": "ETH_USDT",
             "ticker": "ETH_USDT",
@@ -70,7 +200,7 @@ pub async fn symbols(req: HttpRequest) -> Result<String, RpcError> {
             "minmov2": 0
         }
     )
-    .to_string())
+    .to_string())*/
 }
 
 use chrono::{self, DurationRound};
