@@ -35,6 +35,7 @@ pub enum OrderEventType {
     PUT = 1,
     UPDATE = 2,
     FINISH = 3,
+    EXPIRED = 4,
 }
 
 //pub type DbType = diesel::mysql::Mysql;
