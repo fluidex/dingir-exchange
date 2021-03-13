@@ -34,7 +34,7 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     let config_file = dotenv::var("CONFIG_FILE")?;
     conf.merge(config_rs::File::with_name(&config_file)).unwrap();
     let mut settings: config::Settings = conf.try_into().unwrap();
-    println!("Settings: {:?}", settings);
+    log::debug!("Settings: {:?}", settings);
 
     let mut conn = ConnectionType::connect(&settings.db_log).await?;
     persist::MIGRATOR.run(&mut conn).await?;

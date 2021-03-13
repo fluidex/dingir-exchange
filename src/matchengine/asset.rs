@@ -44,7 +44,7 @@ pub struct AssetManager {
 
 impl AssetManager {
     pub fn new(asset_config: &[config::Asset]) -> Result<AssetManager> {
-        println!("asset {:?}", asset_config);
+        log::info!("asset {:?}", asset_config);
         let mut assets = HashMap::new();
         for item in asset_config.iter() {
             assets.insert(

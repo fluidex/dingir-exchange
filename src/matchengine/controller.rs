@@ -515,7 +515,7 @@ impl Controller {
 
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
         async {
-            println!("do full reset: memory and db");
+            log::info!("do full reset: memory and db");
             self.reset_state();
             // waiting for pending db writes
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -569,7 +569,7 @@ impl Controller {
                     crate::message::persist::MIGRATOR.run(&mut conn).await
                 });
 
-                println!("migration task done");
+                log::info!("migration task done");
                 ret
             });
 

@@ -206,7 +206,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
         }
         operation_log_start_id = operation_logs.last().unwrap().id;
         for log in operation_logs {
-            println!("replay {} {}", &log.method, &log.params);
+            log::info!("replay {} {}", &log.method, &log.params);
             controller.replay(&log.method, &log.params).unwrap();
         }
     }
@@ -443,14 +443,14 @@ fn do_forking() -> bool {
     unsafe {
         // clean last child process by waitpid
         let wait_res = nix::sys::wait::waitpid(nix::unistd::Pid::from_raw(-1), Some(nix::sys::wait::WaitPidFlag::WNOHANG));
-        println!("waitpid result: {:#?}", wait_res);
+        log::info!("waitpid result: {:#?}", wait_res);
         match nix::unistd::fork() {
             Ok(nix::unistd::ForkResult::Parent { child, .. }) => {
-                println!("Continuing execution in parent process, new child has pid: {}", child);
+                log::info!("Continuing execution in parent process, new child has pid: {}", child);
                 false
             }
             Ok(nix::unistd::ForkResult::Child) => {
-                println!("fork success");
+                log::info!("fork success");
                 true
             }
             //if fork fail? should we panic? this will make the main process exit
@@ -492,11 +492,11 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
 
     let exitcode = match thread_handle.join() {
         Err(e) => {
-            println!("make slice fail: {:?}", e);
+            log::error!("make slice fail: {:?}", e);
             1
         }
         _ => {
-            println!("make slice done");
+            log::info!("make slice done");
             0
         }
     };
