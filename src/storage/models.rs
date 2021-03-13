@@ -60,8 +60,7 @@ pub struct BalanceHistory {
 
 #[derive(sqlx::Type, Debug, Clone, Serialize)]
 #[sqlx(type_name = "order_status", rename_all = "lowercase")]
-pub enum OrderStatus
-{
+pub enum OrderStatus {
     Active,
     Filled,
     Cancelled,

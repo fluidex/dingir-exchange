@@ -48,12 +48,10 @@ impl DatabaseHistoryWriter {
 }
 
 impl<'r> From<&'r market::Order> for models::OrderHistory {
-
     fn from(order: &'r market::Order) -> Self {
-
         let status = if order.remain.is_zero() {
             models::OrderStatus::Filled
-        }else{
+        } else {
             models::OrderStatus::Cancelled
         };
 
@@ -88,7 +86,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         self.order_writer.append(order.into()).ok();
     }
     fn append_expired_order_history(&mut self, order: &market::Order) {
-        let mut order_for_db : models::OrderHistory = From::from(order);
+        let mut order_for_db: models::OrderHistory = From::from(order);
         order_for_db.status = models::OrderStatus::Expired;
         self.order_writer.append(order_for_db).ok();
     }
