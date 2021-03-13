@@ -26,9 +26,9 @@ impl ProducerContext for SimpleProducerContext {
     fn delivery(&self, result: &DeliveryResult, _: Self::DeliveryOpaque) {
         match result {
             // TODO: how to handle this err
-            Err(e) => println!("kafka send err: {:?}", e),
+            Err(e) => log::error!("kafka send err: {:?}", e),
             Ok(_r) => {
-                //println!("kafka send done: {:?}", r)
+                // log::info!("kafka send done: {:?}", r)
             }
         }
     }
@@ -135,7 +135,7 @@ impl KafkaMessageSender {
             let result = self.producer.send(BaseRecord::to(topic_name).key("").payload(message.as_str()));
 
             if result.is_err() {
-                //println!("fail to push message {} to {}", message_str, topic_name);
+                // log::error!("fail to push message {} to {}", message_str, topic_name);
                 if let Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), _)) = result {
                     break;
                 }

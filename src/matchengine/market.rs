@@ -454,7 +454,7 @@ impl Market {
         }
         debug_assert_eq!(order.type_, OrderType::LIMIT);
         debug_assert!(!self.orders.contains_key(&order.id));
-        //println!("order insert {}", &order.id);
+        // log::debug!("order insert {}", &order.id);
         let order_rc = OrderRc::new(order);
         let order = order_rc.borrow();
         self.orders.insert(order.id, order_rc.clone());
@@ -485,7 +485,7 @@ impl Market {
         }
         self.unfrozen_balance(balance_manager, order);
         debug_assert!(self.orders.contains_key(&order.id));
-        //println!("order finish {}", &order.id);
+        // log::debug!("order finish {}", &order.id);
         self.orders.remove(&order.id);
         let user_map = self.users.get_mut(&order.user).unwrap();
         debug_assert!(user_map.contains_key(&order.id));
@@ -755,7 +755,7 @@ impl Market {
         let quote_prec = self.quote_prec;
         let amount = order_input.amount.round_dp(base_prec);
         let price = order_input.price.round_dp(quote_prec);
-        //println!("decimal {} {} {} {} ", self.base, base_prec, self.quote, quote_prec);
+        // log::debug!("decimal {} {} {} {} ", self.base, base_prec, self.quote, quote_prec);
         let order_input = OrderInput {
             amount,
             price,
@@ -866,9 +866,9 @@ impl Market {
             .collect()
     }
     pub fn print(&self) {
-        println!("orders:");
+        log::info!("orders:");
         for (k, v) in self.orders.iter() {
-            println!("{}, {:?}", k, v.borrow())
+            log::info!("{}, {:?}", k, v.borrow())
         }
     }
     pub fn status(&self) -> MarketStatus {
@@ -1058,7 +1058,7 @@ mod tests {
             let s = serde_json::to_string(&item).unwrap();
             file.write_fmt(format_args!("{}\n", s)).unwrap();
         }
-        println!("output done")
+        log::info!("output done")
         // rust file need not to be closed manually
     }
 
