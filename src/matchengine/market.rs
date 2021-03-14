@@ -334,6 +334,7 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
         //only persist on finish
         match at_step {
             OrderEventType::FINISH => self.0.append_order_history(order),
+            OrderEventType::EXPIRED => self.0.append_expired_order_history(order),
             OrderEventType::PUT => (),
             _ => (),
         }

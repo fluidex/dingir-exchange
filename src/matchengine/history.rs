@@ -5,6 +5,7 @@ use market::Trade;
 
 use crate::utils::FTimestamp;
 use anyhow::Result;
+use rust_decimal::prelude::Zero;
 
 type BalanceWriter = DatabaseWriter<models::BalanceHistory>;
 type OrderWriter = DatabaseWriter<models::OrderHistory>;
@@ -15,6 +16,7 @@ pub trait HistoryWriter {
     //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_order_history(&mut self, order: &market::Order);
+    fn append_expired_order_history(&mut self, _order: &market::Order);
     fn append_pair_user_trade(&mut self, trade: &Trade);
 }
 
@@ -22,6 +24,7 @@ pub struct DummyHistoryWriter;
 impl HistoryWriter for DummyHistoryWriter {
     fn append_balance_history(&mut self, _data: models::BalanceHistory) {}
     fn append_order_history(&mut self, _order: &market::Order) {}
+    fn append_expired_order_history(&mut self, _order: &market::Order) {}
     fn append_pair_user_trade(&mut self, _trade: &Trade) {}
     fn is_block(&self) -> bool {
         false
@@ -46,10 +49,17 @@ impl DatabaseHistoryWriter {
 
 impl<'r> From<&'r market::Order> for models::OrderHistory {
     fn from(order: &'r market::Order) -> Self {
+        let status = if order.remain.is_zero() {
+            models::OrderStatus::Filled
+        } else {
+            models::OrderStatus::Cancelled
+        };
+
         models::OrderHistory {
             id: order.id as i64,
             create_time: FTimestamp(order.create_time).into(),
             finish_time: FTimestamp(order.update_time).into(),
+            status,
             user_id: order.user as i32,
             market: order.market.to_string(),
             order_type: order.type_,
@@ -73,23 +83,12 @@ impl HistoryWriter for DatabaseHistoryWriter {
         self.balance_writer.append(data).ok();
     }
     fn append_order_history(&mut self, order: &market::Order) {
-        let data = models::OrderHistory {
-            id: order.id as i64,
-            create_time: FTimestamp(order.create_time).into(),
-            finish_time: FTimestamp(order.update_time).into(),
-            user_id: order.user as i32,
-            market: order.market.to_string(),
-            order_type: order.type_,
-            order_side: order.side,
-            price: order.price,
-            amount: order.amount,
-            taker_fee: order.taker_fee,
-            maker_fee: order.maker_fee,
-            finished_base: order.finished_base,
-            finished_quote: order.finished_quote,
-            finished_fee: order.finished_fee,
-        };
-        self.order_writer.append(data).ok();
+        self.order_writer.append(order.into()).ok();
+    }
+    fn append_expired_order_history(&mut self, order: &market::Order) {
+        let mut order_for_db: models::OrderHistory = From::from(order);
+        order_for_db.status = models::OrderStatus::Expired;
+        self.order_writer.append(order_for_db).ok();
     }
 
     fn append_pair_user_trade(&mut self, trade: &Trade) {

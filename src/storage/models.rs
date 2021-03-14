@@ -58,11 +58,21 @@ pub struct BalanceHistory {
     pub detail: String,
 }
 
+#[derive(sqlx::Type, Debug, Clone, Serialize)]
+#[sqlx(type_name = "order_status", rename_all = "lowercase")]
+pub enum OrderStatus {
+    Active,
+    Filled,
+    Cancelled,
+    Expired,
+}
+
 #[derive(sqlx::FromRow, Debug, Clone, Serialize)]
 pub struct OrderHistory {
     pub id: i64,
     pub create_time: TimestampDbType,
     pub finish_time: TimestampDbType,
+    pub status: OrderStatus,
     pub user_id: i32,
     pub market: String,
     pub order_type: types::OrderType,
@@ -236,7 +246,7 @@ impl sqlxextend::TableSchemas for OrderHistory {
     fn table_name() -> &'static str {
         ORDERHISTORY
     }
-    const ARGN: i32 = 14;
+    const ARGN: i32 = 15;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -256,6 +266,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
         arg.add(&self.finished_base);
         arg.add(&self.finished_quote);
         arg.add(&self.finished_fee);
+        arg.add(&self.status);
     }
 }
 
