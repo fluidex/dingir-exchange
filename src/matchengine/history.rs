@@ -16,7 +16,7 @@ pub trait HistoryWriter {
     //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_order_history(&mut self, order: &market::Order);
-    fn append_expired_order_history(&mut self, _order: &market::Order) {}
+    fn append_expired_order_history(&mut self, _order: &market::Order);
     fn append_pair_user_trade(&mut self, trade: &Trade);
 }
 
