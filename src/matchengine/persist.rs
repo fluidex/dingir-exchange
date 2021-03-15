@@ -369,9 +369,6 @@ pub async fn delete_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleRes
         .execute(&mut *conn)
         .await?;
 
-    // diesel::delete(schema::balance_slice::table.filter(schema::balance_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
-    // diesel::delete(schema::order_slice::table.filter(schema::order_slice::dsl::slice_id.eq(slice_id))).execute(conn)?;
-    // diesel::delete(schema::slice_history::table.filter(schema::slice_history::dsl::time.eq(slice_id))).execute(conn)?;
     Ok(())
 }
 
@@ -398,11 +395,6 @@ fn utest_clear_slice() {
 
 // slice_id: timestamp
 pub async fn clear_slice(conn: &mut ConnectionType, slice_id: i64) -> SimpleResult {
-    /*    let count: i64 = schema::slice_history::table
-            .filter(schema::slice_history::dsl::time.ge(slice_id - SLICE_KEEP_TIME))
-            .select(count_star())
-            .first(conn)?;
-    */
     let count: i64 = sqlx::query_scalar(&format!("select count(*) from {} where time > $1", tablenames::SLICEHISTORY))
         .bind(slice_id - SLICE_KEEP_TIME)
         .fetch_one(&mut *conn)
@@ -506,17 +498,3 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
     //die fast
     std::process::exit(exitcode);
 }
-/*
-pub fn init_persist_timer() {
-    // use spawn_local here will block the network thread
-    tokio::spawn(async move {
-        let duration = std::time::Duration::from_millis(3600 * 1000);
-        let mut ticker_dump = tokio::time::interval(duration);
-        ticker_dump.tick().await; // skip the first tick.
-        loop {
-            ticker_dump.tick().await;
-            fork_and_make_slice();
-        }
-    });
-}
-*/

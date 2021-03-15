@@ -1,37 +1,27 @@
 use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
-use crate::database::OperationLogSender;
+use crate::config::{self, PersistPolicy};
+use crate::database::{DatabaseWriterConfig, OperationLogSender};
+use crate::dto::*;
+use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
+use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager};
+use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
-use crate::utils::FTimestamp;
-use crate::{config, utils};
+use crate::types::{ConnectionType, DbType, SimpleResult};
+use crate::utils::{self, FTimestamp};
+
 use anyhow::anyhow;
-use rust_decimal::Decimal;
-use serde_json::json;
-use tonic::{self, Status};
-
-//use rust_decimal::Decimal;
-use crate::models::{self};
-use crate::types;
-use types::{ConnectionType, DbType, SimpleResult};
-
-use crate::dto::*;
-
-use crate::database::DatabaseWriterConfig;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager};
-
-use crate::history::DatabaseHistoryWriter;
-use crate::history::HistoryWriter;
 use rust_decimal::prelude::Zero;
-use std::collections::HashMap;
-
+use rust_decimal::Decimal;
+use serde::Serialize;
+use serde_json::json;
 use sqlx::Connection;
 use sqlx::Executor;
+use tonic::{self, Status};
 
-use serde::Serialize;
+use std::collections::HashMap;
 use std::str::FromStr;
-
-pub use config::PersistPolicy;
 
 pub struct Persistor {
     history_writer: DatabaseHistoryWriter,
@@ -76,7 +66,6 @@ impl<'c> PersistorGen<'c> {
 impl Persistor {
     fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
         let policy = if real { self.policy } else { PersistPolicy::Dummy };
-
         PersistorGen { base: self, policy }
     }
 
@@ -104,7 +93,6 @@ pub struct Controller {
     pub persistor: Persistor,
     dbg_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
-    //pub(crate) rt: tokio::runtime::Handle,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -167,7 +155,6 @@ impl Controller {
             },
             dbg_pool: main_pool,
             market_load_cfg: cfgs.1,
-            //            rt: tokio::runtime::Handle::current(),
         }
     }
 
@@ -630,7 +617,3 @@ impl Controller {
 fn sqlverf_clear_slice() -> impl std::any::Any {
     sqlx::query!("drop table if exists balance_history, balance_slice")
 }
-
-//use the ownership should make us has no dangling pointer
-pub(crate) static mut G_STUB: Option<Controller> = None;
-pub(crate) static mut G_RT: *const tokio::runtime::Runtime = std::ptr::null();
