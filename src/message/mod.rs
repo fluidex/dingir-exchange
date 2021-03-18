@@ -37,7 +37,7 @@ pub const ORDERS_TOPIC: &str = "orders";
 pub const TRADES_TOPIC: &str = "trades";
 pub const BALANCES_TOPIC: &str = "balances";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceMessage {
     pub timestamp: f64,
     pub user_id: u32,
@@ -48,12 +48,23 @@ pub struct BalanceMessage {
     pub detail: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)] //, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrderMessage {
     pub event: OrderEventType,
     pub order: Order,
     pub base: String,
     pub quote: String,
+}
+
+// https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
+// TODO: better naming?
+// TODO: change push_order_message etc interface to this enum class?
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", content = "value")]
+pub enum Message {
+    BalanceMessage(Box<BalanceMessage>),
+    OrderMessage(Box<OrderMessage>),
+    TradeMessage(Box<Trade>),
 }
 
 //re-export from market, act as TradeMessage
@@ -199,6 +210,8 @@ impl KafkaMessageSender {
 }
 
 pub trait MessageManager {
+    //fn push_message(&mut self, msg: &Message);
+    fn is_block(&self) -> bool;
     fn push_order_message(&mut self, order: &OrderMessage);
     fn push_trade_message(&mut self, trade: &Trade);
     fn push_balance_message(&mut self, balance: &BalanceMessage);
@@ -209,35 +222,79 @@ pub struct ChannelMessageManager {
 }
 
 impl ChannelMessageManager {
-    fn push_message(&self, message: String, topic_name: &'static str) {
+    fn push_message_and_topic(&self, message: String, topic_name: &'static str) {
         //log::debug!("KAFKA: push {} message: {}", topic_name, message);
         self.sender.try_send((topic_name, message)).unwrap();
-    }
-    pub fn is_block(&self) -> bool {
-        self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
     }
 }
 
 impl MessageManager for ChannelMessageManager {
+    /*
+    fn push_message(&mut self, msg: &Message) {
+        match msg {
+            Message::OrderMessage{value: order} => {
+                let message = serde_json::to_string(order).unwrap();
+                self.push_message_and_topic(message, ORDERS_TOPIC)
+            },
+            Message::BalanceMessage{value: balance} => {
+                let message = serde_json::to_string(balance).unwrap();
+                self.push_message_and_topic(message, BALANCES_TOPIC)
+            },
+            Message::TradeMessage{value: trade} => {
+                let message = serde_json::to_string(trade).unwrap();
+                self.push_message_and_topic(message, TRADES_TOPIC)
+            }
+        }
+    }
+    */
+
+    fn is_block(&self) -> bool {
+        self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
+    }
     fn push_order_message(&mut self, order: &OrderMessage) {
         let message = serde_json::to_string(&order).unwrap();
-        self.push_message(message, ORDERS_TOPIC)
+        self.push_message_and_topic(message, ORDERS_TOPIC)
     }
     fn push_trade_message(&mut self, trade: &Trade) {
         let message = serde_json::to_string(&trade).unwrap();
-        self.push_message(message, TRADES_TOPIC)
+        self.push_message_and_topic(message, TRADES_TOPIC)
     }
     fn push_balance_message(&mut self, balance: &BalanceMessage) {
         let message = serde_json::to_string(&balance).unwrap();
-        self.push_message(message, BALANCES_TOPIC)
+        self.push_message_and_topic(message, BALANCES_TOPIC)
     }
 }
 
-pub struct DummyMessageManager;
+pub struct DummyMessageManager {
+    // debug purpose only
+    pub keep_data: bool,
+    pub data: Vec<Message>,
+}
 impl MessageManager for DummyMessageManager {
-    fn push_order_message(&mut self, _order: &OrderMessage) {}
-    fn push_trade_message(&mut self, _trade: &Trade) {}
-    fn push_balance_message(&mut self, _balance: &BalanceMessage) {}
+    //fn push_message(&mut self, msg: &Message) {
+    //    if self.keep_data {
+    //        self.data.push(msg.clone());
+    //    }
+    //}
+
+    fn is_block(&self) -> bool {
+        false
+    }
+    fn push_order_message(&mut self, order: &OrderMessage) {
+        if self.keep_data {
+            self.data.push(Message::OrderMessage(Box::new(order.clone())));
+        }
+    }
+    fn push_trade_message(&mut self, trade: &Trade) {
+        if self.keep_data {
+            self.data.push(Message::TradeMessage(Box::new(trade.clone())));
+        }
+    }
+    fn push_balance_message(&mut self, balance: &BalanceMessage) {
+        if self.keep_data {
+            self.data.push(Message::BalanceMessage(Box::new(balance.clone())));
+        }
+    }
 }
 
 pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMessageManager> {

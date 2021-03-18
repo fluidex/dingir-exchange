@@ -3,10 +3,10 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::single_char_pattern)]
-#![allow(clippy::await_holding_refcell_ref)] // FIXME
+//#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 use dingir_exchange::config;
-use dingir_exchange::controller::Controller;
+use dingir_exchange::controller::create_controller;
 use dingir_exchange::persist;
 use dingir_exchange::server::{GrpcHandler, MatchengineServer};
 //use dingir_exchange::sqlxextend;
@@ -45,7 +45,7 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
         persist::MarketConfigs::new()
     };
 
-    let mut grpc_stub = Controller::new((settings, market_cfg));
+    let mut grpc_stub = create_controller((settings, market_cfg));
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
 
     let grpc = GrpcHandler::new(grpc_stub);

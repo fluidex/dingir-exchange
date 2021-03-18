@@ -4,7 +4,7 @@ use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager};
+use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager};
 use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
@@ -70,7 +70,8 @@ impl Persistor {
     }
 
     fn service_available(&self) -> bool {
-        if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
+        //if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
+        if self.message_manager.is_some() && self.message_manager.as_ref().unwrap().is_block() {
             log::warn!("message_manager full");
             return false;
         }
@@ -82,18 +83,36 @@ impl Persistor {
     }
 }
 
-pub struct Controller {
+pub trait OperationLogConsumer {
+    fn is_block(&self) -> bool;
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog>;
+}
+
+impl OperationLogConsumer for OperationLogSender {
+    fn is_block(&self) -> bool {
+        self.is_block()
+    }
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog> {
+        self.append(item)
+    }
+}
+
+pub struct ControllerBase {
+    //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
     pub balance_manager: BalanceManager,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
-    pub log_handler: OperationLogSender,
+    // TODO: is it worth to use generics rather than dynamic pointer?
+    pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
     pub persistor: Persistor,
     dbg_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
+
+pub type Controller = ControllerBase; //<OperationLogSender>;
 
 const ORDER_LIST_MAX_LEN: usize = 100;
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
@@ -101,63 +120,64 @@ const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
 
-impl Controller {
-    pub fn new(cfgs: (config::Settings, MarketConfigs)) -> Controller {
-        let settings = cfgs.0;
-        let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
-        let balance_manager = BalanceManager::new(&settings.assets).unwrap();
-        let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
-        let history_writer = DatabaseHistoryWriter::new(
-            &DatabaseWriterConfig {
-                spawn_limit: 4,
-                apply_benchmark: true,
-                capability_limit: 8192,
-            },
-            &history_pool,
-        )
-        .unwrap();
-        let update_controller = BalanceUpdateController::new();
-        //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
-        let sequencer = Sequencer::default();
-        let mut markets = HashMap::new();
-        for entry in &settings.markets {
-            let market = market::Market::new(entry, &balance_manager).unwrap();
-            markets.insert(entry.name.clone(), market);
-        }
-        let main_pool = if settings.db_log == settings.db_history {
-            history_pool
-        } else {
-            sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
-        };
-
-        let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
+pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
+    let settings = cfgs.0;
+    let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+    let balance_manager = BalanceManager::new(&settings.assets).unwrap();
+    let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
+    let history_writer = DatabaseHistoryWriter::new(
+        &DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
             capability_limit: 8192,
-        })
-        .start_schedule(&main_pool)
-        .unwrap();
-
-        let persist_policy = settings.history_persist_policy;
-
-        Controller {
-            settings,
-            sequencer,
-            //            asset_manager,
-            balance_manager,
-            update_controller,
-            markets,
-            log_handler,
-            persistor: Persistor {
-                history_writer,
-                message_manager: Some(message_manager),
-                policy: persist_policy,
-            },
-            dbg_pool: main_pool,
-            market_load_cfg: cfgs.1,
-        }
+        },
+        &history_pool,
+    )
+    .unwrap();
+    let update_controller = BalanceUpdateController::new();
+    //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
+    let sequencer = Sequencer::default();
+    let mut markets = HashMap::new();
+    for entry in &settings.markets {
+        let market = market::Market::new(entry, &balance_manager).unwrap();
+        markets.insert(entry.name.clone(), market);
     }
+    let main_pool = if settings.db_log == settings.db_history {
+        history_pool
+    } else {
+        sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
+    };
 
+    let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
+        spawn_limit: 4,
+        apply_benchmark: true,
+        capability_limit: 8192,
+    })
+    .start_schedule(&main_pool)
+    .unwrap();
+
+    let persist_policy = settings.history_persist_policy;
+
+    ControllerBase {
+        settings,
+        sequencer,
+        //            asset_manager,
+        balance_manager,
+        update_controller,
+        markets,
+        log_handler: Box::<OperationLogSender>::new(log_handler),
+        persistor: Persistor {
+            history_writer,
+            message_manager: Some(message_manager),
+            policy: persist_policy,
+        },
+        dbg_pool: main_pool,
+        market_load_cfg: cfgs.1,
+    }
+}
+
+//impl<LogHandlerType> ControllerBase where LogHandlerType: OperationLogConsumer + Send {
+impl Controller {
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
         let result = AssetListResponse {
             asset_lists: self
@@ -609,11 +629,68 @@ impl Controller {
             method: method.to_owned(),
             params,
         };
-        self.log_handler.append(operation_log).ok();
+        (*self.log_handler).append_operation_log(operation_log).ok();
     }
 }
 
 #[cfg(sqlxverf)]
 fn sqlverf_clear_slice() -> impl std::any::Any {
     sqlx::query!("drop table if exists balance_history, balance_slice")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::matchengine::mock::*;
+
+    #[cfg(feature = "emit_state_diff")]
+    #[test]
+    fn test_multi_orders() {
+        use rand::Rng;
+        use rust_decimal::prelude::FromPrimitive;
+        use std::fs::File;
+        use std::io::Write;
+        // export some trades.
+        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(6));
+        let uid0 = 0;
+        let uid1 = 1;
+        balance_manager.add(uid0, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
+        balance_manager.add(uid0, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
+        balance_manager.add(uid1, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
+        balance_manager.add(uid1, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
+
+        let sequencer = &mut Sequencer::default();
+        let mut persistor = DummyPersistor::new(true);
+        let mut market_conf = get_simple_market_config();
+        market_conf.disable_self_trade = true;
+        let mut market = Market::new(&market_conf, balance_manager).unwrap();
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
+            let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
+            let amount: f64 = rng.gen_range(1.0..10.0);
+            let price: f64 = rng.gen_range(120.0..140.0);
+            let order = OrderInput {
+                user_id,
+                side,
+                type_: OrderType::LIMIT,
+                // the matchengine will truncate precision
+                // but later we'd better truncate precision outside
+                amount: Decimal::from_f64(amount as f64).unwrap(),
+                price: Decimal::from_f64(price as f64).unwrap(),
+                taker_fee: dec!(0),
+                maker_fee: dec!(0),
+                market: market.name.to_string(),
+            };
+            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
+        }
+        let output_file_name = "output.txt";
+        let mut file = File::create(output_file_name).unwrap();
+        for item in persistor.trades {
+            let s = serde_json::to_string(&item).unwrap();
+            file.write_fmt(format_args!("{}\n", s)).unwrap();
+        }
+        log::info!("output done")
+        // rust file need not to be closed manually
+    }
 }
