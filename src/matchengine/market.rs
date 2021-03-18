@@ -161,9 +161,9 @@ pub struct Trade {
     pub bid_role: MarketRole,
     pub bid_fee: Decimal,
 
-    #[cfg(feature = "verbose_trade")]
+    #[cfg(feature = "emit_state_diff")]
     pub state_before: VerboseTradeState,
-    #[cfg(feature = "verbose_trade")]
+    #[cfg(feature = "emit_state_diff")]
     pub state_after: VerboseTradeState,
 }
 
@@ -252,49 +252,25 @@ impl PersistExector for Box<dyn PersistExector + '_> {
 
 pub(super) struct DummyPersistor {
     pub(super) real_persist: bool,
-    orders: Vec<Order>,
-    trades: Vec<Trade>,
 }
 impl DummyPersistor {
     pub(super) fn new(real_persist: bool) -> Self {
-        Self {
-            real_persist,
-            orders: Vec::new(),
-            trades: Vec::new(),
-        }
+        Self { real_persist }
     }
 }
 impl PersistExector for &mut DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
     }
-    fn put_order(&mut self, order: &Order, _as_step: OrderEventType) {
-        if self.real_persist {
-            self.orders.push(order.clone())
-        }
-    }
-    fn put_trade(&mut self, trade: &Trade) {
-        if self.real_persist {
-            self.trades.push(trade.clone())
-        }
-    }
+    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
+    fn put_trade(&mut self, _trade: &Trade) {}
 }
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
     }
-    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {
-        if self.real_persist {
-            // the DummyPersistor object is created and released soon.
-            // If you are going to store data inside it, you are doing something wrong...
-            unimplemented!()
-        }
-    }
-    fn put_trade(&mut self, _trade: &Trade) {
-        if self.real_persist {
-            unimplemented!()
-        }
-    }
+    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
+    fn put_trade(&mut self, _trade: &Trade) {}
 }
 
 pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
@@ -631,12 +607,12 @@ impl Market {
                 bid_order_id: bid_order.id,
                 bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
                 bid_fee,
-                #[cfg(feature = "verbose_trade")]
+                #[cfg(feature = "emit_state_diff")]
                 state_before: Default::default(),
-                #[cfg(feature = "verbose_trade")]
+                #[cfg(feature = "emit_state_diff")]
                 state_after: Default::default(),
             };
-            #[cfg(feature = "verbose_trade")]
+            #[cfg(feature = "emit_state_diff")]
             let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
             self.trade_count += 1;
             if self.disable_self_trade {
@@ -689,14 +665,14 @@ impl Market {
             if bid_fee.is_sign_positive() {
                 balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
             }
-            #[cfg(feature = "verbose_trade")]
+            #[cfg(feature = "emit_state_diff")]
             let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
 
             if persistor.real_persist() {
                 let trade = Trade {
-                    #[cfg(feature = "verbose_trade")]
+                    #[cfg(feature = "emit_state_diff")]
                     state_after,
-                    #[cfg(feature = "verbose_trade")]
+                    #[cfg(feature = "emit_state_diff")]
                     state_before,
                     ..trade
                 };
@@ -966,87 +942,76 @@ struct BalanceHistoryFromFee {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::asset::AssetManager;
+    use crate::matchengine::mock;
+    use mock::*;
     use rust_decimal_macros::*;
 
-    fn get_simple_market_config() -> config::Market {
-        config::Market {
-            name: String::from("ETH_USDT"),
-            base: config::MarketUnit { name: eth(), prec: 4 },   // amount: xx.xxxx
-            quote: config::MarketUnit { name: usdt(), prec: 2 }, // price xx.xx
-            fee_prec: 3,
-            min_amount: dec!(0.01),
-            disable_self_trade: false,
-        }
-    }
-    fn get_integer_prec_market_config() -> config::Market {
-        config::Market {
-            name: String::from("ETH_USDT"),
-            base: config::MarketUnit { name: eth(), prec: 0 },
-            quote: config::MarketUnit { name: usdt(), prec: 0 },
-            fee_prec: 0,
-            min_amount: dec!(0),
-            disable_self_trade: true,
-        }
-    }
-    fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
-        vec![
-            config::Asset {
-                name: usdt(),
-                prec_save: prec,
-                prec_show: prec,
-            },
-            config::Asset {
-                name: eth(),
-                prec_show: prec,
-                prec_save: prec,
-            },
-        ]
-    }
-    fn usdt() -> String {
-        String::from("USDT")
-    }
-    fn eth() -> String {
-        String::from("ETH")
-    }
-    fn get_simple_asset_manager(assets: Vec<config::Asset>) -> AssetManager {
-        AssetManager::new(&assets).unwrap()
-    }
-    fn get_simple_balance_manager(assets: Vec<config::Asset>) -> BalanceManager {
-        BalanceManager::new(&assets).unwrap()
-    }
-
-    #[cfg(feature = "verbose_trade")]
+    #[cfg(feature = "emit_state_diff")]
     #[test]
     fn test_multi_orders() {
+        use crate::asset::BalanceUpdateController;
+        use crate::matchengine::market::{Market, OrderInput};
+        use crate::types::{OrderSide, OrderType};
         use rand::Rng;
         use rust_decimal::prelude::FromPrimitive;
         use std::fs::File;
         use std::io::Write;
-        // export some trades.
-        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(0));
+
+        let only_int = true;
+        let mut persistor = MockPersistor::new();
+        let mut update_controller = BalanceUpdateController::new();
+        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(if only_int { 0 } else { 6 }));
         let uid0 = 0;
         let uid1 = 1;
-        balance_manager.add(uid0, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
-        balance_manager.add(uid0, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
-        balance_manager.add(uid1, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
-        balance_manager.add(uid1, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
+        let mut update_balance_fn = |seq_id, user_id, asset: &str, amount| {
+            update_controller
+                .update_user_balance(
+                    balance_manager,
+                    &mut persistor,
+                    user_id,
+                    asset,
+                    "deposit".to_owned(),
+                    seq_id,
+                    amount,
+                    serde_json::Value::default(),
+                )
+                .unwrap();
+        };
+        update_balance_fn(0, uid0, &usdt(), dec!(1_000_000));
+        update_balance_fn(1, uid0, &eth(), dec!(1_000_000));
+        update_balance_fn(2, uid1, &usdt(), dec!(1_000_000));
+        update_balance_fn(3, uid1, &eth(), dec!(1_000_000));
 
         let sequencer = &mut Sequencer::default();
-        let mut persistor = DummyPersistor::new(true);
-        let mut market = Market::new(&get_integer_prec_market_config(), balance_manager).unwrap();
+        let mut market_conf = if only_int {
+            mock::get_integer_prec_market_config()
+        } else {
+            mock::get_simple_market_config()
+        };
+        market_conf.disable_self_trade = true;
+        let mut market = Market::new(&market_conf, balance_manager).unwrap();
         let mut rng = rand::thread_rng();
         for _ in 0..100 {
             let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
             let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
-            let amount: i32 = rng.gen_range(1..10);
-            let price: i32 = rng.gen_range(120..140);
+            let amount = if only_int {
+                Decimal::from_i32(rng.gen_range(1..10)).unwrap()
+            } else {
+                Decimal::from_f64(rng.gen_range(1.0..10.0)).unwrap()
+            };
+            let price = if only_int {
+                Decimal::from_i32(rng.gen_range(120..140)).unwrap()
+            } else {
+                Decimal::from_f64(rng.gen_range(120.0..140.0)).unwrap()
+            };
             let order = OrderInput {
                 user_id,
                 side,
                 type_: OrderType::LIMIT,
-                amount: Decimal::from_f64(amount as f64).unwrap(),
-                price: Decimal::from_f64(price as f64).unwrap(),
+                // the matchengine will truncate precision
+                // but later we'd better truncate precision outside
+                amount,
+                price,
                 taker_fee: dec!(0),
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
@@ -1055,7 +1020,7 @@ mod tests {
         }
         let output_file_name = "output.txt";
         let mut file = File::create(output_file_name).unwrap();
-        for item in persistor.trades {
+        for item in persistor.messages {
             let s = serde_json::to_string(&item).unwrap();
             file.write_fmt(format_args!("{}\n", s)).unwrap();
         }
@@ -1073,7 +1038,7 @@ mod tests {
         balance_manager.add(102, BalanceType::AVAILABLE, &eth(), &dec!(1000));
 
         let sequencer = &mut Sequencer::default();
-        let mut persistor = DummyPersistor::new(true);
+        let mut persistor = MockPersistor::new();
         let ask_user_id = 101;
         let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
@@ -1134,7 +1099,7 @@ mod tests {
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &usdt()), dec!(299));
         assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &usdt()), dec!(0));
 
-        assert_eq!(persistor.orders.len(), 3);
-        assert_eq!(persistor.trades.len(), 1);
+        //assert_eq!(persistor.orders.len(), 3);
+        //assert_eq!(persistor.trades.len(), 1);
     }
 }

@@ -4,7 +4,7 @@ use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager};
+use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager};
 use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
@@ -23,14 +23,14 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub struct Persistor {
+pub struct DefaultPersistor {
     history_writer: DatabaseHistoryWriter,
     message_manager: Option<ChannelMessageManager>,
     policy: PersistPolicy,
 }
 
 pub struct PersistorGen<'c> {
-    base: &'c mut Persistor,
+    base: &'c mut DefaultPersistor,
     policy: PersistPolicy,
 }
 
@@ -63,14 +63,15 @@ impl<'c> PersistorGen<'c> {
     }
 }
 
-impl Persistor {
+impl DefaultPersistor {
     fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
         let policy = if real { self.policy } else { PersistPolicy::Dummy };
         PersistorGen { base: self, policy }
     }
 
     fn service_available(&self) -> bool {
-        if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
+        //if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
+        if self.message_manager.is_some() && self.message_manager.as_ref().unwrap().is_block() {
             log::warn!("message_manager full");
             return false;
         }
@@ -82,15 +83,52 @@ impl Persistor {
     }
 }
 
+trait Persistor {
+    fn service_available(&self) -> bool;
+    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector>;
+    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector>;
+}
+
+/*
+// i failed to do this...
+impl<'a> Persistor for DefaultPersistor<'a> {
+    fn service_available(&self) -> bool {
+        self.service_available()
+    }
+    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'a> {
+        self.is_real(real).persist_for_market(market_tag)
+    }
+    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector + 'a> {
+        self.is_real(real).persist_for_balance()
+    }
+}
+*/
+
+pub trait OperationLogConsumer {
+    fn is_block(&self) -> bool;
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog>;
+}
+
+impl OperationLogConsumer for OperationLogSender {
+    fn is_block(&self) -> bool {
+        self.is_block()
+    }
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog> {
+        self.append(item)
+    }
+}
+
 pub struct Controller {
+    //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
     pub balance_manager: BalanceManager,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
-    pub log_handler: OperationLogSender,
-    pub persistor: Persistor,
+    // TODO: is it worth to use generics rather than dynamic pointer?
+    pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
+    pub persistor: DefaultPersistor,
     dbg_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
@@ -101,63 +139,64 @@ const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
 
-impl Controller {
-    pub fn new(cfgs: (config::Settings, MarketConfigs)) -> Controller {
-        let settings = cfgs.0;
-        let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
-        let balance_manager = BalanceManager::new(&settings.assets).unwrap();
-        let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
-        let history_writer = DatabaseHistoryWriter::new(
-            &DatabaseWriterConfig {
-                spawn_limit: 4,
-                apply_benchmark: true,
-                capability_limit: 8192,
-            },
-            &history_pool,
-        )
-        .unwrap();
-        let update_controller = BalanceUpdateController::new();
-        //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
-        let sequencer = Sequencer::default();
-        let mut markets = HashMap::new();
-        for entry in &settings.markets {
-            let market = market::Market::new(entry, &balance_manager).unwrap();
-            markets.insert(entry.name.clone(), market);
-        }
-        let main_pool = if settings.db_log == settings.db_history {
-            history_pool
-        } else {
-            sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
-        };
-
-        let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
+pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
+    let settings = cfgs.0;
+    let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+    let balance_manager = BalanceManager::new(&settings.assets).unwrap();
+    let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
+    let history_writer = DatabaseHistoryWriter::new(
+        &DatabaseWriterConfig {
             spawn_limit: 4,
             apply_benchmark: true,
             capability_limit: 8192,
-        })
-        .start_schedule(&main_pool)
-        .unwrap();
-
-        let persist_policy = settings.history_persist_policy;
-
-        Controller {
-            settings,
-            sequencer,
-            //            asset_manager,
-            balance_manager,
-            update_controller,
-            markets,
-            log_handler,
-            persistor: Persistor {
-                history_writer,
-                message_manager: Some(message_manager),
-                policy: persist_policy,
-            },
-            dbg_pool: main_pool,
-            market_load_cfg: cfgs.1,
-        }
+        },
+        &history_pool,
+    )
+    .unwrap();
+    let update_controller = BalanceUpdateController::new();
+    //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
+    let sequencer = Sequencer::default();
+    let mut markets = HashMap::new();
+    for entry in &settings.markets {
+        let market = market::Market::new(entry, &balance_manager).unwrap();
+        markets.insert(entry.name.clone(), market);
     }
+    let main_pool = if settings.db_log == settings.db_history {
+        history_pool
+    } else {
+        sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
+    };
 
+    let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
+        spawn_limit: 4,
+        apply_benchmark: true,
+        capability_limit: 8192,
+    })
+    .start_schedule(&main_pool)
+    .unwrap();
+
+    let persist_policy = settings.history_persist_policy;
+
+    Controller {
+        settings,
+        sequencer,
+        //            asset_manager,
+        balance_manager,
+        update_controller,
+        markets,
+        log_handler: Box::<OperationLogSender>::new(log_handler),
+        persistor: DefaultPersistor {
+            history_writer,
+            message_manager: Some(message_manager),
+            policy: persist_policy,
+        },
+        dbg_pool: main_pool,
+        market_load_cfg: cfgs.1,
+    }
+}
+
+//impl<LogHandlerType> Controller where LogHandlerType: OperationLogConsumer + Send {
+impl Controller {
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
         let result = AssetListResponse {
             asset_lists: self
@@ -609,7 +648,7 @@ impl Controller {
             method: method.to_owned(),
             params,
         };
-        self.log_handler.append(operation_log).ok();
+        (*self.log_handler).append_operation_log(operation_log).ok();
     }
 }
 
