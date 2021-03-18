@@ -24,9 +24,9 @@ impl PersistExector for DummyPersistor {
     fn put_balance(&mut self, _balance: BalanceHistory) {}
 }
 
-pub struct MessengerAsPersistor<'a>(&'a mut dyn MessageManager);
+pub struct MessengerAsPersistor<'a, T>(&'a mut T);
 
-impl PersistExector for MessengerAsPersistor<'_> {
+impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.push_balance_message(&BalanceMessage {
             timestamp: balance.time.timestamp() as f64,
@@ -58,7 +58,7 @@ impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
     }
 }
 
-pub fn persistor_for_message(messenger: &mut dyn MessageManager) -> MessengerAsPersistor<'_> {
+pub fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {
     MessengerAsPersistor(messenger)
 }
 

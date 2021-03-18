@@ -23,14 +23,14 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub struct Persistor {
+pub struct DefaultPersistor {
     history_writer: DatabaseHistoryWriter,
     message_manager: Option<ChannelMessageManager>,
     policy: PersistPolicy,
 }
 
 pub struct PersistorGen<'c> {
-    base: &'c mut Persistor,
+    base: &'c mut DefaultPersistor,
     policy: PersistPolicy,
 }
 
@@ -63,7 +63,7 @@ impl<'c> PersistorGen<'c> {
     }
 }
 
-impl Persistor {
+impl DefaultPersistor {
     fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
         let policy = if real { self.policy } else { PersistPolicy::Dummy };
         PersistorGen { base: self, policy }
@@ -83,6 +83,27 @@ impl Persistor {
     }
 }
 
+trait Persistor {
+    fn service_available(&self) -> bool;
+    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector>;
+    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector>;
+}
+
+/*
+// i failed to do this...
+impl<'a> Persistor for DefaultPersistor<'a> {
+    fn service_available(&self) -> bool {
+        self.service_available()
+    }
+    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'a> {
+        self.is_real(real).persist_for_market(market_tag)
+    }
+    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector + 'a> {
+        self.is_real(real).persist_for_balance()
+    }
+}
+*/
+
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;
     fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog>;
@@ -97,7 +118,7 @@ impl OperationLogConsumer for OperationLogSender {
     }
 }
 
-pub struct ControllerBase {
+pub struct Controller {
     //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
@@ -107,12 +128,10 @@ pub struct ControllerBase {
     pub markets: HashMap<String, market::Market>,
     // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
-    pub persistor: Persistor,
+    pub persistor: DefaultPersistor,
     dbg_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
-
-pub type Controller = ControllerBase; //<OperationLogSender>;
 
 const ORDER_LIST_MAX_LEN: usize = 100;
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
@@ -158,7 +177,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
 
     let persist_policy = settings.history_persist_policy;
 
-    ControllerBase {
+    Controller {
         settings,
         sequencer,
         //            asset_manager,
@@ -166,7 +185,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         update_controller,
         markets,
         log_handler: Box::<OperationLogSender>::new(log_handler),
-        persistor: Persistor {
+        persistor: DefaultPersistor {
             history_writer,
             message_manager: Some(message_manager),
             policy: persist_policy,
@@ -176,7 +195,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     }
 }
 
-//impl<LogHandlerType> ControllerBase where LogHandlerType: OperationLogConsumer + Send {
+//impl<LogHandlerType> Controller where LogHandlerType: OperationLogConsumer + Send {
 impl Controller {
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
         let result = AssetListResponse {
@@ -636,61 +655,4 @@ impl Controller {
 #[cfg(sqlxverf)]
 fn sqlverf_clear_slice() -> impl std::any::Any {
     sqlx::query!("drop table if exists balance_history, balance_slice")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::matchengine::mock::*;
-
-    #[cfg(feature = "emit_state_diff")]
-    #[test]
-    fn test_multi_orders() {
-        use rand::Rng;
-        use rust_decimal::prelude::FromPrimitive;
-        use std::fs::File;
-        use std::io::Write;
-        // export some trades.
-        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(6));
-        let uid0 = 0;
-        let uid1 = 1;
-        balance_manager.add(uid0, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
-        balance_manager.add(uid0, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
-        balance_manager.add(uid1, BalanceType::AVAILABLE, &usdt(), &dec!(1_000_000));
-        balance_manager.add(uid1, BalanceType::AVAILABLE, &eth(), &dec!(1_000_000));
-
-        let sequencer = &mut Sequencer::default();
-        let mut persistor = DummyPersistor::new(true);
-        let mut market_conf = get_simple_market_config();
-        market_conf.disable_self_trade = true;
-        let mut market = Market::new(&market_conf, balance_manager).unwrap();
-        let mut rng = rand::thread_rng();
-        for _ in 0..100 {
-            let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
-            let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
-            let amount: f64 = rng.gen_range(1.0..10.0);
-            let price: f64 = rng.gen_range(120.0..140.0);
-            let order = OrderInput {
-                user_id,
-                side,
-                type_: OrderType::LIMIT,
-                // the matchengine will truncate precision
-                // but later we'd better truncate precision outside
-                amount: Decimal::from_f64(amount as f64).unwrap(),
-                price: Decimal::from_f64(price as f64).unwrap(),
-                taker_fee: dec!(0),
-                maker_fee: dec!(0),
-                market: market.name.to_string(),
-            };
-            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
-        }
-        let output_file_name = "output.txt";
-        let mut file = File::create(output_file_name).unwrap();
-        for item in persistor.trades {
-            let s = serde_json::to_string(&item).unwrap();
-            file.write_fmt(format_args!("{}\n", s)).unwrap();
-        }
-        log::info!("output done")
-        // rust file need not to be closed manually
-    }
 }
