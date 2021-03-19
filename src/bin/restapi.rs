@@ -14,6 +14,7 @@ use std::sync::Mutex;
 
 use dingir_exchange::restapi;
 
+use restapi::errors::RpcError;
 use restapi::manage::market;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
@@ -30,13 +31,15 @@ async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder
     if user_id.starts_with("0x") {
         let mut user_map = data.user_addr_map.lock().unwrap();
         if !user_map.contains_key(user_id) {
+            // TODO: real query from DB
             let count = user_map.len();
             user_map.insert(user_id.to_string(), UserInfo { user_id: count as i64 });
         }
         let user_info = *user_map.get(user_id).unwrap();
-        web::Json(user_info)
+        Ok(web::Json(user_info))
     } else {
-        unimplemented!()
+        // TODO: get_by_user_id still fails
+        Err(RpcError::bad_request("invalid user id or address"))
     }
 }
 
