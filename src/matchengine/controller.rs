@@ -83,26 +83,24 @@ impl DefaultPersistor {
     }
 }
 
-trait Persistor {
-    fn service_available(&self) -> bool;
-    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector>;
-    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector>;
+pub trait IntoPersistor {
+    fn service_available(&self) -> bool {true}
+    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c>;
+    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c>;
 }
 
-/*
-// i failed to do this...
-impl<'a> Persistor for DefaultPersistor<'a> {
+impl IntoPersistor for DefaultPersistor {
     fn service_available(&self) -> bool {
         self.service_available()
     }
-    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'a> {
+    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
         self.is_real(real).persist_for_market(market_tag)
     }
-    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector + 'a> {
+    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c> {
         self.is_real(real).persist_for_balance()
     }
 }
-*/
+
 
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;

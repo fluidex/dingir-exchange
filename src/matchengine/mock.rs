@@ -1,6 +1,6 @@
 use crate::asset::{self, AssetManager, BalanceManager};
 use crate::config;
-use crate::matchengine::market;
+use crate::matchengine::{controller, market};
 use crate::message::{self, Message};
 use crate::models::BalanceHistory;
 use crate::types::OrderEventType;
@@ -100,5 +100,14 @@ impl asset::PersistExector for &mut MockPersistor {
             balance: balance.balance.to_string(),
             detail: balance.detail,
         })))
+    }
+}
+
+impl controller::IntoPersistor for MockPersistor {
+    fn persistor_for_market<'c>(&'c mut self, _real: bool, _market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
+        Box::new(self)
+    }
+    fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
+        Box::new(self)
     }
 }

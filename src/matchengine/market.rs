@@ -258,6 +258,7 @@ impl DummyPersistor {
         Self { real_persist }
     }
 }
+/*
 impl PersistExector for &mut DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
@@ -265,6 +266,7 @@ impl PersistExector for &mut DummyPersistor {
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
     fn put_trade(&mut self, _trade: &Trade) {}
 }
+*/
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
