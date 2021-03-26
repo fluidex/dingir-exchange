@@ -90,6 +90,8 @@ impl KafkaMessageSender {
         let producer = ClientConfig::new()
             .set("bootstrap.servers", brokers)
             .set("queue.buffering.max.ms", "1")
+            //max.in.flight.requests.per.connection, 1
+            //enable.idempotence yes ?
             .create_with_context(SimpleProducerContext)?;
         let arc = Arc::new(producer);
 
