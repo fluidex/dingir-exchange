@@ -59,7 +59,7 @@ pub fn get_simple_balance_manager(assets: Vec<config::Asset>) -> BalanceManager 
 pub fn get_mocking_persistor() -> Box<dyn controller::IntoPersistor> {
     match std::env::var("KAFKA_BROKER") {
         Ok(val) => Box::new(UnifyMessageManager::new_and_run(&val).unwrap()),
-        Err(_) => Box::new(MockPersistor::new())
+        Err(_) => Box::new(MockPersistor::new()),
     }
 }
 
@@ -70,7 +70,6 @@ pub(super) struct MockPersistor {
 }
 impl MockPersistor {
     pub(super) fn new() -> Self {
-
         Self {
             //orders: Vec::new(),
             //trades: Vec::new(),
@@ -84,7 +83,7 @@ fn get_market_base_and_quote(market: &str) -> (String, String) {
     (splits[0].to_owned(), splits[1].to_owned())
 }
 
-impl Drop for MockPersistor{
+impl Drop for MockPersistor {
     fn drop(&mut self) {
         let output_file_name = "output.txt";
         let mut file = File::create(output_file_name).unwrap();
@@ -94,7 +93,7 @@ impl Drop for MockPersistor{
         }
         log::info!("output done")
         //rust file need not to be closed manually
-    }    
+    }
 }
 
 impl market::PersistExector for &mut MockPersistor {

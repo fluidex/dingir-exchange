@@ -9,29 +9,29 @@ use std::io::Write;
 use std::sync::Mutex;
 
 use dingir_exchange::{config, message};
-use message::consumer::{SimpleConsumer, SimpleMessageHandler, Simple};
+use message::consumer::{Simple, SimpleConsumer, SimpleMessageHandler};
 
 use rdkafka::consumer::StreamConsumer;
-use rdkafka::message::{Message, BorrowedMessage};
+use rdkafka::message::{BorrowedMessage, Message};
 
 struct MessageWriter {
     out_file: Mutex<File>,
 }
 
 impl SimpleMessageHandler for &MessageWriter {
-    fn on_message(&self, msg: &BorrowedMessage<'_>){
-
+    fn on_message(&self, msg: &BorrowedMessage<'_>) {
         let mut file = self.out_file.lock().unwrap();
 
         let msgtype = match std::str::from_utf8(msg.key().unwrap()).unwrap() {
             "orders" => "OrderMessage",
             "trades" => "TradeMessage",
             "balances" => "BalanceMessage",
-            _ => unreachable!(),  
+            _ => unreachable!(),
         };
 
         let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
-        file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg)).unwrap();
+        file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
+            .unwrap();
     }
 }
 
@@ -69,8 +69,8 @@ fn main() {
 
         loop {
             let cr_main = SimpleConsumer::new(consumer.as_ref())
-                .add_topic(message::UNIFY_TOPIC, Simple::from(&writer)).unwrap()
-            ;
+                .add_topic(message::UNIFY_TOPIC, Simple::from(&writer))
+                .unwrap();
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {

@@ -4,10 +4,10 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 pub mod consumer;
-pub mod producer;
 pub mod persist;
+pub mod producer;
 
-pub use producer::{ORDERS_TOPIC, TRADES_TOPIC, BALANCES_TOPIC, UNIFY_TOPIC};
+pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceMessage {
@@ -52,7 +52,7 @@ pub struct RdProducerStub<T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> RdProducerStub<T>{
+impl<T> RdProducerStub<T> {
     fn push_message_and_topic(&self, message: String, topic_name: &'static str) {
         //log::debug!("KAFKA: push {} message: {}", topic_name, message);
         self.sender.try_send((topic_name, message)).unwrap();
@@ -60,26 +60,25 @@ impl<T> RdProducerStub<T>{
 }
 
 impl<T: producer::MessageScheme + 'static> RdProducerStub<T> {
-
     pub fn new_and_run(brokers: &str) -> Result<Self> {
-        //now the channel is just need to provide a small buffer which is 
+        //now the channel is just need to provide a small buffer which is
         //enough to accommodate a pluse request in some time slice of thread
         let (sender, receiver) = crossbeam_channel::bounded(16);
 
-        let producer_context : producer::RdProducerContext<T> = Default::default();
+        let producer_context: producer::RdProducerContext<T> = Default::default();
 
         let kafkaproducer = producer_context.new_producer(brokers)?;
         std::thread::spawn(move || {
             producer::RdProducerContext::<T>::run_default(kafkaproducer, receiver);
         });
-        Ok(Self { 
+        Ok(Self {
             sender,
             _phantom: std::marker::PhantomData,
-         })
+        })
     }
 }
 
-impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T>  {
+impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     /*
     fn push_message(&mut self, msg: &Message) {
         match msg {

@@ -1016,8 +1016,14 @@ mod tests {
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
             };
-            market.put_order(sequencer, balance_manager.into(), 
-                persistor.persistor_for_market(true, (market.base.clone(), market.quote.clone())), order).unwrap();
+            market
+                .put_order(
+                    sequencer,
+                    balance_manager.into(),
+                    persistor.persistor_for_market(true, (market.base.clone(), market.quote.clone())),
+                    order,
+                )
+                .unwrap();
         }
     }
 
