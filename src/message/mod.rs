@@ -7,7 +7,7 @@ pub mod consumer;
 pub mod producer;
 pub mod persist;
 
-pub use producer::{ORDERS_TOPIC, TRADES_TOPIC, BALANCES_TOPIC};
+pub use producer::{ORDERS_TOPIC, TRADES_TOPIC, BALANCES_TOPIC, UNIFY_TOPIC};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceMessage {
@@ -117,7 +117,9 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T>  {
     }
 }
 
-pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
+//pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
+pub type ChannelMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
+pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
 // TODO: better naming?
@@ -130,7 +132,7 @@ pub enum Message {
     TradeMessage(Box<Trade>),
 }
 
-
+/*
 pub struct DummyMessageManager {
     // debug purpose only
     pub keep_data: bool,
@@ -162,6 +164,7 @@ impl MessageManager for DummyMessageManager {
         }
     }
 }
+*/
 
 pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMessageManager> {
     ChannelMessageManager::new_and_run(brokers)

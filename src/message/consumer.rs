@@ -217,3 +217,27 @@ impl<U> From<U> for SyncTyped<U> {
         Typed::from(Synced::from(t))
     }
 }
+
+pub trait SimpleMessageHandler: Send {
+    fn on_message(&self, msg: &BorrowedMessage<'_>);
+    fn on_no_msg(&self){}
+}
+
+pub struct Simple<U>(U);
+
+impl<U> From<U> for Simple<U> {
+    fn from(t: U) -> Self {
+        Simple(t)
+    }
+}
+
+impl<'c, C: RdConsumerExt, U: SimpleMessageHandler> MessageHandlerAsync<'c, C> for Simple<U> {
+    fn on_message(&self, msg: &BorrowedMessage<'c>, _cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>{
+        self.0.on_message(msg);
+        Box::pin(async {})
+    }
+    fn on_no_msg(&self, _cr: &'c C::SelfType) -> PinBox<dyn futures::Future<Output = ()> + Send>{
+        self.0.on_no_msg();
+        Box::pin(async {})
+    }
+}

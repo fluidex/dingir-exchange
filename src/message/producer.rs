@@ -16,7 +16,7 @@ pub trait MessageScheme : Default{
 
     fn settings() -> Vec<(Self::K, Self::V)> {vec![]}
     fn is_full(&self) -> bool;
-    fn on_message(&mut self, title_tip: &str, message: String);
+    fn on_message(&mut self, title_tip: &'static str, message: String);
     fn pop_up(&mut self)-> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>>;
     fn commit(&mut self, isfailed: Option<Self::DeliverOpaque>);
     fn deliver_commit(&mut self, result :SimpleDeliverResult, opaque: Self::DeliverOpaque);
@@ -187,6 +187,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
 pub const ORDERS_TOPIC: &str = "orders";
 pub const TRADES_TOPIC: &str = "trades";
 pub const BALANCES_TOPIC: &str = "balances";
+pub const UNIFY_TOPIC: &str = "unifyevents";
 
 use std::collections::LinkedList;
 
@@ -212,7 +213,7 @@ impl MessageScheme for SimpleMessageScheme {
         || self.balances_list.len() >= 100
     }
 
-    fn on_message(&mut self, title_tip: &str, message: String) {
+    fn on_message(&mut self, title_tip: &'static str, message: String) {
         let list = match title_tip {
             BALANCES_TOPIC => &mut self.balances_list,
             TRADES_TOPIC => &mut self.trades_list,
@@ -264,3 +265,65 @@ impl MessageScheme for SimpleMessageScheme {
     }
 }
 
+
+#[derive(Default)]
+pub struct FullOrderMessageScheme {
+    ordered_list: LinkedList<(&'static str, String)>,
+    //two counters is used to assigned and verify for delivery
+    deliver_cnt: u64,
+    commited_cnt: u64,
+}
+
+impl MessageScheme for FullOrderMessageScheme {
+    type DeliverOpaque = Box<u64>;
+    type K = &'static str;
+    type V = &'static str;
+
+    fn settings() -> Vec<(Self::K, Self::V)> {
+        //with these semantics the message written into kafka should be
+        //strictly ordering as input
+        vec![("enable.idempotence", "true"),
+        ("max.in.flight.requests.per.connection", "1"),
+        //message being tried to send never timeout in ~24days and until 2^31 retries
+        //if it stil failed the underlying connection must be investigated
+        ("delivery.timeout.ms", "2147483647")] 
+    }
+    fn is_full(&self) -> bool {
+        self.ordered_list.len() >= 100
+    }
+
+    fn on_message(&mut self, title_tip: &'static str, message: String) {
+        self.ordered_list.push_back((title_tip, message));
+    }
+
+    fn pop_up(&mut self)-> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>> {
+        if self.ordered_list.is_empty() {
+            return None;
+        }
+        let (title_tip, message) = self.ordered_list.front().unwrap();
+        Some(BaseRecord::with_opaque_to(UNIFY_TOPIC, Box::new(self.deliver_cnt))
+            .key(*title_tip).payload(AsRef::as_ref(message)))
+    }
+
+    fn commit(&mut self, isfailed: Option<Self::DeliverOpaque>) {
+        if isfailed.is_none() {
+            self.ordered_list.pop_front();
+            self.deliver_cnt += 1;
+        }else {
+            //sanity check
+            assert!(*isfailed.unwrap() == self.deliver_cnt);
+        }
+
+    }
+    fn deliver_commit(&mut self, result :SimpleDeliverResult, opaque: Self::DeliverOpaque) {
+        //sanity check: verify we are keeping order
+        assert!(*opaque == self.commited_cnt);
+        self.commited_cnt += 1;
+        log::debug!("kafka unify messenger has confirm deliver till {}", self.commited_cnt);
+
+        if let Err(e) = result {
+            //TODO: should we panic ?
+            log::error!("kafka send err: {}, MESSAGE LOST", e);
+        }
+    }
+}
