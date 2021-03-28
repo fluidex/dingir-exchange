@@ -1,149 +1,266 @@
-use crate::market::Order;
-use crate::types::{OrderEventType, SimpleResult};
-use core::cell::RefCell;
-
-use anyhow::{anyhow, Result};
-use crossbeam_channel::RecvTimeoutError;
+use crossbeam_channel::{TryRecvError, RecvTimeoutError};
 use rdkafka::client::ClientContext;
 use rdkafka::config::ClientConfig;
 use rdkafka::error::{KafkaError, RDKafkaErrorCode};
 use rdkafka::producer::{BaseProducer, BaseRecord, DeliveryResult, Producer, ProducerContext};
-use rdkafka::message::{ToBytes}
+use rdkafka::util::{IntoOpaque, Timeout};
+use anyhow::Result;
+use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+pub type SimpleDeliverResult = Result<(), KafkaError>;
 
-use std::collections::LinkedList;
-use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
+pub trait MessageScheme : Default{
+    type DeliverOpaque : IntoOpaque;
+    type K: Into<String>;
+    type V: Into<String>;
 
-pub mod consumer;
-pub mod persist;
+    fn settings() -> Vec<(Self::K, Self::V)> {vec![]}
+    fn is_full(&self) -> bool;
+    fn on_message(&mut self, title_tip: &str, message: String);
+    fn pop_up(&mut self)-> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>>;
+    fn commit(&mut self, isfailed: Option<Self::DeliverOpaque>);
+    fn deliver_commit(&mut self, result :SimpleDeliverResult, opaque: Self::DeliverOpaque);
+}
 
-pub struct SimpleProducerContext;
-impl ClientContext for SimpleProducerContext {}
-impl ProducerContext for SimpleProducerContext {
-    type DeliveryOpaque = ();
-    fn delivery(&self, result: &DeliveryResult, _: Self::DeliveryOpaque) {
-        match result {
-            // TODO: how to handle this err
-            Err(e) => log::error!("kafka send err: {:?}", e),
-            Ok(_r) => {
-                // log::info!("kafka send done: {:?}", r)
-            }
+pub struct RdProducerContext<T: MessageScheme> {
+    //we use unboound channel to simulate a continuation(?)
+    delivery_record: crossbeam_channel::Sender<(SimpleDeliverResult, T::DeliverOpaque)>,
+    delivery_record_get: crossbeam_channel::Receiver<(SimpleDeliverResult, T::DeliverOpaque)>,
+    //_phantom : std::marker::PhantomData<T>,
+}
+
+impl<T: MessageScheme> Default for RdProducerContext<T> {
+    fn default() -> Self {
+
+        let (s, r) = crossbeam_channel::unbounded();
+
+        Self{
+            delivery_record: s,
+            delivery_record_get: r,
         }
     }
 }
-pub const ORDERS_TOPIC: &str = "orders";
-pub const TRADES_TOPIC: &str = "trades";
-pub const BALANCES_TOPIC: &str = "balances";
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BalanceMessage {
-    pub timestamp: f64,
-    pub user_id: u32,
-    pub asset: String,
-    pub business: String,
-    pub change: String,
-    pub balance: String,
-    pub detail: String,
+impl<T: MessageScheme> ClientContext for RdProducerContext<T> {}
+impl<T: MessageScheme> ProducerContext for RdProducerContext<T> {
+    type DeliveryOpaque = T::DeliverOpaque;
+    fn delivery(&self, result: &DeliveryResult, opaque: Self::DeliveryOpaque) {
+        self.delivery_record.send((
+            match result.as_ref() {
+                Err((err, _)) => Err(err.clone()),
+                Ok(_) => Ok(())
+            },
+            opaque)).ok();
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OrderMessage {
-    pub event: OrderEventType,
-    pub order: Order,
-    pub base: String,
-    pub quote: String,
-}
-
-// https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
-// TODO: better naming?
-// TODO: change push_order_message etc interface to this enum class?
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "value")]
-pub enum Message {
-    BalanceMessage(Box<BalanceMessage>),
-    OrderMessage(Box<OrderMessage>),
-    TradeMessage(Box<Trade>),
-}
-
-//re-export from market, act as TradeMessage
-pub use crate::market::Trade;
-
-#[derive(Serialize, Deserialize)]
-pub struct MessageSenderStatus {
-    trades_len: usize,
-    orders_len: usize,
-    balances_len: usize,
-}
-
-pub trait MessageSenderScheme : ProducerContext {
-    type KeyType: ToBytes + ?Sized
-    fn on_message(&self, title_tip: &str, message: &str) -> 
-        BaseRecord<'_, Self::KeyType, String, Self::DeliveryOpaque>
-    fn on_send_queue_full(&self, BaseRecord<'_, Self::KeyType, String, Self::DeliveryOpaque>)
-}
-
-pub trait ClientContextWithSettings : ClientContext {
-    fn settings<K: Into<String>, V: Into<String>>() -> [(K, V)]
-}
 
 //provide a running kafka producer instance which keep sending message under the full-ordering scheme
 //it simply block the Sender side of crossbeam_channel when the deliver queue is full, and quit
 //only when the sender side is closed
-pub struct RdProducerRunner<T: MessageSenderScheme> {
-    producer: BaseProducer<T>,
-    receiver: crossbeam_channel::Receiver<(&'static str, String)>,
+impl<T: MessageScheme> RdProducerContext<T> {
+
+    pub fn new_producer(self, brokers: &str) -> Result<BaseProducer<Self>> {
+        let mut config = ClientConfig::new();
+        config.set("bootstrap.servers", brokers);
+        T::settings().into_iter().for_each(|item|{
+            let (k, v) = item;
+            config.set(k ,v);
+        });
+
+        let producer = config.create_with_context(self)?;
+        Ok(producer)
+    }
+
+    pub fn run_default(producer: BaseProducer<Self>, 
+        receiver: crossbeam_channel::Receiver<(&'static str, String)>){
+        
+        let message_scheme = T::default();
+        Self::run(producer, message_scheme, receiver);
+    }
+
+    pub fn run(producer: BaseProducer<Self>, mut message_scheme: T,
+        receiver: crossbeam_channel::Receiver<(&'static str, String)>){
+
+        Self::run_loop(&producer, &mut message_scheme, receiver);
+
+        //flush producer before exit 
+        while let Some(msg) = message_scheme.pop_up() {
+            let send_ret = match producer.send(msg){
+                Ok(_) => None,
+                Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), rec)) => {
+                    //when queue is full, simply made some polling and retry
+                    producer.poll(Duration::from_millis(100));
+                    Some(rec.delivery_opaque)
+                },
+                Err((err, _)) => {
+                    log::error!("kafka encounter error when shutdown: {}", err);
+                    //TODO: so what should we do? try handling / waiting or just quit?
+                    return
+                }
+            };
+            message_scheme.commit(send_ret);
+        }
+
+        producer.flush(Timeout::Never);
+        log::info!("kafka producer running terminated");
+    }
+
+    fn run_loop(producer: &BaseProducer<Self>, 
+        message_scheme: &mut T,
+        receiver: crossbeam_channel::Receiver<(&'static str, String)>){
+        
+        let timeout_interval = Duration::from_millis(100);
+        let delivery_report = &producer.context().delivery_record_get;
+        let mut last_poll : i32 = 0;
+        let mut producer_queue_full = false;
+
+        loop {
+            //current implement in mod.rs lead to arbitrary dropping of messages
+            //in the flush() method, I try to fix it here ... 
+            //basically, it should be enough to make use of the ability of 
+            //crossbeam_channel to achieve effectly managing on buffer status,
+            //so we can just stop receiving when the queue has fulled
+
+            //first, always keep absorbing messages
+            let scheme_full = message_scheme.is_full();
+            if !scheme_full {
+                let recv_ret = if last_poll == 0 { 
+                    receiver.try_recv() 
+                }else {
+                    receiver.recv_timeout(timeout_interval)
+                        .map_err(|err| match err {
+                            RecvTimeoutError::Timeout => TryRecvError::Empty,
+                            RecvTimeoutError::Disconnected => TryRecvError::Disconnected,
+                        })
+                };
+                match recv_ret {
+                    Ok((topic, message)) => {
+                        message_scheme.on_message(topic, message);
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => {
+                        log::info!("kafka producer disconnected");
+                        return
+                    }               
+                };
+            }
+            //then try send out some messages...
+            let pop_msg = if !producer_queue_full {
+                message_scheme.pop_up()
+            }else {
+                None
+            };
+            if let Some(msg) = pop_msg {
+                let send_ret = match producer.send(msg){
+                    Ok(_) => None,
+                    Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), rec)) => {
+                        //flag is clear when we had polled something
+                        producer_queue_full = true;
+                        log::warn!("kafka sender buffer is full");
+                        Some(rec.delivery_opaque)
+                    },
+                    Err((err, rec)) => {
+                        log::info!("kafka producer encounter error {}", err);
+                        Some(rec.delivery_opaque)
+                    }
+                };
+                message_scheme.commit(send_ret);
+            }
+            //finally, always poll
+            let poll_dur = if scheme_full && last_poll == 0{
+                timeout_interval
+            }else {
+                Duration::from_millis(0)
+            };
+            last_poll = producer.poll(poll_dur);
+            producer_queue_full = producer_queue_full && last_poll == 0;
+            while let Ok((result, opaque)) = delivery_report.try_recv(){
+                message_scheme.deliver_commit(result, opaque);
+            }
+        }
+        
+    }
 }
 
-impl<T: MessageSenderScheme> RdProducerRunner<T> {
-    pub fn new(brokers: &str, receiver: crossbeam_channel::Receiver<(&'static str, String)>) -> Result<KafkaMessageSender> {
-        let producer = ClientConfig::new()
-            .set("bootstrap.servers", brokers)
-            .set("queue.buffering.max.ms", "1")
-            .set("enable.idempotence", "yes")
-            .create_with_context(SimpleProducerContext)?;
-        let arc = Arc::new(producer);
 
-        Ok(KafkaMessageSender {
-            producer: arc,
-            trades_list: RefCell::new(LinkedList::new()),
-            orders_list: RefCell::new(LinkedList::new()),
-            balances_list: RefCell::new(LinkedList::new()),
-            receiver,
+pub const ORDERS_TOPIC: &str = "orders";
+pub const TRADES_TOPIC: &str = "trades";
+pub const BALANCES_TOPIC: &str = "balances";
+
+use std::collections::LinkedList;
+
+#[derive(Default)]
+pub struct SimpleMessageScheme {
+    orders_list: LinkedList<String>,
+    trades_list: LinkedList<String>,
+    balances_list: LinkedList<String>,
+    last_poped: Option<(&'static str, String)>,
+}
+
+impl MessageScheme for SimpleMessageScheme {
+    type DeliverOpaque = ();
+    type K = &'static str;
+    type V = &'static str;
+
+    fn settings() -> Vec<(Self::K, Self::V)> {
+        vec![("queue.buffering.max.ms", "1")]
+    }
+    fn is_full(&self) -> bool {
+        self.trades_list.len() >= 100
+        || self.orders_list.len() >= 100
+        || self.balances_list.len() >= 100
+    }
+
+    fn on_message(&mut self, title_tip: &str, message: String) {
+        let list = match title_tip {
+            BALANCES_TOPIC => &mut self.balances_list,
+            TRADES_TOPIC => &mut self.trades_list,
+            ORDERS_TOPIC => &mut self.orders_list,
+            _ => unreachable!(),
+        };
+        
+        list.push_back(message);
+    }
+
+    fn pop_up(&mut self)-> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>> {
+        //we select the list with most size (so message stream is never ordering)
+        let mut len = self.balances_list.len();
+        let mut list = &mut self.balances_list;
+        let mut topic_name = BALANCES_TOPIC;
+
+        let mut candi_list = [&mut self.orders_list, &mut self.trades_list];
+        let iters = [ORDERS_TOPIC, TRADES_TOPIC].iter().zip(&mut candi_list);
+
+        for i in iters.into_iter() {
+            let (tp_name, l) = i;
+            if l.len() > len {
+                len = l.len();
+                list = *l;
+                topic_name = tp_name;
+            }
+        };
+
+        self.last_poped = list.pop_front().map(|str|{(topic_name, str)});
+
+        self.last_poped.as_ref().map(|poped_ret|{
+            let (topic_name, str) = poped_ret;
+            BaseRecord::to(topic_name).key("").payload(AsRef::as_ref(str))
         })
     }
 
-    pub fn run(self) {
-        let mut last_flush_time = Instant::now();
-        let flush_interval = std::time::Duration::from_millis(100);
-        let timeout_interval = std::time::Duration::from_millis(100);
-        loop {
-            if self.is_block() {
-                log::warn!("kafka sender buffer is full");
-                // skip receiving from channel, so main server can know something goes wrong
-                // sleep to avoid cpu 100% usage
-                thread::sleep(flush_interval);
-            } else {
-                match self.receiver.recv_timeout(timeout_interval) {
-                    Ok((topic, message)) => {
-                        self.on_message(topic, &message).ok();
-                    }
-                    Err(RecvTimeoutError::Timeout) => {}
-                    Err(RecvTimeoutError::Disconnected) => {
-                        log::info!("kafka producer disconnected");
-                        break;
-                    }
-                }
-            }
-            let now = Instant::now();
-            if now > last_flush_time + flush_interval {
-                self.flush();
-                last_flush_time = now;
-            }
+    fn commit(&mut self, isfailed: Option<Self::DeliverOpaque>) {
+        if isfailed.is_some() {
+            //push the poped message back
+            let (topic_name, str) = self.last_poped.take().unwrap();
+            self.on_message(topic_name, str);
         }
-        self.finish().ok();
-        log::info!("kafka sender exit");
-    }    
+
+    }
+    fn deliver_commit(&mut self, result :SimpleDeliverResult, _opaque: Self::DeliverOpaque) {
+        if let Err(e) = result {
+            log::error!("kafka send err: {}, MESSAGE LOST", e);
+        }
+    }
 }
+

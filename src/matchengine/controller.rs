@@ -4,7 +4,7 @@ use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager};
+use crate::message::{new_message_manager_with_kafka_backend, MessageManager, ChannelMessageManager};
 use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
