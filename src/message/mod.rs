@@ -116,8 +116,8 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     }
 }
 
-//pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
-pub type ChannelMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
+pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
+//pub type ChannelMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
