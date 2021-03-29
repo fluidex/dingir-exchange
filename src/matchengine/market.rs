@@ -258,6 +258,7 @@ impl DummyPersistor {
         Self { real_persist }
     }
 }
+/*
 impl PersistExector for &mut DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
@@ -265,6 +266,7 @@ impl PersistExector for &mut DummyPersistor {
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
     fn put_trade(&mut self, _trade: &Trade) {}
 }
+*/
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
         self.real_persist
@@ -954,11 +956,9 @@ mod tests {
         use crate::types::{OrderSide, OrderType};
         use rand::Rng;
         use rust_decimal::prelude::FromPrimitive;
-        use std::fs::File;
-        use std::io::Write;
 
         let only_int = true;
-        let mut persistor = MockPersistor::new();
+        let mut persistor = get_mocking_persistor();
         let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(if only_int { 0 } else { 6 }));
         let uid0 = 0;
@@ -967,7 +967,7 @@ mod tests {
             update_controller
                 .update_user_balance(
                     balance_manager,
-                    &mut persistor,
+                    persistor.persistor_for_balance(true),
                     user_id,
                     asset,
                     "deposit".to_owned(),
@@ -1016,16 +1016,15 @@ mod tests {
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
             };
-            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
+            market
+                .put_order(
+                    sequencer,
+                    balance_manager.into(),
+                    persistor.persistor_for_market(true, (market.base.clone(), market.quote.clone())),
+                    order,
+                )
+                .unwrap();
         }
-        let output_file_name = "output.txt";
-        let mut file = File::create(output_file_name).unwrap();
-        for item in persistor.messages {
-            let s = serde_json::to_string(&item).unwrap();
-            file.write_fmt(format_args!("{}\n", s)).unwrap();
-        }
-        log::info!("output done")
-        // rust file need not to be closed manually
     }
 
     #[test]
