@@ -37,6 +37,7 @@ services:
   zookeeper:
     image: zookeeper
     container_name: exchange_zookeeper
+    restart: always
     ports:
       - "2181:2181"
     volumes:

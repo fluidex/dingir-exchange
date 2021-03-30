@@ -3,8 +3,9 @@ import { orderCancelAll } from "./client.mjs";
 import { sleep, putLimitOrder, getRandomFloatAround } from "./util.mjs";
 import axios from "axios";
 async function main() {
-//    "https://api.coinstats.app/public/v1/coins?skip=0&limit=5&currency=USD";
-  const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD';
+  const url =
+    "https://api.coinstats.app/public/v1/coins?skip=0&limit=5&currency=USD";
+  //  const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD';
   let cnt = 0;
   while (true) {
     try {
@@ -13,7 +14,7 @@ async function main() {
         await orderCancelAll(userId, market);
       }
       const data = await axios.get(url);
-      const price = data.data.USD;
+      const price = data.data.coins.find(item => item.symbol == "ETH").price;
       console.log("price", price);
       await putLimitOrder(
         ORDER_SIDE_BID,
