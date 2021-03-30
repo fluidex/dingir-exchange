@@ -1,6 +1,6 @@
 import axios from "axios";
 import { strict as assert } from "assert";
-import './config.mjs';
+import "./config.mjs";
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
@@ -16,9 +16,8 @@ async function main() {
     assert.equal(closedOrders.orders.length, 2);
   }
   console.log("active orders:");
-  const openOrders = (
-    await axios.get(`http://${server}/api/orders/ETH_USDT/3`)
-  ).data;
+  const openOrders = (await axios.get(`http://${server}/api/orders/ETH_USDT/3`))
+    .data;
   console.log(openOrders);
   if (isCI) {
     assert.equal(openOrders.orders.length, 1);
