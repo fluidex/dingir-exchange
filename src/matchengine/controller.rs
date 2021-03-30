@@ -4,7 +4,7 @@ use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager};
+use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager, UnifyMessageManager};
 use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
@@ -83,26 +83,37 @@ impl DefaultPersistor {
     }
 }
 
-trait Persistor {
-    fn service_available(&self) -> bool;
-    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector>;
-    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector>;
+pub trait IntoPersistor {
+    fn service_available(&self) -> bool {
+        true
+    }
+    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c>;
+    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c>;
 }
 
-/*
-// i failed to do this...
-impl<'a> Persistor for DefaultPersistor<'a> {
+impl IntoPersistor for DefaultPersistor {
     fn service_available(&self) -> bool {
         self.service_available()
     }
-    fn persistor_for_market(&mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'a> {
+    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
         self.is_real(real).persist_for_market(market_tag)
     }
-    fn persistor_for_balance(&mut self, real: bool) -> Box<dyn asset::PersistExector + 'a> {
+    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c> {
         self.is_real(real).persist_for_balance()
     }
 }
-*/
+
+impl IntoPersistor for UnifyMessageManager {
+    fn service_available(&self) -> bool {
+        !self.is_block()
+    }
+    fn persistor_for_market<'c>(&'c mut self, _real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
+        Box::new(market::persistor_for_message(self, market_tag))
+    }
+    fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
+        Box::new(asset::persistor_for_message(self))
+    }
+}
 
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;
