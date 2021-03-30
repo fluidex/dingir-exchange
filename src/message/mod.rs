@@ -63,7 +63,7 @@ impl<T: producer::MessageScheme + 'static> RdProducerStub<T> {
     pub fn new_and_run(brokers: &str) -> Result<Self> {
         //now the channel is just need to provide a small buffer which is
         //enough to accommodate a pluse request in some time slice of thread
-        let (sender, receiver) = crossbeam_channel::bounded(16);
+        let (sender, receiver) = crossbeam_channel::bounded(2048);
 
         let producer_context: producer::RdProducerContext<T> = Default::default();
 
@@ -99,8 +99,10 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     */
 
     fn is_block(&self) -> bool {
-        self.sender.is_full()
+        // https://github.com/Fluidex/dingir-exchange/issues/119
+        //self.sender.is_full()
         //self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
+        self.sender.len() >= (self.sender.capacity().unwrap() - 1000)
     }
     fn push_order_message(&mut self, order: &OrderMessage) {
         let message = serde_json::to_string(&order).unwrap();

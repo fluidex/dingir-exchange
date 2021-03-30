@@ -1,4 +1,4 @@
-import caller from "grpc-caller";
+import caller from "@eeston/grpc-caller";
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
   keepCase: true,
