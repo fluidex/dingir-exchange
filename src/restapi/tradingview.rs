@@ -167,11 +167,39 @@ fn sqlverf_symbol_resolve() -> impl std::any::Any {
     )
 }
 
+//notice we use the standard symbology (EXCHANGE:SYMBOL) format while consider the exchange part may
+//missed, so we return optional exchange part and the symbol part
+fn resolve_canionical_symbol(symbol : &str) -> (Option<&str>, &str) {
+
+    match symbol.find(':') {
+        Some(pos) => (Some(symbol.get(..pos).unwrap()), symbol.get((pos+1)..).unwrap()),
+        None => (None, symbol),
+    }
+}
+
+
+#[cfg(test)]
+#[test]
+fn test_symbol_resolution() {
+
+    let (ex1, sym1) = resolve_canionical_symbol("test:USDT_ETH");
+    assert_eq!(ex1.unwrap(), "test");
+    assert_eq!(sym1, "USDT_ETH");
+
+    let (ex2, sym2) = resolve_canionical_symbol("BTC_ETH");
+    assert_eq!(ex2, None);
+    assert_eq!(sym2, "BTC_ETH");    
+}
+
+
 pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<state::AppState>) -> Result<web::Json<Symbol>, RpcError> {
     let symbol = symbol_req.into_inner().symbol;
     log::debug!("resolve symbol {:?}", symbol);
 
-    let as_asset: Vec<&str> = symbol.split(&[':', '_'][..]).collect();
+    //now we simply drop the exg part
+    let (_, rsymbol) = resolve_canionical_symbol(&symbol);
+
+    let as_asset: Vec<&str> = rsymbol.split(&['-', '_'][..]).collect();
     let mut queried_market: Option<MarketDesc> = None;
     //try asset first
     if as_asset.len() == 2 {
@@ -190,7 +218,7 @@ pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<sta
     }
 
     let queried_market = if queried_market.is_none() {
-        log::debug!("query market from name {}", symbol);
+        log::debug!("query market from name {}", rsymbol);
         let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
         //TODO: would this returning correct? should we just
         //response 404?
@@ -276,7 +304,10 @@ pub async fn search_symbols(
     let symbol_query = symbol_search_req.into_inner();
     log::debug!("search symbol {:?}", symbol_query);
 
-    let as_asset: Vec<&str> = symbol_query.query.split(&[':', '_'][..]).collect();
+    //query should not contain exchange part?
+    let (_, rsymbol) = resolve_canionical_symbol(&symbol_query.query);
+
+    let as_asset: Vec<&str> = rsymbol.split(&['-', '_'][..]).collect();
     let limit_query = if symbol_query.limit == 0 {
         "".to_string()
     } else {
@@ -298,13 +329,13 @@ pub async fn search_symbols(
             .fetch_all(&app_state.db)
             .await?
     } else {
-        log::debug!("query symbol as name {}", symbol_query.query);
+        log::debug!("query symbol as name {}", rsymbol);
         let symbol_query_2 = format!(
             "select * from {} where base_asset = $1 OR quote_asset = $1 OR market_name = $1{}",
             MARKET, limit_query
         );
         sqlx::query_as(&symbol_query_2)
-            .bind(&symbol_query.query)
+            .bind(rsymbol)
             .fetch_all(&app_state.db)
             .await?
     };
