@@ -169,28 +169,24 @@ fn sqlverf_symbol_resolve() -> impl std::any::Any {
 
 //notice we use the standard symbology (EXCHANGE:SYMBOL) format while consider the exchange part may
 //missed, so we return optional exchange part and the symbol part
-fn resolve_canionical_symbol(symbol : &str) -> (Option<&str>, &str) {
-
+fn resolve_canionical_symbol(symbol: &str) -> (Option<&str>, &str) {
     match symbol.find(':') {
-        Some(pos) => (Some(symbol.get(..pos).unwrap()), symbol.get((pos+1)..).unwrap()),
+        Some(pos) => (Some(symbol.get(..pos).unwrap()), symbol.get((pos + 1)..).unwrap()),
         None => (None, symbol),
     }
 }
 
-
 #[cfg(test)]
 #[test]
 fn test_symbol_resolution() {
-
     let (ex1, sym1) = resolve_canionical_symbol("test:USDT_ETH");
     assert_eq!(ex1.unwrap(), "test");
     assert_eq!(sym1, "USDT_ETH");
 
     let (ex2, sym2) = resolve_canionical_symbol("BTC_ETH");
     assert_eq!(ex2, None);
-    assert_eq!(sym2, "BTC_ETH");    
+    assert_eq!(sym2, "BTC_ETH");
 }
-
 
 pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<state::AppState>) -> Result<web::Json<Symbol>, RpcError> {
     let symbol = symbol_req.into_inner().symbol;
@@ -334,10 +330,7 @@ pub async fn search_symbols(
             "select * from {} where base_asset = $1 OR quote_asset = $1 OR market_name = $1{}",
             MARKET, limit_query
         );
-        sqlx::query_as(&symbol_query_2)
-            .bind(rsymbol)
-            .fetch_all(&app_state.db)
-            .await?
+        sqlx::query_as(&symbol_query_2).bind(rsymbol).fetch_all(&app_state.db).await?
     };
 
     Ok(Json(ret.into_iter().map(From::from).collect()))
