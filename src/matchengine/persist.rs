@@ -241,16 +241,30 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
     Ok(())
 }
 
-const DUMPING_SET_LIMIT: usize = 10000;
+const DUMPING_SET_LIMIT: usize = 100000;
 
-async fn dump_records<Q, T>(iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
+fn collect_n<T: std::iter::Iterator>(iter: &mut T, n: usize, mut record: Vec<T::Item>) -> Vec<T::Item> {
+    if record.len() >= n {
+        return record;
+    }
+
+    for i in iter {
+        record.push(i);
+        if record.len() >= n {
+            return record;
+        }
+    }
+
+    record
+}
+
+async fn dump_records<Q, T>(mut iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
 where
     Q: Clone + TableSchemas,
     Q: for<'r> SqlxAction<'r, InsertTable, DbType>,
     T: std::iter::Iterator<Item = Q>,
 {
-    let mut records: Vec<Q> = iter.collect();
-    records.truncate(n);
+    let mut records: Vec<Q> = collect_n(&mut iter, n, Vec::new());
     let mut inserted_count: usize = 0;
     while !records.is_empty() {
         inserted_count += records.len();
@@ -266,9 +280,9 @@ where
                 //for each error we wait 1s
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                resident
+                collect_n(&mut iter, n, resident)
             }
-            Ok(_) => Vec::new(),
+            Ok(_) => collect_n(&mut iter, n, Vec::new()),
         };
     }
     Ok(inserted_count)
