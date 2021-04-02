@@ -241,15 +241,14 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
     Ok(())
 }
 
-const DUMPING_SET_LIMIT : usize = 10000;
+const DUMPING_SET_LIMIT: usize = 10000;
 
-fn collect_n<T: std::iter::Iterator>(iter: &mut T, n : usize, mut record : Vec<T::Item>) -> Vec<T::Item> {
-
+fn collect_n<T: std::iter::Iterator>(iter: &mut T, n: usize, mut record: Vec<T::Item>) -> Vec<T::Item> {
     if record.len() >= n {
         return record;
     }
 
-    while let Some(i) = iter.next() {
+    for i in iter {
         record.push(i);
         if record.len() >= n {
             return record;
@@ -259,37 +258,38 @@ fn collect_n<T: std::iter::Iterator>(iter: &mut T, n : usize, mut record : Vec<T
     record
 }
 
-async fn dump_records<Q, T>(mut iter: T, n : usize, conn: &mut ConnectionType)  -> anyhow::Result<usize> 
-where 
+async fn dump_records<Q, T>(mut iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
+where
     Q: Clone + TableSchemas,
     Q: for<'r> SqlxAction<'r, InsertTable, DbType>,
     T: std::iter::Iterator<Item = Q>,
 {
-    let mut records : Vec<Q> = collect_n(&mut iter, n, Vec::new());
-    let mut inserted_count : usize = 0;
-    while records.len() > 0 {
-
+    let mut records: Vec<Q> = collect_n(&mut iter, n, Vec::new());
+    let mut inserted_count: usize = 0;
+    while !records.is_empty() {
         inserted_count += records.len();
         records = match InsertTableBatch::sql_query_fine(records.as_slice(), &mut *conn).await {
             Err((resident, e)) => {
-                log::error!("dump balance encounter error {}, {} record left, wouldwait and retry",
-                    e, resident.len());
+                log::error!(
+                    "dump balance encounter error {}, {} record left, wouldwait and retry",
+                    e,
+                    resident.len()
+                );
                 //substract failed part
                 inserted_count -= resident.len();
                 //for each error we wait 1s
-                
+
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                resident              
+                resident
             }
-            Ok(_) => Vec::new()
+            Ok(_) => Vec::new(),
         };
     }
     Ok(inserted_count)
 }
 
 pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_manager: &BalanceManager) -> SimpleResult {
-
-    let records_iter = balance_manager.balances.iter().map(|item|{
+    let records_iter = balance_manager.balances.iter().map(|item| {
         let (k, v) = item;
         BalanceSliceInsert {
             slice_id,
@@ -307,10 +307,11 @@ pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_mana
 }
 
 pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
-
-    let records_iter = controller.markets.values()
+    let records_iter = controller
+        .markets
+        .values()
         .flat_map(|market| market.orders.values())
-        .map(|order_rc|{
+        .map(|order_rc| {
             let order = order_rc.borrow();
             OrderSlice {
                 id: order.id as i64,
@@ -438,7 +439,11 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     let timing = Instant::now();
     dump_to_db(&mut conn, slice_id, controller).await?;
     clear_slice(&mut conn, slice_id).await?;
-    log::info!("make slice done, slice_id {}, use {} secs", slice_id, timing.elapsed().as_secs_f32());
+    log::info!(
+        "make slice done, slice_id {}, use {} secs",
+        slice_id,
+        timing.elapsed().as_secs_f32()
+    );
 
     Ok(())
 }
