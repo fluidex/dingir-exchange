@@ -243,7 +243,7 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
 
 const DUMPING_SET_LIMIT: usize = 10000;
 
-async fn dump_records<Q, T>(mut iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
+async fn dump_records<Q, T>(iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
 where
     Q: Clone + TableSchemas,
     Q: for<'r> SqlxAction<'r, InsertTable, DbType>,
