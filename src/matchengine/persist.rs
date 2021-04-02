@@ -15,9 +15,10 @@ use sqlx::Connection;
 
 use crate::market::Order;
 use std::convert::TryFrom;
+use std::time::{Duration, Instant};
 
 use crate::types;
-use types::ConnectionType;
+use types::{ConnectionType, DbType};
 
 //migration
 pub static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
@@ -240,44 +241,65 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
     Ok(())
 }
 
+const DUMPING_SET_LIMIT: usize = 10000;
+
+async fn dump_records<Q, T>(iter: T, n: usize, conn: &mut ConnectionType) -> anyhow::Result<usize>
+where
+    Q: Clone + TableSchemas,
+    Q: for<'r> SqlxAction<'r, InsertTable, DbType>,
+    T: std::iter::Iterator<Item = Q>,
+{
+    let mut records: Vec<Q> = iter.collect();
+    records.truncate(n);
+    let mut inserted_count: usize = 0;
+    while !records.is_empty() {
+        inserted_count += records.len();
+        records = match InsertTableBatch::sql_query_fine(records.as_slice(), &mut *conn).await {
+            Err((resident, e)) => {
+                log::error!(
+                    "dump balance encounter error {}, {} record left, wouldwait and retry",
+                    e,
+                    resident.len()
+                );
+                //substract failed part
+                inserted_count -= resident.len();
+                //for each error we wait 1s
+
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                resident
+            }
+            Ok(_) => Vec::new(),
+        };
+    }
+    Ok(inserted_count)
+}
+
 pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_manager: &BalanceManager) -> SimpleResult {
-    let mut records = Vec::new();
-    let mut insert_count: usize = 0;
-    for (k, v) in &balance_manager.balances {
-        let record = BalanceSliceInsert {
+    let records_iter = balance_manager.balances.iter().map(|item| {
+        let (k, v) = item;
+        BalanceSliceInsert {
             slice_id,
             user_id: k.user_id as i32,
             asset: k.asset.clone(),
             t: k.balance_type as i16,
             balance: *v,
-        };
-        //TODO: imply batch insert
-        record.sql_query(&mut *conn).await?;
-        insert_count += 1;
-        records.push(record);
-        if records.len() as i64 >= database::INSERT_LIMIT {
-            //diesel::insert_into(schema::balance_slice::table).values(&records).execute(conn)?;
-            records.clear();
         }
-    }
-    /*
-    if !records.is_empty() {
-        insert_count += records.len();
-        diesel::insert_into(schema::balance_slice::table).values(&records).execute(conn)?;
-    }
-    */
+    });
 
+    let insert_count = dump_records(records_iter, DUMPING_SET_LIMIT, conn).await?;
     log::debug!("persist {} balances done", insert_count);
+
     Ok(())
 }
 
 pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &Controller) -> SimpleResult {
-    let mut count: usize = 0;
-    let mut records = Vec::new();
-    for market in controller.markets.values() {
-        for order_rc in market.orders.values() {
+    let records_iter = controller
+        .markets
+        .values()
+        .flat_map(|market| market.orders.values())
+        .map(|order_rc| {
             let order = order_rc.borrow();
-            let record = OrderSlice {
+            OrderSlice {
                 id: order.id as i64,
                 slice_id,
                 order_type: order.type_,
@@ -295,26 +317,11 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 finished_base: order.finished_base,
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
-            };
-            log::debug!("inserting order {:?}", record);
-            record.sql_query(&mut *conn).await?;
-            count += 1;
-            records.push(record);
-            if records.len() as i64 >= database::INSERT_LIMIT {
-                //count += records.len();
-                //diesel::insert_into(schema::order_slice::table).values(&records).execute(conn)?;
-                records.clear();
             }
-        }
-    }
+        });
 
-    //    if !records.is_empty() {
-    //        count += records.len();
-    //        diesel::insert_into(schema::order_slice::table).values(&records).execute(conn)?;
-    //    }
-
-    log::debug!("persist {} orders done", count);
-
+    let insert_count = dump_records(records_iter, DUMPING_SET_LIMIT, conn).await?;
+    log::debug!("persist {} orders done", insert_count);
     Ok(())
 }
 
@@ -415,9 +422,14 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     let url = &controller.settings.db_log;
     let mut conn = ConnectionType::connect(url).await?;
     let slice_id = utils::current_timestamp() as i64;
+    let timing = Instant::now();
     dump_to_db(&mut conn, slice_id, controller).await?;
     clear_slice(&mut conn, slice_id).await?;
-    log::info!("make slice done, slice_id {}", slice_id);
+    log::info!(
+        "make slice done, slice_id {}, use {} secs",
+        slice_id,
+        timing.elapsed().as_secs_f32()
+    );
 
     Ok(())
 }
