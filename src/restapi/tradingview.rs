@@ -343,12 +343,12 @@ use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct TickerItem {
-    first: Decimal,
-    last: Decimal,
-    max: Decimal,
-    min: Decimal,
-    sum: Decimal,
-    quote_sum: Decimal,
+    first: Option<Decimal>,
+    last: Option<Decimal>,
+    max: Option<Decimal>,
+    min: Option<Decimal>,
+    sum: Option<Decimal>,
+    quote_sum: Option<Decimal>,
 }
 
 #[derive(Deserialize)]
@@ -356,7 +356,8 @@ pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 
 #[cfg(sqlxverf)]
 fn sqlverf_ticker() -> impl std::any::Any {
-    sqlx::query!(
+    sqlx::query_as!(
+        TickerItem,
         "select first(price, time), last(price, time), max(price), min(price), 
         sum(amount), sum(quote_amount) as quote_sum from market_trade where market = $1 and time > $2",
         "USDT_ETH",
@@ -422,15 +423,21 @@ pub async fn ticker(
 
     let ret = TickerResult {
         market: market_name.clone(),
-        change: (ticker_ret.last - ticker_ret.first)
-            .checked_div(ticker_ret.last)
-            .and_then(|x| x.to_f32())
-            .unwrap_or(9999.9),
-        last: ticker_ret.last.to_f32().unwrap_or(0.0),
-        high: ticker_ret.max.to_f32().unwrap_or(0.0),
-        low: ticker_ret.min.to_f32().unwrap_or(0.0),
-        volume: ticker_ret.sum.to_f32().unwrap_or(0.0),
-        quote_volume: ticker_ret.quote_sum.to_f32().unwrap_or(0.0),
+        change: match ticker_ret.last {
+            Some(lst) => ticker_ret
+                .first
+                .and_then(|fst| lst.checked_sub(fst))
+                .and_then(|r1| r1.checked_div(lst))
+                .as_ref()
+                .and_then(Decimal::to_f32)
+                .unwrap_or(9999.9),
+            None => 0.0,
+        },
+        last: ticker_ret.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0),
+        high: ticker_ret.max.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0),
+        low: ticker_ret.min.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0),
+        volume: ticker_ret.sum.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0),
+        quote_volume: ticker_ret.quote_sum.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0),
         from: from_ts.timestamp() as u64,
         to: now_ts.timestamp() as u64,
     };
@@ -442,12 +449,12 @@ pub async fn ticker(
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 struct KlineItem {
-    ts: NaiveDateTime,
-    first: Decimal,
-    last: Decimal,
-    max: Decimal,
-    min: Decimal,
-    sum: Decimal,
+    ts: Option<NaiveDateTime>,
+    first: Option<Decimal>,
+    last: Option<Decimal>,
+    max: Option<Decimal>,
+    min: Option<Decimal>,
+    sum: Option<Decimal>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -485,6 +492,24 @@ impl actix_web::error::ResponseError for TradeViewError {
     }
 }
 
+#[cfg(sqlxverf)]
+use std::convert::TryFrom;
+
+#[cfg(sqlxverf)]
+fn sqlverf_history() -> impl std::any::Any {
+    sqlx::query_as!(
+        KlineItem,
+        "select time_bucket($1, time) as ts, first(price, time), 
+    last(price, time), max(price), min(price), sum(amount) from market_trade
+    where market = $2 and time > $3 and time < $4
+    group by ts order by ts asc",
+        sqlx::postgres::types::PgInterval::try_from(std::time::Duration::new(3600, 0)).unwrap(),
+        "ETH_USDT",
+        NaiveDateTime::from_timestamp(100_000_000, 0),
+        NaiveDateTime::from_timestamp(100_000_000, 0),
+    )
+}
+
 pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) -> Result<Json<KlineResult>, TradeViewError> {
     let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
     let req = req.into_inner();
@@ -518,12 +543,12 @@ pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) 
     let mut out_v: Vec<f32> = Vec::new();
 
     while let Some(item) = query_rows.try_next().await? {
-        out_t.push(item.ts.timestamp() as i32);
-        out_c.push(item.last.to_f32().unwrap_or(0.0));
-        out_o.push(item.first.to_f32().unwrap_or(0.0));
-        out_h.push(item.max.to_f32().unwrap_or(0.0));
-        out_l.push(item.min.to_f32().unwrap_or(0.0));
-        out_v.push(item.sum.to_f32().unwrap_or(0.0));
+        out_t.push(item.ts.as_ref().map(NaiveDateTime::timestamp).unwrap_or(0) as i32);
+        out_c.push(item.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
+        out_o.push(item.first.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
+        out_h.push(item.max.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
+        out_l.push(item.min.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
+        out_v.push(item.sum.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
     }
 
     log::debug!("Query {} results", out_t.len());
