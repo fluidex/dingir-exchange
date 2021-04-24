@@ -1,61 +1,64 @@
 [package]
 name = "dingir-exchange"
 version = "0.1.0"
-authors = ["lispczz <mycinbrin@gmail.com>"]
+authors = [ "lispczz <mycinbrin@gmail.com>" ]
 edition = "2018"
 
 [dependencies]
-log = "0.4.14"
-env_logger = "0.8.3"
-config_rs = { package = "config", version = "0.10.1" }
-serde = { version = "1.0.124", features = ["derive"] }
-serde_json = "1.0.64"
-prost = "0.7.0"
-prost-types = "0.7.0"
+actix-rt = "2.1.0"
+actix-web = "4.0.0-beta.4"
+anyhow = "1.0.38"
 bytes = "1.0.1"
 
-futures-core = { version = "0.3.13", default-features = false }
+chrono = { version = "0.4.19", features = [ "serde" ] }
+config_rs = { package = "config", version = "0.10.1" }
+crossbeam-channel = "0.5.0"
+dotenv = "0.15.0"
+env_logger = "0.8.3"
+futures = "0.3.13"
 futures-channel = "0.3.13"
+futures-core = { version = "0.3.13", default-features = false }
 futures-util = { version = "0.3.13", default-features = false }
 
-tokio = { version = "1.3.0", features = ["full"] }
-thread-id = "3.3.0"
-futures = "0.3.13"
-hyper = "0.14.4"
-crossbeam-channel = "0.5.0"
-rdkafka = { version = "0.25.0", features = ["cmake-build"] }
-nix = "0.20.0"
-anyhow = "1.0.38"
-sqlx = { version = "0.5.1", features = ["runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ] }
-chrono = { version = "0.4.19", features = ["serde"] }
-rust_decimal = { version = "1.10.3", features = ["postgres", "bytes", "byteorder"] }
-rust_decimal_macros = "1.10.3"
 humantime-serde = "1.0.1"
 
-ttl_cache = "0.5.1"
+hyper = "0.14.4"
 itertools = "0.10.0"
-dotenv = "0.15.0"
+log = "0.4.14"
+nix = "0.20.0"
 num_enum = "0.5.1"
-tonic = "0.4.0"
-actix-web = "4.0.0-beta.4"
-actix-rt = "2.1.0"
+prost = "0.7.0"
+prost-types = "0.7.0"
 qstring = "0.7.2"
-thiserror = "1.0.24"
 rand = "0.8.3"
+
+rdkafka = { version = "0.25.0", features = [ "cmake-build" ] }
+rust_decimal = { version = "1.10.3", features = [ "postgres", "bytes", "byteorder" ] }
+rust_decimal_macros = "1.10.3"
+serde = { version = "1.0.124", features = [ "derive" ] }
+serde_json = "1.0.64"
+sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ] }
+thiserror = "1.0.24"
+thread-id = "3.3.0"
+tokio = { version = "1.3.0", features = [ "full" ] }
+tonic = "0.4.0"
+ttl_cache = "0.5.1"
 
 [build-dependencies]
 prost = "0.7.0"
 tonic-build = "0.4.0"
+
 [[bin]]
 name = "restapi"
 path = "src/bin/restapi.rs"
+
 [[bin]]
 name = "matchengine"
 path = "src/bin/matchengine.rs"
 
 [features]
-windows_build = ["rdkafka/dynamic_linking"]
-emit_state_diff = []
-default = []
+windows_build = [ "rdkafka/dynamic_linking" ]
+emit_state_diff = [ ]
+default = [ ]
 #default = ["windows_build"]
 #default = ["windows_build", "emit_state_diff"]
