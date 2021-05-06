@@ -3,4 +3,5 @@
 CREATE TYPE order_status AS ENUM('active','filled','cancelled', 'expired');
 
 -- Set existed order as filled
+-- TODO: improve this
 ALTER TABLE order_history ADD status order_status NOT NULL DEFAULT 'filled';
