@@ -19,8 +19,8 @@ CREATE INDEX asset_idx_token_address ON asset (token_address);
 CREATE TABLE market (
     id SERIAL PRIMARY KEY,
     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-    base_asset VARCHAR(30) NOT NULL REFERENCES asset(symbol) ON DELETE RESTRICT, # TODO: USE address
-    quote_asset VARCHAR(30) NOT NULL REFERENCES asset(symbol) ON DELETE RESTRICT, # TODO: USE address
+    base_asset VARCHAR(30) NOT NULL REFERENCES asset(symbol) ON DELETE RESTRICT, -- TODO: USE address
+    quote_asset VARCHAR(30) NOT NULL REFERENCES asset(symbol) ON DELETE RESTRICT, -- TODO: USE address
     precision_base SMALLINT CHECK (precision_base >= 0) NOT NULL,
     precision_quote SMALLINT CHECK (precision_quote >= 0) NOT NULL,
     precision_fee SMALLINT CHECK (precision_fee >= 0) NOT NULL,
