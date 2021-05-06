@@ -8,14 +8,17 @@ CREATE TABLE asset (
     precision_show SMALLINT CHECK (precision_show >= 0) NOT NULL,
     logoURI VARCHAR(256),
     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (token_adress)
+    PRIMARY KEY (chainId, token_adress)
 );
+
+CREATE INDEX asset_idx_symbol ON asset (symbol);
+CREATE INDEX asset_idx_token_address ON asset (token_address);
 
 CREATE TABLE market (
     id SERIAL PRIMARY KEY,
     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-    base_asset VARCHAR(30) NOT NULL REFERENCES asset(asset_name) ON DELETE RESTRICT,
-    quote_asset VARCHAR(30) NOT NULL REFERENCES asset(asset_name) ON DELETE RESTRICT,
+    base_asset VARCHAR(30) NOT NULL REFERENCES asset(asset_name) ON DELETE RESTRICT, # TODO: USE address
+    quote_asset VARCHAR(30) NOT NULL REFERENCES asset(asset_name) ON DELETE RESTRICT, # TODO: USE address
     precision_base SMALLINT CHECK (precision_base >= 0) NOT NULL,
     precision_quote SMALLINT CHECK (precision_quote >= 0) NOT NULL,
     precision_fee SMALLINT CHECK (precision_fee >= 0) NOT NULL,
