@@ -1,9 +1,9 @@
 -- Add migration script here
 CREATE TABLE asset (
-    symbol VARCHAR(30),
-    name VARCHAR(30),
+    symbol VARCHAR(30) NOT NULL,
+    name VARCHAR(30) NOT NULL,
     chainId SMALLINT DEFAULT 1,
-    token_address VARCHAR(64),
+    token_address VARCHAR(64) NOT NULL,
     is_commonly_quoted BOOLEAN DEFAULT false,
     precision_stor SMALLINT CHECK (precision_stor >= 0) NOT NULL,
     precision_show SMALLINT CHECK (precision_show >= 0) NOT NULL,
