@@ -4,6 +4,7 @@ CREATE TABLE asset (
     name VARCHAR(30),
     chainId SMALLINT DEFAULT 1,
     token_address VARCHAR(64),
+    is_commonly_quoted BOOLEAN DEFAULT false,
     precision_stor SMALLINT CHECK (precision_stor >= 0) NOT NULL,
     precision_show SMALLINT CHECK (precision_show >= 0) NOT NULL,
     logoURI VARCHAR(256),
