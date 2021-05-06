@@ -9,7 +9,7 @@ CREATE TABLE asset (
     precision_show SMALLINT CHECK (precision_show >= 0) NOT NULL,
     logo_uri VARCHAR(256) NOT NULL DEFAULT '',
     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (chainId, token_address)
+    PRIMARY KEY (chain_id, token_address)
 );
 
 CREATE INDEX asset_idx_symbol ON asset (symbol);
