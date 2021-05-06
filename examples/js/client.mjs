@@ -15,6 +15,7 @@ export async function balanceQuery(user_id) {
   const balances = (await client.BalanceQuery({ user_id: user_id })).balances;
   let result = {};
   for (const entry of balances) {
+    // TODO: rename asset_name?
     result[entry.asset_name] = entry;
   }
   return result;
