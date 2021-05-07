@@ -3,4 +3,6 @@
 .idea
 /bak
 *.swp
-output.txt # unifymessenger output
+
+# unifymessenger output
+output.txt
