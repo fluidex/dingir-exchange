@@ -39,6 +39,7 @@ pub struct MarketConfigs {
     market_load_time: TimestampDbType,
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadasset_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -55,6 +56,7 @@ impl Default for MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -82,6 +84,7 @@ impl MarketConfigs {
         self.market_load_time = TimestampDbType::from_timestamp(0, 0);
     }
 
+    // TODO: !!!!!!!!!!!!!
     //this load market config from database, instead of loading them from the config
     //file
     pub async fn load_asset_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Asset>>
