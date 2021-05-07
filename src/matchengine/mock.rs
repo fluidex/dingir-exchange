@@ -13,11 +13,11 @@ pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
         base: config::MarketUnit {
-            name: MockAsset::ETH.symbol(),
+            symbol: MockAsset::ETH.symbol(),
             prec: 4,
         }, // amount: xx.xxxx
         quote: config::MarketUnit {
-            name: MockAsset::USDT.symbol(),
+            symbol: MockAsset::USDT.symbol(),
             prec: 2,
         }, // price xx.xx
         fee_prec: 2,
@@ -29,11 +29,11 @@ pub fn get_integer_prec_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
         base: config::MarketUnit {
-            name: MockAsset::ETH.symbol(),
+            symbol: MockAsset::ETH.symbol(),
             prec: 0,
         },
         quote: config::MarketUnit {
-            name: MockAsset::USDT.symbol(),
+            symbol: MockAsset::USDT.symbol(),
             prec: 0,
         },
         fee_prec: 0,

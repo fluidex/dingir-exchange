@@ -22,11 +22,11 @@ impl From<MarketDesc> for config::Market {
 
         config::Market {
             base: config::MarketUnit {
-                name: origin.base_asset,
+                symbol: origin.base_asset,
                 prec: origin.precision_base as u32,
             },
             quote: config::MarketUnit {
-                name: origin.quote_asset,
+                symbol: origin.quote_asset,
                 prec: origin.precision_quote as u32,
             },
             fee_prec: origin.precision_fee as u32,
