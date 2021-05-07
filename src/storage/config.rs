@@ -84,7 +84,7 @@ impl MarketConfigs {
         self.market_load_time = TimestampDbType::from_timestamp(0, 0);
     }
 
-    // TODO: !!!!!!!!!!!!!
+
     //this load market config from database, instead of loading them from the config
     //file
     pub async fn load_asset_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Asset>>
@@ -92,8 +92,8 @@ impl MarketConfigs {
         T: sqlx::Executor<'e, Database = DbType> + Send,
     {
         let query = format!(
-            "select asset_name, precision_stor, 
-        precision_show, create_time from {} where create_time > $1",
+            "select symbol, name, chain_id, token_address, is_commonly_quoted,
+            precision_stor, precision_show, logo_uri, create_time from {} where create_time > $1",
             tablenames::ASSET
         );
 
@@ -139,6 +139,7 @@ impl MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     let asset = config::Asset {
@@ -156,6 +157,7 @@ fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     )
 }
 
+// TODO: fix this
 pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset, force: bool) -> Result<()>
 where
     T: sqlx::Executor<'e, Database = DbType>,
@@ -183,6 +185,7 @@ where
     Ok(())
 }
 
+// TODO: fix this
 pub async fn persist_market_to_db<'c, 'e, T>(db_conn: T, market: &config::Market) -> Result<()>
 where
     T: sqlx::Executor<'e, Database = DbType>,
