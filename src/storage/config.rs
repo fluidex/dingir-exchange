@@ -43,6 +43,7 @@ pub struct MarketConfigs {
     market_load_time: TimestampDbType,
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadasset_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -59,6 +60,7 @@ impl Default for MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -140,6 +142,7 @@ impl MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     let asset = config::Asset {
@@ -163,18 +166,19 @@ where
 {
     let query_template = if force {
         format!(
-            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
+            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) 
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
+            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
             tablenames::ASSET
         )
     };
 
     sqlx::query(&query_template)
+        .bind(&asset.symbol)
         .bind(&asset.name)
         .bind(asset.prec_save as i16)
         .bind(asset.prec_show as i16)
