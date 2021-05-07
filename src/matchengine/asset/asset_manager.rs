@@ -20,7 +20,7 @@ impl AssetManager {
         let mut assets = HashMap::new();
         for item in asset_config.iter() {
             assets.insert(
-                item.name.clone(),
+                item.token_address.clone(),
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
@@ -34,30 +34,30 @@ impl AssetManager {
         //log::info()
         for item in asset_config.iter() {
             let ret = self.assets.insert(
-                item.name.clone(),
+                item.token_address.clone(),
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
                 },
             );
             if ret.is_some() {
-                log::info!("Update asset {}", item.name);
+                log::info!("Update asset {}({})", item.symbol, item.token_address);
             } else {
-                log::info!("Append new asset {}", item.name);
+                log::info!("Append new asset {}({})", item.symbol, item.token_address);
             }
         }
     }
 
-    pub fn asset_exist(&self, name: &str) -> bool {
-        self.assets.contains_key(name)
+    pub fn asset_exist(&self, token_address: &str) -> bool {
+        self.assets.contains_key(token_address)
     }
-    pub fn asset_get(&self, name: &str) -> Option<&AssetInfo> {
-        self.assets.get(name)
+    pub fn asset_get(&self, token_address: &str) -> Option<&AssetInfo> {
+        self.assets.get(token_address)
     }
-    pub fn asset_prec(&self, name: &str) -> u32 {
-        self.asset_get(name).unwrap().prec_save
+    pub fn asset_prec(&self, token_address: &str) -> u32 {
+        self.asset_get(token_address).unwrap().prec_save
     }
-    pub fn asset_prec_show(&self, name: &str) -> u32 {
-        self.asset_get(name).unwrap().prec_show
+    pub fn asset_prec_show(&self, token_address: &str) -> u32 {
+        self.asset_get(token_address).unwrap().prec_show
     }
 }
