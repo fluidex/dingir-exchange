@@ -2,6 +2,7 @@ use super::models::{tablenames, AssetDesc, DbType, MarketDesc, TimestampDbType};
 use crate::config;
 use anyhow::Result;
 
+// TODO: seems we can work on the conversion here
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
         config::Asset {

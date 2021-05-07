@@ -66,20 +66,20 @@ enum MockAsset {
 impl MockAsset {
     fn symbol(self) -> String {
         match self {
-            ETH => String::from("ETH"),
-            USDT => String::from("USDT"),
+            MockAsset::ETH => String::from("ETH"),
+            MockAsset::USDT => String::from("USDT"),
         }
     }
     fn name(self) -> String {
         match self {
-            ETH => String::from("Ether"),
-            USDT => String::from("Tether USD"),
+            MockAsset::ETH => String::from("Ether"),
+            MockAsset::USDT => String::from("Tether USD"),
         }
     }
     fn token_address(self) -> String {
         match self {
-            ETH => String::from("0x0000000000000000000000000000000000000000"),
-            USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+            MockAsset::ETH => String::from("0x0000000000000000000000000000000000000000"),
+            MockAsset::USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
         }
     }
 }
