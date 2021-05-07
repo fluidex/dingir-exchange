@@ -2,6 +2,7 @@
 CREATE TABLE asset (
     symbol VARCHAR(30) NOT NULL DEFAULT '',
     name VARCHAR(30) NOT NULL DEFAULT '',
+    chain_id SMALLINT CHECK (chain_id >= 0) NOT NULL DEFAULT 1,
     token_address VARCHAR(64) NOT NULL PRIMARY KEY,
     is_commonly_quoted BOOLEAN DEFAULT false,
     precision_stor SMALLINT CHECK (precision_stor >= 0) NOT NULL,
