@@ -1089,17 +1089,41 @@ mod tests {
         assert_eq!(ask_order.finished_fee, dec!(0.001));
 
         // original balance: btc 300, eth 1000
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.token_address()), dec!(980));
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::ETH.token_address()), dec!(10));
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.token_address()),
+            dec!(980)
+        );
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::ETH.token_address()),
+            dec!(10)
+        );
 
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.token_address()), dec!(300.999));
-        assert_eq!(balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::USDT.token_address()), dec!(0));
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.token_address()),
+            dec!(300.999)
+        );
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::USDT.token_address()),
+            dec!(0)
+        );
 
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.token_address()), dec!(1009.99));
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::ETH.token_address()), dec!(0));
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.token_address()),
+            dec!(1009.99)
+        );
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::ETH.token_address()),
+            dec!(0)
+        );
 
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.token_address()), dec!(299));
-        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::USDT.token_address()), dec!(0));
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.token_address()),
+            dec!(299)
+        );
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::USDT.token_address()),
+            dec!(0)
+        );
 
         //assert_eq!(persistor.orders.len(), 3);
         //assert_eq!(persistor.trades.len(), 1);
