@@ -243,15 +243,13 @@ impl Controller {
         let balance_manager = &self.balance_manager;
         let balances = query_assets
             .into_iter()
-            .map(|asset_name| {
+            .map(|asset_id| {
                 let available = balance_manager
-                    .get_with_round(user_id, BalanceType::AVAILABLE, &asset_name)
+                    .get_with_round(user_id, BalanceType::AVAILABLE, &asset_id)
                     .to_string();
-                let frozen = balance_manager
-                    .get_with_round(user_id, BalanceType::FREEZE, &asset_name)
-                    .to_string();
+                let frozen = balance_manager.get_with_round(user_id, BalanceType::FREEZE, &asset_id).to_string();
                 balance_query_response::AssetBalance {
-                    asset_name,
+                    asset_id,
                     available,
                     frozen,
                 }

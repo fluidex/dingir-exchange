@@ -76,7 +76,7 @@ message BalanceQueryRequest {
 
 message BalanceQueryResponse {
   message AssetBalance {
-    string asset_name = 1;
+    string asset_id = 1;
     string available = 2;
     string frozen = 3;
   }
