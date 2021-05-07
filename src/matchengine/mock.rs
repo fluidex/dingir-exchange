@@ -94,7 +94,7 @@ impl MockAsset {
     }
     pub fn token_address(self) -> String {
         match self {
-            MockAsset::ETH => String::from("0x0000000000000000000000000000000000000000"),
+            MockAsset::ETH => String::from(""),
             MockAsset::USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
         }
     }
