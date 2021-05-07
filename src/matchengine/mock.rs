@@ -75,6 +75,7 @@ enum MockAsset {
     ETH,
     USDT,
 }
+// TODO: const? &str?
 impl MockAsset {
     fn symbol(self) -> String {
         match self {
