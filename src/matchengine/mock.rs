@@ -41,6 +41,8 @@ pub fn get_integer_prec_market_config() -> config::Market {
         disable_self_trade: true,
     }
 }
+
+// TODO: implement and use Into for MockAsset
 pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
     vec![
         config::Asset {
