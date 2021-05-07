@@ -17,7 +17,7 @@ pub struct Asset {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MarketUnit {
-    pub name: String,
+    pub symbol: String,
     pub prec: u32,
 }
 
@@ -35,7 +35,7 @@ pub struct Market {
 impl Default for MarketUnit {
     fn default() -> Self {
         MarketUnit {
-            name: "".to_string(),
+            symbol: "".to_string(),
             prec: 0,
         }
     }

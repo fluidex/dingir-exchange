@@ -198,8 +198,8 @@ where
             values ($1, $2, $3, $4, $5, $6, $7)",
         tablenames::MARKET
     ))
-    .bind(&market.base.name)
-    .bind(&market.quote.name)
+    .bind(&market.base.symbol)
+    .bind(&market.quote.symbol)
     .bind(market.base.prec as i16)
     .bind(market.quote.prec as i16)
     .bind(market.fee_prec as i16)
