@@ -12,8 +12,14 @@ use std::io::Write;
 pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit { name: MockAsset::ETH.symbol(), prec: 4 },   // amount: xx.xxxx
-        quote: config::MarketUnit { name: MockAsset::USDT.symbol(), prec: 2 }, // price xx.xx
+        base: config::MarketUnit {
+            name: MockAsset::ETH.symbol(),
+            prec: 4,
+        }, // amount: xx.xxxx
+        quote: config::MarketUnit {
+            name: MockAsset::USDT.symbol(),
+            prec: 2,
+        }, // price xx.xx
         fee_prec: 2,
         min_amount: dec!(0.01),
         disable_self_trade: false,
@@ -22,8 +28,14 @@ pub fn get_simple_market_config() -> config::Market {
 pub fn get_integer_prec_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit { name: MockAsset::ETH.symbol(), prec: 0 },
-        quote: config::MarketUnit { name: MockAsset::USDT.symbol(), prec: 0 },
+        base: config::MarketUnit {
+            name: MockAsset::ETH.symbol(),
+            prec: 0,
+        },
+        quote: config::MarketUnit {
+            name: MockAsset::USDT.symbol(),
+            prec: 0,
+        },
         fee_prec: 0,
         min_amount: dec!(0),
         disable_self_trade: true,
