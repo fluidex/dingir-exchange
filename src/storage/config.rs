@@ -5,9 +5,13 @@ use anyhow::Result;
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
         config::Asset {
-            name: origin.asset_name,
+            symbol: origin.symbol,
+            name: origin.name,
+            chain_id: origin.chain_id,
+            token_address: origin.token_address,
             prec_show: origin.precision_show as u32,
             prec_save: origin.precision_stor as u32,
+            logo_uri: origin.logo_uri,
         }
     }
 }
@@ -18,11 +22,11 @@ impl From<MarketDesc> for config::Market {
 
         config::Market {
             base: config::MarketUnit {
-                name: origin.base_asset,
+                symbol: origin.base_asset,
                 prec: origin.precision_base as u32,
             },
             quote: config::MarketUnit {
-                name: origin.quote_asset,
+                symbol: origin.quote_asset,
                 prec: origin.precision_quote as u32,
             },
             fee_prec: origin.precision_fee as u32,
@@ -39,6 +43,7 @@ pub struct MarketConfigs {
     market_load_time: TimestampDbType,
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadasset_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -55,6 +60,7 @@ impl Default for MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -89,8 +95,8 @@ impl MarketConfigs {
         T: sqlx::Executor<'e, Database = DbType> + Send,
     {
         let query = format!(
-            "select asset_name, precision_stor, 
-        precision_show, create_time from {} where create_time > $1",
+            "select symbol, name, chain_id, token_address, precision_stor, precision_show,
+            logo_uri, create_time from {} where create_time > $1",
             tablenames::ASSET
         );
 
@@ -136,6 +142,7 @@ impl MarketConfigs {
     }
 }
 
+// TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     let asset = config::Asset {
@@ -159,18 +166,19 @@ where
 {
     let query_template = if force {
         format!(
-            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) 
+            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) 
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (asset_name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
+            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
             tablenames::ASSET
         )
     };
 
     sqlx::query(&query_template)
+        .bind(&asset.symbol)
         .bind(&asset.name)
         .bind(asset.prec_save as i16)
         .bind(asset.prec_show as i16)
@@ -190,8 +198,8 @@ where
             values ($1, $2, $3, $4, $5, $6, $7)",
         tablenames::MARKET
     ))
-    .bind(&market.base.name)
-    .bind(&market.quote.name)
+    .bind(&market.base.symbol)
+    .bind(&market.quote.symbol)
     .bind(market.base.prec as i16)
     .bind(market.quote.prec as i16)
     .bind(market.fee_prec as i16)

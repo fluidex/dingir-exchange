@@ -48,13 +48,13 @@ pub mod market {
         let trade_pair = req.into_inner();
 
         if let Some(asset) = trade_pair.asset_base.as_ref() {
-            if asset.name != trade_pair.market.base.name {
+            if asset.symbol != trade_pair.market.base.symbol {
                 return (String::from("Base asset not match"), http::StatusCode::BAD_REQUEST);
             }
         }
 
         if let Some(asset) = trade_pair.asset_quote.as_ref() {
-            if asset.name != trade_pair.market.quote.name {
+            if asset.symbol != trade_pair.market.quote.symbol {
                 return (String::from("Quote asset not match"), http::StatusCode::BAD_REQUEST);
             }
         }
@@ -74,7 +74,7 @@ pub mod market {
             trade_pair
                 .asset_quote
                 .as_ref()
-                .map(|base_asset| storage::config::persist_asset_to_db(&app_state.db, base_asset, false)),
+                .map(|quote_asset| storage::config::persist_asset_to_db(&app_state.db, quote_asset, false)),
         )
         .await
         {

@@ -215,8 +215,12 @@ impl Controller {
                 .assets
                 .iter()
                 .map(|item| asset_list_response::AssetInfo {
+                    symbol: item.symbol.clone(),
                     name: item.name.clone(),
+                    chain_id: item.chain_id as i32,
+                    token_address: item.token_address.clone(),
                     precision: item.prec_show,
+                    logo_uri: item.logo_uri.clone(),
                 })
                 .collect(),
         };
@@ -226,12 +230,12 @@ impl Controller {
         let all_asset_param_valid = req
             .assets
             .iter()
-            .all(|asset_param| self.settings.assets.iter().any(|asset| asset.name.eq(asset_param)));
+            .all(|asset_param| self.settings.assets.iter().any(|asset| asset.symbol.eq(asset_param)));
         if !all_asset_param_valid {
             return Err(Status::invalid_argument("invalid asset"));
         }
         let query_assets = if req.assets.is_empty() {
-            self.settings.assets.iter().map(|asset| asset.name.clone()).collect()
+            self.settings.assets.iter().map(|asset| asset.symbol.clone()).collect()
         } else {
             req.assets
         };

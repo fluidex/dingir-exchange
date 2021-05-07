@@ -24,9 +24,13 @@ use tablenames::*;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct AssetDesc {
-    pub asset_name: String,
+    pub symbol: String,
+    pub name: String,
+    pub chain_id: i16,
+    pub token_address: String,
     pub precision_stor: i16,
     pub precision_show: i16,
+    pub logo_uri: String,
     pub create_time: Option<TimestampDbType>,
 }
 

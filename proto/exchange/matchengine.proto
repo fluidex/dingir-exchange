@@ -100,8 +100,12 @@ message AssetListRequest {
 
 message AssetListResponse {
   message AssetInfo {
-    string name = 1;
-    uint32 precision = 2;
+    string symbol = 1;
+    string name = 2;
+    int32 chain_id = 3;
+    string token_address = 4;
+    uint32 precision = 5;
+    string logo_uri = 6;
   };
   repeated AssetInfo asset_lists = 1;
 }
