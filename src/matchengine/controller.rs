@@ -226,12 +226,12 @@ impl Controller {
         let all_asset_param_valid = req
             .assets
             .iter()
-            .all(|asset_param| self.settings.assets.iter().any(|asset| asset.name.eq(asset_param)));
+            .all(|asset_param| self.settings.assets.iter().any(|asset| asset.symbol.eq(asset_param)));
         if !all_asset_param_valid {
             return Err(Status::invalid_argument("invalid asset"));
         }
         let query_assets = if req.assets.is_empty() {
-            self.settings.assets.iter().map(|asset| asset.name.clone()).collect()
+            self.settings.assets.iter().map(|asset| asset.symbol.clone()).collect()
         } else {
             req.assets
         };
