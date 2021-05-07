@@ -74,7 +74,7 @@ pub mod market {
             trade_pair
                 .asset_quote
                 .as_ref()
-                .map(|base_asset| storage::config::persist_asset_to_db(&app_state.db, base_asset, false)),
+                .map(|quote_asset| storage::config::persist_asset_to_db(&app_state.db, quote_asset, false)),
         )
         .await
         {
