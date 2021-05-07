@@ -7,7 +7,7 @@ use std::str::FromStr;
 pub struct Asset {
     pub symbol: String,
     pub name: String,
-    pub chain_id: u32,
+    pub chain_id: i16,
     pub token_address: String,
     pub is_commonly_quoted: bool,
     pub prec_save: u32,
