@@ -373,7 +373,11 @@ impl Market {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote.symbol) || !asset_exist(&market_conf.base.symbol) {
-            return Err(anyhow!("invalid assert name {} {}", market_conf.quote.symbol, market_conf.base.symbol));
+            return Err(anyhow!(
+                "invalid assert name {} {}",
+                market_conf.quote.symbol,
+                market_conf.base.symbol
+            ));
         }
 
         if market_conf.base.prec + market_conf.quote.prec > asset_prec(&market_conf.quote.symbol)
