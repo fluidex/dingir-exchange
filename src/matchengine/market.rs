@@ -372,6 +372,7 @@ impl Market {
     pub fn new(market_conf: &config::Market, balance_manager: &BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
+        // TODO: change name to address?
         if !asset_exist(&market_conf.quote.name) || !asset_exist(&market_conf.base.name) {
             return Err(anyhow!("invalid assert name {} {}", market_conf.quote.name, market_conf.base.name));
         }
