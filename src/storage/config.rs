@@ -84,7 +84,6 @@ impl MarketConfigs {
         self.market_load_time = TimestampDbType::from_timestamp(0, 0);
     }
 
-
     //this load market config from database, instead of loading them from the config
     //file
     pub async fn load_asset_from_db<'c, 'e, T>(&'c mut self, db_conn: T) -> Result<Vec<config::Asset>>

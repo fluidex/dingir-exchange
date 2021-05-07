@@ -9,46 +9,81 @@ use rust_decimal_macros::*;
 use std::fs::File;
 use std::io::Write;
 
+// TODO: fix
 pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit { name: eth(), prec: 4 },   // amount: xx.xxxx
-        quote: config::MarketUnit { name: usdt(), prec: 2 }, // price xx.xx
+        base: config::MarketUnit { name: MockAsset::ETH.name(), prec: 4 },   // amount: xx.xxxx
+        quote: config::MarketUnit { name: MockAsset::USDT.name(), prec: 2 }, // price xx.xx
         fee_prec: 2,
         min_amount: dec!(0.01),
         disable_self_trade: false,
     }
 }
+
+// TODO: fix
 pub fn get_integer_prec_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit { name: eth(), prec: 0 },
-        quote: config::MarketUnit { name: usdt(), prec: 0 },
+        base: config::MarketUnit { name: MockAsset::ETH.name(), prec: 0 },
+        quote: config::MarketUnit { name: MockAsset::USDT.name(), prec: 0 },
         fee_prec: 0,
         min_amount: dec!(0),
         disable_self_trade: true,
     }
 }
+
 pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
     vec![
         config::Asset {
-            name: usdt(),
+            symbol: MockAsset::USDT.symbol(),
+            name: MockAsset::USDT.name(),
+            chain_id: 1,
+            token_address: MockAsset::USDT.token_address(),
+            is_commonly_quoted: true,
             prec_save: prec,
             prec_show: prec,
+            logo_uri: String::default(),
         },
         config::Asset {
-            name: eth(),
-            prec_show: prec,
+            symbol: MockAsset::ETH.symbol(),
+            name: MockAsset::ETH.name(),
+            chain_id: 1,
+            token_address: MockAsset::ETH.token_address(),
+            is_commonly_quoted: true,
             prec_save: prec,
+            prec_show: prec,
+            logo_uri: String::default(),
         },
     ]
 }
-pub fn usdt() -> String {
-    String::from("USDT")
+
+#[derive(Debug)]
+enum MockAsset {
+    ETH,
+    USDT,
 }
-pub fn eth() -> String {
-    String::from("ETH")
+impl MockAsset {
+    fn symbol(self) -> String {
+        match self {
+            ETH => String::from("ETH"),
+            USDT => String::from("USDT"),
+        }
+    }
+    fn name(self) -> String {
+        match self {
+            ETH => String::from("Ether"),
+            USDT => String::from("Tether USD"),
+        }
+    }
+    fn token_address(self) -> String {
+        match self {
+            ETH => String::from("0x0000000000000000000000000000000000000000"),
+            USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+        }
+    }
 }
+
 pub fn get_simple_asset_manager(assets: Vec<config::Asset>) -> AssetManager {
     AssetManager::new(&assets).unwrap()
 }
