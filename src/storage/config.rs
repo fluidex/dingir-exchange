@@ -6,9 +6,14 @@ use anyhow::Result;
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
         config::Asset {
-            name: origin.asset_name,
+            symbol: origin.symbol,
+            name: origin.name,
+            chain_id: origin.chain_id,
+            token_address: origin.token_address,
+            is_commonly_quoted: false, // TODO: should use this for conversion
             prec_show: origin.precision_show as u32,
             prec_save: origin.precision_stor as u32,
+            logo_uri: origin.logo_uri,
         }
     }
 }
