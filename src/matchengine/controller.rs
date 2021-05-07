@@ -215,8 +215,12 @@ impl Controller {
                 .assets
                 .iter()
                 .map(|item| asset_list_response::AssetInfo {
+                    symbol: item.symbol.clone(),
                     name: item.name.clone(),
+                    chain_id: item.chain_id as i32,
+                    token_address: item.token_address.clone(),
                     precision: item.prec_show,
+                    logo_uri: item.logo_uri.clone(),
                 })
                 .collect(),
         };
