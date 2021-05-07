@@ -1035,10 +1035,10 @@ mod tests {
     fn test_market_taker_is_bid() {
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
-        balance_manager.add(101, BalanceType::AVAILABLE, &MockAsset::USDT.symbol(), &dec!(300));
-        balance_manager.add(102, BalanceType::AVAILABLE, &MockAsset::USDT.symbol(), &dec!(300));
-        balance_manager.add(101, BalanceType::AVAILABLE, &MockAsset::ETH.symbol(), &dec!(1000));
-        balance_manager.add(102, BalanceType::AVAILABLE, &MockAsset::ETH.symbol(), &dec!(1000));
+        balance_manager.add(101, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
+        balance_manager.add(102, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
+        balance_manager.add(101, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
+        balance_manager.add(102, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
 
         let sequencer = &mut Sequencer::default();
         let mut persistor = MockPersistor::new();
@@ -1091,38 +1091,35 @@ mod tests {
 
         // original balance: btc 300, eth 1000
         assert_eq!(
-            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.symbol()),
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.id()),
             dec!(980)
         );
         assert_eq!(
-            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::ETH.symbol()),
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::ETH.id()),
             dec!(10)
         );
 
         assert_eq!(
-            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.symbol()),
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.id()),
             dec!(300.999)
         );
         assert_eq!(
-            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::USDT.symbol()),
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::USDT.id()),
             dec!(0)
         );
 
         assert_eq!(
-            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.symbol()),
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.id()),
             dec!(1009.99)
         );
-        assert_eq!(
-            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::ETH.symbol()),
-            dec!(0)
-        );
+        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::ETH.id()), dec!(0));
 
         assert_eq!(
-            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.symbol()),
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.id()),
             dec!(299)
         );
         assert_eq!(
-            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::USDT.symbol()),
+            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::USDT.id()),
             dec!(0)
         );
 
