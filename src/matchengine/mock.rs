@@ -14,11 +14,11 @@ pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
         base: config::MarketUnit {
-            name: MockAsset::ETH.name(),
+            name: MockAsset::ETH.token_address(),
             prec: 4,
         }, // amount: xx.xxxx
         quote: config::MarketUnit {
-            name: MockAsset::USDT.name(),
+            name: MockAsset::USDT.token_address(),
             prec: 2,
         }, // price xx.xx
         fee_prec: 2,
