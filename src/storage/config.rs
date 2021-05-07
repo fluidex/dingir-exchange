@@ -5,6 +5,7 @@ use anyhow::Result;
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
         config::Asset {
+            id: origin.id,
             symbol: origin.symbol,
             name: origin.name,
             chain_id: origin.chain_id,
@@ -22,11 +23,11 @@ impl From<MarketDesc> for config::Market {
 
         config::Market {
             base: config::MarketUnit {
-                symbol: origin.base_asset,
+                asset_id: origin.base_asset,
                 prec: origin.precision_base as u32,
             },
             quote: config::MarketUnit {
-                symbol: origin.quote_asset,
+                asset_id: origin.quote_asset,
                 prec: origin.precision_quote as u32,
             },
             fee_prec: origin.precision_fee as u32,
@@ -95,7 +96,7 @@ impl MarketConfigs {
         T: sqlx::Executor<'e, Database = DbType> + Send,
     {
         let query = format!(
-            "select symbol, name, chain_id, token_address, precision_stor, precision_show,
+            "select id, symbol, name, chain_id, token_address, precision_stor, precision_show,
             logo_uri, create_time from {} where create_time > $1",
             tablenames::ASSET
         );
@@ -166,18 +167,19 @@ where
 {
     let query_template = if force {
         format!(
-            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) 
+            "insert into {} (id, symbol, name, precision_stor, precision_show) values ($1, $2, $3, $4, $5) 
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (symbol, name, precision_stor, precision_show) values ($1, $2, $3) on conflict do nothing",
+            "insert into {} (id, symbol, name, precision_stor, precision_show) values ($1, $2, $3, $4, $5) on conflict do nothing",
             tablenames::ASSET
         )
     };
 
     sqlx::query(&query_template)
+        .bind(&asset.id)
         .bind(&asset.symbol)
         .bind(&asset.name)
         .bind(asset.prec_save as i16)
@@ -198,8 +200,8 @@ where
             values ($1, $2, $3, $4, $5, $6, $7)",
         tablenames::MARKET
     ))
-    .bind(&market.base.symbol)
-    .bind(&market.quote.symbol)
+    .bind(&market.base.asset_id)
+    .bind(&market.quote.asset_id)
     .bind(market.base.prec as i16)
     .bind(market.quote.prec as i16)
     .bind(market.fee_prec as i16)

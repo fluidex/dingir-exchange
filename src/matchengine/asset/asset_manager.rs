@@ -20,7 +20,7 @@ impl AssetManager {
         let mut assets = HashMap::new();
         for item in asset_config.iter() {
             assets.insert(
-                item.symbol.clone(),
+                item.id.clone(),
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
@@ -34,30 +34,30 @@ impl AssetManager {
         //log::info()
         for item in asset_config.iter() {
             let ret = self.assets.insert(
-                item.symbol.clone(),
+                item.id.clone(),
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
                 },
             );
             if ret.is_some() {
-                log::info!("Update asset {}", item.symbol);
+                log::info!("Update asset {}", item.id);
             } else {
-                log::info!("Append new asset {}", item.symbol);
+                log::info!("Append new asset {}", item.id);
             }
         }
     }
 
-    pub fn asset_exist(&self, symbol: &str) -> bool {
-        self.assets.contains_key(symbol)
+    pub fn asset_exist(&self, id: &str) -> bool {
+        self.assets.contains_key(id)
     }
-    pub fn asset_get(&self, symbol: &str) -> Option<&AssetInfo> {
-        self.assets.get(symbol)
+    pub fn asset_get(&self, id: &str) -> Option<&AssetInfo> {
+        self.assets.get(id)
     }
-    pub fn asset_prec(&self, symbol: &str) -> u32 {
-        self.asset_get(symbol).unwrap().prec_save
+    pub fn asset_prec(&self, id: &str) -> u32 {
+        self.asset_get(id).unwrap().prec_save
     }
-    pub fn asset_prec_show(&self, symbol: &str) -> u32 {
-        self.asset_get(symbol).unwrap().prec_show
+    pub fn asset_prec_show(&self, id: &str) -> u32 {
+        self.asset_get(id).unwrap().prec_show
     }
 }

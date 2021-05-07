@@ -5,6 +5,7 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Asset {
+    pub id: String,
     pub symbol: String,
     pub name: String,
     pub chain_id: i16,
@@ -17,7 +18,7 @@ pub struct Asset {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MarketUnit {
-    pub symbol: String,
+    pub asset_id: String,
     pub prec: u32,
 }
 
@@ -35,7 +36,7 @@ pub struct Market {
 impl Default for MarketUnit {
     fn default() -> Self {
         MarketUnit {
-            symbol: "".to_string(),
+            asset_id: "".to_string(),
             prec: 0,
         }
     }
