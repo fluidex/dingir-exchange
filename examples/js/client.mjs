@@ -15,7 +15,7 @@ export async function balanceQuery(user_id) {
   const balances = (await client.BalanceQuery({ user_id: user_id })).balances;
   let result = {};
   for (const entry of balances) {
-    result[entry.asset_name] = entry;
+    result[entry.asset_id] = entry;
   }
   return result;
 }
