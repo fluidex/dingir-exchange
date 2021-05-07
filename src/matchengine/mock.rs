@@ -71,25 +71,25 @@ pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
 }
 
 #[derive(Debug)]
-enum MockAsset {
+pub enum MockAsset {
     ETH,
     USDT,
 }
 // TODO: const? &str?
 impl MockAsset {
-    fn symbol(self) -> String {
+    pub fn symbol(self) -> String {
         match self {
             MockAsset::ETH => String::from("ETH"),
             MockAsset::USDT => String::from("USDT"),
         }
     }
-    fn name(self) -> String {
+    pub fn name(self) -> String {
         match self {
             MockAsset::ETH => String::from("Ether"),
             MockAsset::USDT => String::from("Tether USD"),
         }
     }
-    fn token_address(self) -> String {
+    pub fn token_address(self) -> String {
         match self {
             MockAsset::ETH => String::from("0x0000000000000000000000000000000000000000"),
             MockAsset::USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
