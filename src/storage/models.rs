@@ -24,6 +24,7 @@ use tablenames::*;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct AssetDesc {
+    pub id: String,
     pub symbol: String,
     pub name: String,
     pub chain_id: i16,

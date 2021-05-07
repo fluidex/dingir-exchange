@@ -24,5 +24,3 @@ CREATE TABLE market (
     min_amount DECIMAL(16, 16) NOT NULL,
     market_name VARCHAR(30)
 );
-
-

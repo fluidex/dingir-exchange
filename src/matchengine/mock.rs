@@ -13,11 +13,11 @@ pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
         base: config::MarketUnit {
-            symbol: MockAsset::ETH.symbol(),
+            asset_id: MockAsset::ETH.id(),
             prec: 4,
         }, // amount: xx.xxxx
         quote: config::MarketUnit {
-            symbol: MockAsset::USDT.symbol(),
+            asset_id: MockAsset::USDT.id(),
             prec: 2,
         }, // price xx.xx
         fee_prec: 2,
@@ -29,11 +29,11 @@ pub fn get_integer_prec_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
         base: config::MarketUnit {
-            symbol: MockAsset::ETH.symbol(),
+            asset_id: MockAsset::ETH.id(),
             prec: 0,
         },
         quote: config::MarketUnit {
-            symbol: MockAsset::USDT.symbol(),
+            asset_id: MockAsset::USDT.id(),
             prec: 0,
         },
         fee_prec: 0,
@@ -44,6 +44,7 @@ pub fn get_integer_prec_market_config() -> config::Market {
 pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
     vec![
         config::Asset {
+            id: MockAsset::USDT.id(),
             symbol: MockAsset::USDT.symbol(),
             name: MockAsset::USDT.name(),
             chain_id: 1,
@@ -53,6 +54,7 @@ pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
             logo_uri: String::default(),
         },
         config::Asset {
+            id: MockAsset::ETH.id(),
             symbol: MockAsset::ETH.symbol(),
             name: MockAsset::ETH.name(),
             chain_id: 1,
@@ -70,6 +72,12 @@ pub enum MockAsset {
     USDT,
 }
 impl MockAsset {
+    pub fn id(self) -> String {
+        match self {
+            MockAsset::ETH => String::from("ETH"),
+            MockAsset::USDT => String::from("USDT"),
+        }
+    }
     pub fn symbol(self) -> String {
         match self {
             MockAsset::ETH => String::from("ETH"),
