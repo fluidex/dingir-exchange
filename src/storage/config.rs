@@ -5,9 +5,13 @@ use anyhow::Result;
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
         config::Asset {
-            name: origin.asset_name,
+            symbol: origin.symbol,
+            name: origin.name,
+            chain_id: origin.chain_id,
+            token_address: origin.token_address,
             prec_show: origin.precision_show as u32,
             prec_save: origin.precision_stor as u32,
+            logo_uri: origin.logo_uri,
         }
     }
 }
@@ -89,8 +93,8 @@ impl MarketConfigs {
         T: sqlx::Executor<'e, Database = DbType> + Send,
     {
         let query = format!(
-            "select asset_name, precision_stor, 
-        precision_show, create_time from {} where create_time > $1",
+            "select symbol, name, chain_id, token_address, precision_stor, precision_show,
+            logo_uri, create_time from {} where create_time > $1",
             tablenames::ASSET
         );
 
