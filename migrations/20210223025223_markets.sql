@@ -5,7 +5,7 @@ CREATE TABLE asset (
     name VARCHAR(30) NOT NULL DEFAULT '',
     chain_id SMALLINT CHECK (chain_id >= 0) NOT NULL DEFAULT 1,
     token_address VARCHAR(64) NOT NULL DEFAULT '',
-    rollup_token_id SMALLINT CHECK (chain_id >= 0) NOT NULL,
+    rollup_token_id integer CHECK (rollup_token_id >= 0) NOT NULL,
     -- token_address VARCHAR(64) DEFAULT NULL,
     -- UNIQUE (chain_id, token_address),
     UNIQUE (chain_id, rollup_token_id),
