@@ -51,6 +51,7 @@ pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
             name: MockAsset::USDT.name(),
             chain_id: 1,
             token_address: MockAsset::USDT.token_address(),
+            rollup_token_id: MockAsset::USDT.rollup_token_id(),
             prec_save: prec,
             prec_show: prec,
             logo_uri: String::default(),
@@ -61,6 +62,7 @@ pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
             name: MockAsset::ETH.name(),
             chain_id: 1,
             token_address: MockAsset::ETH.token_address(),
+            rollup_token_id: MockAsset::ETH.rollup_token_id(),
             prec_save: prec,
             prec_show: prec,
             logo_uri: String::default(),
@@ -96,6 +98,12 @@ impl MockAsset {
         match self {
             MockAsset::ETH => String::from(""),
             MockAsset::USDT => String::from("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+        }
+    }
+    pub fn rollup_token_id(self) -> i32 {
+        match self {
+            MockAsset::ETH => 0,
+            MockAsset::USDT => 1,
         }
     }
 }

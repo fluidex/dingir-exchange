@@ -29,6 +29,7 @@ pub struct AssetDesc {
     pub name: String,
     pub chain_id: i16,
     pub token_address: String,
+    pub rollup_token_id: i32,
     pub precision_stor: i16,
     pub precision_show: i16,
     pub logo_uri: String,

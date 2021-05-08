@@ -10,6 +10,7 @@ impl From<AssetDesc> for config::Asset {
             name: origin.name,
             chain_id: origin.chain_id,
             token_address: origin.token_address,
+            rollup_token_id: origin.rollup_token_id,
             prec_show: origin.precision_show as u32,
             prec_save: origin.precision_stor as u32,
             logo_uri: origin.logo_uri,
@@ -96,7 +97,7 @@ impl MarketConfigs {
         T: sqlx::Executor<'e, Database = DbType> + Send,
     {
         let query = format!(
-            "select id, symbol, name, chain_id, token_address, precision_stor, precision_show,
+            "select id, symbol, name, chain_id, token_address, rollup_token_id, precision_stor, precision_show,
             logo_uri, create_time from {} where create_time > $1",
             tablenames::ASSET
         );
@@ -161,19 +162,20 @@ fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     )
 }
 
+// TODO: chain_id & logo_uri
 pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset, force: bool) -> Result<()>
 where
     T: sqlx::Executor<'e, Database = DbType>,
 {
     let query_template = if force {
         format!(
-            "insert into {} (id, symbol, name, precision_stor, precision_show) values ($1, $2, $3, $4, $5) 
+            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6) 
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (id, symbol, name, precision_stor, precision_show) values ($1, $2, $3, $4, $5) on conflict do nothing",
+            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6) on conflict do nothing",
             tablenames::ASSET
         )
     };
@@ -182,6 +184,8 @@ where
         .bind(&asset.id)
         .bind(&asset.symbol)
         .bind(&asset.name)
+        .bind(&asset.token_address)
+        .bind(&asset.rollup_token_id)
         .bind(asset.prec_save as i16)
         .bind(asset.prec_show as i16)
         .execute(db_conn)
