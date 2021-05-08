@@ -13,6 +13,8 @@ CREATE INDEX balance_history_idx_user_asset ON balance_history (user_id, asset);
 
 CREATE INDEX balance_history_idx_user_asset_business ON balance_history (user_id, asset, business);
 
+CREATE TYPE order_status AS ENUM('active','filled','cancelled', 'expired');
+
 CREATE TABLE order_history (
     id BIGINT CHECK (id >= 0) NOT NULL PRIMARY KEY,
     create_time TIMESTAMP(0) NOT NULL,
@@ -27,7 +29,8 @@ CREATE TABLE order_history (
     maker_fee DECIMAL(30, 4) NOT NULL,
     finished_base DECIMAL(30, 8) NOT NULL,
     finished_quote DECIMAL(30, 16) NOT NULL,
-    finished_fee DECIMAL(30, 16) NOT NULL
+    finished_fee DECIMAL(30, 16) NOT NULL,
+    status order_status NOT NULL DEFAULT 'filled'
 );
 
 CREATE INDEX order_history_idx_user_market ON order_history (user_id, market);
