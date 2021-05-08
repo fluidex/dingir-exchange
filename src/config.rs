@@ -10,6 +10,7 @@ pub struct Asset {
     pub name: String,
     pub chain_id: i16,
     pub token_address: String,
+    pub rollup_token_id: i32,
     pub prec_save: u32,
     pub prec_show: u32,
     pub logo_uri: String,
