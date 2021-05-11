@@ -51,6 +51,7 @@ impl BalanceManager {
     pub fn reset(&mut self) {
         self.balances.clear()
     }
+
     pub fn get(&self, user_id: u32, balance_type: BalanceType, asset: &str) -> Decimal {
         self.get_by_key(&BalanceMapKey {
             user_id,

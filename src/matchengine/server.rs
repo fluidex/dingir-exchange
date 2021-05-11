@@ -215,6 +215,14 @@ impl Matchengine for GrpcHandler {
         Ok(Response::new(SimpleSuccessResponse {}))
     }
 
+    async fn transfer(&self, request: Request<TransferRequest>) -> Result<Response<TransferResponse>, Status> {
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.transfer(true, request.into_inner()) }));
+
+        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        map_dispatch_ret(rt.await)
+    }
+
     // This is the only blocking call of the server
     #[cfg(debug_assertions)]
     async fn debug_dump(&self, request: Request<DebugDumpRequest>) -> Result<Response<DebugDumpResponse>, Status> {

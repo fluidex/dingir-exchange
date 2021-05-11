@@ -21,7 +21,9 @@ use sqlx::Executor;
 use tonic::{self, Status};
 
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::str::FromStr;
+use std::time::Instant;
 
 pub struct DefaultPersistor {
     history_writer: DatabaseHistoryWriter,
@@ -550,6 +552,74 @@ impl Controller {
         }
 
         Ok(())
+    }
+
+    pub fn transfer(&mut self, real: bool, req: TransferRequest) -> Result<TransferResponse, Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
+
+        let asset_id = req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(&asset_id) {
+            return Err(Status::invalid_argument("invalid asset"));
+        }
+
+        let from_user_id = req.from;
+        let to_user_id = req.to;
+
+        let balance_manager = &self.balance_manager;
+        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, &asset_id);
+
+        let zero = Decimal::from(0);
+        let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
+
+        if delta <= zero || delta > balance_from {
+            return Ok(TransferResponse {
+                success: false,
+                asset: asset_id,
+                balance_from: balance_from.to_string(),
+            });
+        }
+
+        let prec = self.balance_manager.asset_manager.asset_prec_show(&asset_id);
+        let change = delta.round_dp(prec);
+
+        let business = "transfer";
+        let business_id = (Instant::now().elapsed().as_millis() & u128::from(u64::MAX)).try_into().unwrap();
+
+        self.update_controller
+            .update_user_balance(
+                &mut self.balance_manager,
+                self.persistor.is_real(real).persist_for_balance(),
+                from_user_id,
+                &asset_id,
+                business.to_owned(),
+                business_id,
+                -change,
+                json!({}),
+            )
+            .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
+
+        self.update_controller
+            .update_user_balance(
+                &mut self.balance_manager,
+                self.persistor.is_real(real).persist_for_balance(),
+                to_user_id,
+                &asset_id,
+                business.to_owned(),
+                business_id,
+                change,
+                json!({}),
+            )
+            .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
+
+        // TODO append_operation_log
+
+        Ok(TransferResponse {
+            success: true,
+            asset: asset_id,
+            balance_from: (balance_from - change).to_string(),
+        })
     }
 
     pub async fn debug_reset(&mut self, _req: DebugResetRequest) -> Result<DebugResetResponse, Status> {
