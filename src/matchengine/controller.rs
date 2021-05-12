@@ -584,7 +584,7 @@ impl Controller {
         let change = delta.round_dp(prec);
 
         let business = "transfer";
-        let business_id = utils::current_timestamp() as u64;
+        let business_id = chrono::prelude::Utc::now().timestamp_millis() as u64;
         let detail_json: serde_json::Value = if req.memo.is_empty() {
             json!({})
         } else {
