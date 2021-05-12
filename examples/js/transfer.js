@@ -31,6 +31,8 @@ async function failureWithZeroDeltaTest() {
   decimalEqual(balance1.ETH.available, "100");
   const balance2 = await balanceQuery(anotherUserId);
   decimalEqual(balance2.ETH.available, "0");
+
+  console.log("failureWithZeroDeltaTest passed");
 }
 
 // Test failure with insufficient balance of from user
@@ -45,6 +47,8 @@ async function failureWithInsufficientFromBalanceTest() {
   decimalEqual(balance1.ETH.available, "100");
   const balance2 = await balanceQuery(anotherUserId);
   decimalEqual(balance2.ETH.available, "0");
+
+  console.log("failureWithInsufficientFromBalanceTest passed");
 }
 
 // Test success transfer
@@ -59,6 +63,8 @@ async function successTransferTest() {
   decimalEqual(balance1.ETH.available, "50");
   const balance2 = await balanceQuery(anotherUserId);
   decimalEqual(balance2.ETH.available, "50");
+
+  console.log("successTransferTest passed");
 }
 
 async function simpleTest() {
