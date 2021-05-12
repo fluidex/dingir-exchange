@@ -149,6 +149,7 @@ const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
+const OPERATION_TRANSFER: &str = "transfer";
 
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
     let settings = cfgs.0;
@@ -557,8 +558,8 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
-        let asset_id = req.asset;
-        if !self.balance_manager.asset_manager.asset_exist(&asset_id) {
+        let asset_id = &req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(asset_id) {
             return Err(Status::invalid_argument("invalid asset"));
         }
 
@@ -566,7 +567,7 @@ impl Controller {
         let to_user_id = req.to;
 
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, &asset_id);
+        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset_id);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
@@ -574,12 +575,12 @@ impl Controller {
         if delta <= zero || delta > balance_from {
             return Ok(TransferResponse {
                 success: false,
-                asset: asset_id,
+                asset: asset_id.to_owned(),
                 balance_from: balance_from.to_string(),
             });
         }
 
-        let prec = self.balance_manager.asset_manager.asset_prec_show(&asset_id);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(asset_id);
         let change = delta.round_dp(prec);
 
         let business = "transfer";
@@ -595,7 +596,7 @@ impl Controller {
                 &mut self.balance_manager,
                 self.persistor.is_real(real).persist_for_balance(),
                 from_user_id,
-                &asset_id,
+                asset_id,
                 business.to_owned(),
                 business_id,
                 -change,
@@ -608,7 +609,7 @@ impl Controller {
                 &mut self.balance_manager,
                 self.persistor.is_real(real).persist_for_balance(),
                 to_user_id,
-                &asset_id,
+                asset_id,
                 business.to_owned(),
                 business_id,
                 change,
@@ -616,11 +617,13 @@ impl Controller {
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
-        // TODO append_operation_log
+        if real {
+            self.append_operation_log(OPERATION_TRANSFER, &req);
+        }
 
         Ok(TransferResponse {
             success: true,
-            asset: asset_id,
+            asset: asset_id.to_owned(),
             balance_from: (balance_from - change).to_string(),
         })
     }
@@ -718,6 +721,9 @@ impl Controller {
             }
             OPERATION_ORDER_PUT => {
                 self.order_put(false, serde_json::from_str(params)?)?;
+            }
+            OPERATION_TRANSFER => {
+                self.transfer(false, serde_json::from_str(params)?)?;
             }
             _ => return Err(anyhow!("invalid operation {}", method)),
         }
