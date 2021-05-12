@@ -981,10 +981,10 @@ mod tests {
                 )
                 .unwrap();
         };
-        update_balance_fn(0, uid0, &usdt(), dec!(1_000_000));
-        update_balance_fn(1, uid0, &eth(), dec!(1_000_000));
-        update_balance_fn(2, uid1, &usdt(), dec!(1_000_000));
-        update_balance_fn(3, uid1, &eth(), dec!(1_000_000));
+        update_balance_fn(0, uid0, &MockAsset::USDT.id(), dec!(1_000_000));
+        update_balance_fn(1, uid0, &MockAsset::ETH.id(), dec!(1_000_000));
+        update_balance_fn(2, uid1, &MockAsset::USDT.id(), dec!(1_000_000));
+        update_balance_fn(3, uid1, &MockAsset::ETH.id(), dec!(1_000_000));
 
         let sequencer = &mut Sequencer::default();
         let mut market_conf = if only_int {
