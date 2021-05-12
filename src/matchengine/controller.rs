@@ -584,6 +584,11 @@ impl Controller {
 
         let business = "transfer";
         let business_id = utils::current_timestamp() as u64;
+        let detail_json: serde_json::Value = if req.memo.is_empty() {
+            json!({})
+        } else {
+            serde_json::from_str(req.memo.as_str()).map_err(|_| Status::invalid_argument("invalid memo"))?
+        };
 
         self.update_controller
             .update_user_balance(
@@ -594,7 +599,7 @@ impl Controller {
                 business.to_owned(),
                 business_id,
                 -change,
-                json!({}),
+                detail_json.clone(),
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
@@ -607,7 +612,7 @@ impl Controller {
                 business.to_owned(),
                 business_id,
                 change,
-                json!({}),
+                detail_json,
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
