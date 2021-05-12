@@ -21,9 +21,7 @@ use sqlx::Executor;
 use tonic::{self, Status};
 
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::str::FromStr;
-use std::time::Instant;
 
 pub struct DefaultPersistor {
     history_writer: DatabaseHistoryWriter,
@@ -585,7 +583,7 @@ impl Controller {
         let change = delta.round_dp(prec);
 
         let business = "transfer";
-        let business_id = (Instant::now().elapsed().as_millis() & u128::from(u64::MAX)).try_into().unwrap();
+        let business_id = utils::current_timestamp() as u64;
 
         self.update_controller
             .update_user_balance(
