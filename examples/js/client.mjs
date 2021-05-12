@@ -104,6 +104,22 @@ export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
 
+export async function transfer(
+  from,
+  to,
+  asset,
+  delta,
+  memo
+) {
+  return await client.transfer({
+    from,
+    to,
+    asset,
+    delta,
+    memo
+  });
+}
+
 export async function debugDump() {
   return await client.DebugDump({});
 }
