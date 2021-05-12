@@ -91,3 +91,4 @@ jobs:
           node trade.js
           sleep 5
           node print_orders.js 
+          node transfer.js
