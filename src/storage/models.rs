@@ -50,7 +50,7 @@ pub struct MarketDesc {
     pub market_name: Option<String>,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
 pub struct UserDesc {
     pub id: i32, // TODO: i32 or i64?
     pub l1_address: String,

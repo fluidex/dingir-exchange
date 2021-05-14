@@ -1,12 +1,13 @@
 use super::config::Settings;
-use super::types::{TickerResult, UserInfo};
+use super::types::{TickerResult};
+use crate::models::{UserDesc};
 
 use sqlx::postgres::Postgres;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Mutex;
 pub struct AppState {
-    pub user_addr_map: Mutex<HashMap<String, UserInfo>>,
+    pub user_addr_map: Mutex<HashMap<String, UserDesc>>,
     pub db: sqlx::pool::Pool<Postgres>,
     pub manage_channel: Option<tonic::transport::channel::Channel>,
     pub config: Settings,
