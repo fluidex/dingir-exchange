@@ -10,7 +10,7 @@ pub type TimestampDbType = NaiveDateTime;
 pub mod tablenames {
     pub const ASSET: &str = "asset";
     pub const MARKET: &str = "market";
-    pub const USER: &str = "user";
+    pub const ACCOUNT: &str = "account";
     pub const BALANCEHISTORY: &str = "balance_history";
     pub const ORDERHISTORY: &str = "order_history";
     pub const USERTRADE: &str = "user_trade";
@@ -51,7 +51,7 @@ pub struct MarketDesc {
 }
 
 #[derive(sqlx::FromRow, Debug, Clone, Serialize)]
-pub struct UserDesc {
+pub struct AccountDesc {
     pub id: i32, // TODO: i32 or i64?
     pub l1_address: String,
     pub l2_address: String,

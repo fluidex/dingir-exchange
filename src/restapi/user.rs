@@ -1,6 +1,6 @@
 use super::errors::RpcError;
 use super::state::AppState;
-use crate::models::{tablenames::USER, UserDesc};
+use crate::models::{tablenames::ACCOUNT, AccountDesc};
 use actix_web::{
     web::{self, Json},
     HttpRequest, Responder,
@@ -21,7 +21,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
                 let count = user_map.len();
                 user_map.insert(
                     user_id.to_string(),
-                    UserDesc {
+                    AccountDesc {
                         id: count as i32,
                         l1_address: user_id.to_string(),
                         l2_address: Default::default(),
@@ -36,9 +36,9 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
         }
     } else {
         // TODO: this API result should be cached, either in-memory or using redis
-        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_address = $1", USER);
+        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_address = $1", ACCOUNT);
         // TODO: fecth_one? fecth_optional?
-        let user: UserDesc = sqlx::query_as(&sql_query)
+        let user: AccountDesc = sqlx::query_as(&sql_query)
             .bind(user_id)
             .fetch_one(&data.db)
             .await
