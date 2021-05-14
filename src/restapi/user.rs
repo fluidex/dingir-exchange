@@ -3,8 +3,12 @@ use super::state::AppState;
 use super::types::UserInfo;
 use actix_web::{web, HttpRequest, Responder};
 
-async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
-    let is_debug: bool = req.match_info().get("debug").unwrap_or(false);
+pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
+    let mut is_debug: bool = false;
+    if req.match_info().get("debug").unwrap_or("false").to_string() == "true".to_string() {
+        is_debug = true;
+    }
+
     if is_debug {
         let user_id = req.match_info().get("id_or_addr").unwrap();
         if user_id.starts_with("0x") {

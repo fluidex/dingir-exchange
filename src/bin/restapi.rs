@@ -14,13 +14,11 @@ use std::sync::Mutex;
 
 use dingir_exchange::restapi;
 
-use restapi::errors::RpcError;
 use restapi::manage::market;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
 use restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
-use restapi::types::UserInfo;
 use restapi::user::get_user;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
