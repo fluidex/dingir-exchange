@@ -27,7 +27,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
 
                 });
             }
-            let user_info = *user_map.get(user_id).unwrap();
+            let user_info = &*user_map.get(user_id).unwrap();
             Ok(web::Json(user_info.clone()))
         } else {
             // TODO: get_by_user_id still fails
