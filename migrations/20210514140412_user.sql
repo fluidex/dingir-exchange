@@ -8,5 +8,5 @@ CREATE TABLE user (
     UNIQUE (l2_address)
 );
 
--- CREATE UNIQUE INDEX user_l1_address ON user (l1_address);
--- CREATE UNIQUE INDEX user_l2_address ON user (l2_address);
+CREATE UNIQUE INDEX user_l1_address ON user (l1_address);
+CREATE UNIQUE INDEX user_l2_address ON user (l2_address);
