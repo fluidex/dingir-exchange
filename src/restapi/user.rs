@@ -36,11 +36,9 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
         }
     } else {
         // TODO: this API result should be cached, either in-memory or using redis
-        let sql_query = format!("select * from {} where id = $1 OR l1_address = $2 OR l2_address = $3", USER);
+        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_address = $1", USER);
         // TODO: fecth_one? fecth_optional?
         let user: UserDesc = sqlx::query_as(&sql_query)
-            .bind(user_id)
-            .bind(user_id)
             .bind(user_id)
             .fetch_one(&data.db)
             .await
