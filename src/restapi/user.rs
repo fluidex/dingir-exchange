@@ -20,12 +20,14 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             if !user_map.contains_key(user_id) {
                 // TODO: real query from DB
                 let count = user_map.len();
-                user_map.insert(user_id.to_string(), UserDesc { 
-                    id: count as i32 ,
-                    l1_address: user_id.to_string(),
-                    l2_address: Default::default(),
-
-                });
+                user_map.insert(
+                    user_id.to_string(),
+                    UserDesc {
+                        id: count as i32,
+                        l1_address: user_id.to_string(),
+                        l2_address: Default::default(),
+                    },
+                );
             }
             let user_info = &*user_map.get(user_id).unwrap();
             Ok(web::Json(user_info.clone()))

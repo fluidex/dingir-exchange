@@ -1,6 +1,6 @@
 use super::config::Settings;
-use super::types::{TickerResult};
-use crate::models::{UserDesc};
+use super::types::TickerResult;
+use crate::models::UserDesc;
 
 use sqlx::postgres::Postgres;
 use std::cell::RefCell;
