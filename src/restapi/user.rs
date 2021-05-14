@@ -1,6 +1,5 @@
 use super::errors::RpcError;
 use super::state::AppState;
-// use super::types::UserInfo;
 use crate::models::{tablenames::USER, UserDesc};
 use actix_web::{
     web::{self, Json},
