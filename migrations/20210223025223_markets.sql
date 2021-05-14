@@ -3,7 +3,7 @@ CREATE TABLE asset (
     id VARCHAR(64) NOT NULL PRIMARY KEY,
     symbol VARCHAR(30) NOT NULL DEFAULT '',
     name VARCHAR(30) NOT NULL DEFAULT '',
-    chain_id SMALLINT CHECK (chain_id >= 0) NOT NULL DEFAULT 1,
+    chain_id SMALLINT CHECK (chain_id >= 0) NOT NULL DEFAULT 1, -- we actually only have one same chain_id for all records
     token_address VARCHAR(64) NOT NULL DEFAULT '',
     rollup_token_id integer CHECK (rollup_token_id >= 0) NOT NULL,
     -- token_address VARCHAR(64) DEFAULT NULL,
