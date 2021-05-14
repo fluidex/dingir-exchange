@@ -26,6 +26,21 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
         }
     } else {
         // TODO:
-        Err(RpcError::bad_request("must debug mode"))
+        Err(RpcError::bad_request("must debug mode"));
+
+        // TODO: fecth_one? fecth_optional?
+
+        // TODO: this API result should be cached, either in-memory or using redis
+
+        // Here we use the kline trade table, which is more market-centric
+        // and more suitable for fetching latest trades on a market.
+        // models::UserTrade is designed for a user to fetch his trades.
+
+        let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", MARKETTRADE, limit);
+
+        let trades: Vec<models::MarketTrade> = sqlx::query_as(&sql_query).bind(market).fetch_all(&data.db).await?;
+        log::debug!("query {} recent_trades records", trades.len());
+
+        Ok(Json(trades))
     }
 }
