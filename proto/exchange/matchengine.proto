@@ -151,7 +151,7 @@ message OrderPutRequest {
   string price = 6;  // should be empty or zero for market order
   string taker_fee = 7;
   string maker_fee = 8;
-  bool post_only = 9; // Ensures an Limit order is subjected to Maker Fees (ignored for Market orders).
+  bool post_only = 9; // Ensures an Limit order is only subject to Maker Fees (ignored for Market orders).
 }
 
 message OrderInfo {
