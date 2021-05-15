@@ -108,6 +108,7 @@ pub struct Order {
     pub finished_base: Decimal,
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
+    pub post_only: bool,
 }
 
 /*
@@ -531,6 +532,7 @@ impl Market {
         let maker_is_ask = !maker_is_bid;
         let is_limit_order = taker.type_ == OrderType::LIMIT;
         let is_market_order = !is_limit_order;
+        let is_post_only_order = taker.post_only;
         //let mut quote_available = *quote_limit;
         let mut quote_sum = Decimal::zero();
 
@@ -566,9 +568,16 @@ impl Market {
             };
             //let ask_order_id: u64 = ask_order.id;
             //let bid_order_id: u64 = bid_order.id;
-            if is_limit_order && ask_order.price.gt(&bid_order.price) {
-                break;
+
+            if is_limit_order {
+                if ask_order.price.gt(&bid_order.price) {
+                    break;
+                } else if is_post_only_order {
+                    need_cancel = true;
+                    break;
+                }
             }
+
             let traded_base_amount = min(ask_order.remain, bid_order.remain);
             let traded_quote_amount = price * traded_base_amount;
 
@@ -811,6 +820,7 @@ impl Market {
             finished_base: Decimal::zero(),
             finished_quote: Decimal::zero(),
             finished_fee: Decimal::zero(),
+            post_only: order_input.post_only,
         };
         let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
         Ok(order)
@@ -926,6 +936,7 @@ pub struct OrderInput {
     pub taker_fee: Decimal, // FIXME fee should be determined inside engine rather than take from input
     pub maker_fee: Decimal,
     pub market: String,
+    pub post_only: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -949,6 +960,7 @@ struct BalanceHistoryFromFee {
 mod tests {
     use super::*;
     use crate::matchengine::mock;
+    use crate::message::Message;
     use mock::*;
     use rust_decimal_macros::*;
 
@@ -1053,6 +1065,7 @@ mod tests {
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
+            post_only: false,
         };
         let ask_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
@@ -1070,6 +1083,7 @@ mod tests {
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
+            post_only: false,
         };
         let bid_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
@@ -1125,5 +1139,112 @@ mod tests {
 
         //assert_eq!(persistor.orders.len(), 3);
         //assert_eq!(persistor.trades.len(), 1);
+    }
+
+    #[test]
+    fn test_limit_post_only_orders() {
+        let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
+
+        balance_manager.add(201, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
+        balance_manager.add(202, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
+        balance_manager.add(201, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
+        balance_manager.add(202, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
+
+        let sequencer = &mut Sequencer::default();
+        let mut persistor = MockPersistor::new();
+        let ask_user_id = 201;
+        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
+        let ask_order_input = OrderInput {
+            user_id: ask_user_id,
+            side: OrderSide::ASK,
+            type_: OrderType::LIMIT,
+            amount: dec!(20.0),
+            price: dec!(0.1),
+            taker_fee: dec!(0.001),
+            maker_fee: dec!(0.001),
+            market: market.name.to_string(),
+            post_only: true,
+        };
+        let ask_order = market
+            .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
+            .unwrap();
+
+        assert_eq!(ask_order.id, 1);
+        assert_eq!(ask_order.remain, dec!(20));
+
+        let bid_user_id = 202;
+        let bid_order_input = OrderInput {
+            user_id: bid_user_id,
+            side: OrderSide::BID,
+            type_: OrderType::LIMIT,
+            amount: dec!(10.0),
+            price: dec!(0.1),
+            taker_fee: dec!(0.001),
+            maker_fee: dec!(0.001),
+            market: market.name.to_string(),
+            post_only: true,
+        };
+        let bid_order = market
+            .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
+            .unwrap();
+
+        // No trade occurred since limit and post only. This BID order should be finished.
+        assert_eq!(bid_order.id, 2);
+        assert_eq!(bid_order.remain, dec!(10));
+        assert_eq!(bid_order.finished_quote, dec!(0));
+        assert_eq!(bid_order.finished_base, dec!(0));
+        assert_eq!(bid_order.finished_fee, dec!(0));
+
+        let ask_order = market.get(ask_order.id).unwrap();
+        assert_eq!(ask_order.remain, dec!(20));
+        assert_eq!(ask_order.finished_quote, dec!(0));
+        assert_eq!(ask_order.finished_base, dec!(0));
+        assert_eq!(ask_order.finished_fee, dec!(0));
+
+        let bid_order_message = persistor.messages.last().unwrap();
+        match bid_order_message {
+            Message::OrderMessage(msg) => {
+                assert!(matches!(
+                    **msg,
+                    OrderMessage {
+                        event: OrderEventType::FINISH,
+                        order: Order { id: 2, user: 202, .. },
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("expect OrderMessage only"),
+        }
+
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.id()),
+            dec!(980)
+        );
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::ETH.id()),
+            dec!(20)
+        );
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.id()),
+            dec!(300)
+        );
+        assert_eq!(
+            balance_manager.get(ask_user_id, BalanceType::FREEZE, &MockAsset::USDT.id()),
+            dec!(0)
+        );
+
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::ETH.id()),
+            dec!(1000)
+        );
+        assert_eq!(balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::ETH.id()), dec!(0));
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::AVAILABLE, &MockAsset::USDT.id()),
+            dec!(300)
+        );
+        assert_eq!(
+            balance_manager.get(bid_user_id, BalanceType::FREEZE, &MockAsset::USDT.id()),
+            dec!(0)
+        );
     }
 }
