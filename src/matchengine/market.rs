@@ -710,7 +710,8 @@ impl Market {
         }
 
         if need_cancel {
-            // now only self trade orders will be canceled here
+            // Now both self trade orders and immediately triggered post_only
+            // limit orders will be cancelled here.
             persistor.put_order(&taker, OrderEventType::FINISH);
         } else if taker.type_ == OrderType::MARKET {
             // market order can either filled or not
