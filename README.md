@@ -1,6 +1,6 @@
 # Dingir Exchange
-Dingir Exchange is an in-building high performance exchange trading server.   
-The core matching engine is a fully async, single threaded, memory based matching engine. 
+Dingir Exchange is a high performance exchange trading server.   
+The core matching engine is a fully async, single threaded, memory based matching engine with thousands of TPS. 
 
 * Features: order matching, order state change notification, user balance management, market data...   
 * Non Features: user account system, cryptocurrency deposit/withdraw...
@@ -17,10 +17,9 @@ The archtecture is heavily inspired by Redis and [Viabtc Exchange](https://githu
 
 ## Todos
 
-* Other needed features for trading(market data, k-line etc)
-* Persistence
-* Performance(Maybe splitting table is needed for high performance)
-* Tests & Documentation
+* push notifications using GRPC/websockets
+* API Documentation
+* Better test coverage
 
 ## Example
 
@@ -28,7 +27,7 @@ The archtecture is heavily inspired by Redis and [Viabtc Exchange](https://githu
 # Simple test
 $ cd $DingirExchangeDir
 $ cd docker
-$ docker-compose up # Lanuch the external dependency services like MySQL and Kafka
+$ docker-compose up # Lanuch the external dependency services like Postgresql and Kafka
 $ cd $DingirExchangeDir
 $ cargo run --bin matchengine
 $ cd $DingirExchangeDir/examples/js
