@@ -171,9 +171,9 @@ impl Matchengine for GrpcHandler {
     }
 
     /*---------------------------- following are "written ops" ---------------------------------*/
-    async fn register_user(&self, request: Request<BalanceUpdateRequest>) -> Result<Response<BalanceUpdateResponse>, Status> {
+    async fn register_user(&self, request: Request<RegisterUserRequest>) -> Result<Response<UserInfo>, Status> {
         let ControllerDispatch(act, rt) =
-            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.update_balance(true, request.into_inner()) }));
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.register_user(true, request.into_inner()) }));
 
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)

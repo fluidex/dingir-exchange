@@ -393,6 +393,10 @@ impl Controller {
         self.persistor.service_available()
     }
 
+    pub fn register_user(&mut self, real: bool, req: RegisterUserRequest) -> std::result::Result<UserInfo, Status> {
+        unimplemented!()
+    }
+
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
