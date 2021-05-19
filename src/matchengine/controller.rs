@@ -408,7 +408,16 @@ impl Controller {
             return Err(Status::invalid_argument("inconsist user_id"));
         }
 
-        // TODO: insert
+        // register_user
+        // TODO: lock? push?
+        // TODO: move crate::asset::user_manager to else where
+        self.user_manager.set(
+            req.user_id,
+            crate::asset::user_manager::UserInfo {
+                l1_address: req.l1_address,
+                l2_pubkey: req.l2_pubkey,
+            },
+        );
 
         // TODO: persis?
 
