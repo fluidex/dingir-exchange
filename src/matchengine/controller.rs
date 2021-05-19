@@ -1,11 +1,11 @@
-use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
+use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController, UserManager};
 use crate::config::{self, PersistPolicy};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
 use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager, UnifyMessageManager};
-use crate::models::{self, tablenames};
+use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
@@ -133,6 +133,7 @@ pub struct Controller {
     //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
+    pub user_manager: UserManager,
     pub balance_manager: BalanceManager,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
@@ -155,6 +156,7 @@ const OPERATION_TRANSFER: &str = "transfer";
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
     let settings = cfgs.0;
     let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+    let user_manager = UserManager::new();
     let balance_manager = BalanceManager::new(&settings.assets).unwrap();
     let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
     let history_writer = DatabaseHistoryWriter::new(
@@ -194,6 +196,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         settings,
         sequencer,
         //            asset_manager,
+        user_manager,
         balance_manager,
         update_controller,
         markets,
@@ -399,18 +402,15 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
-        // // TODO: cache?
-        // // TODO: use persistor?
-        // // TODO: add a user_manager? or combine with asset_manager?
+        // TODO: lock?
+        let last_user_id = self.user_manager.users.len() as u32;
+        if last_user_id + 1 != req.user_id {
+            return Err(Status::invalid_argument("inconsist user_id"));
+        }
 
-        // // get_last_user_id
-        // // TODO: select ... order by id desc limit 1?
-        // let query = format!("select count(*) from {}", tablenames::ACCOUNT);
-        // let last_user_id: (i32,) = sqlx::query_as(&query).fetch_one(self.dbg_pool).await.map_err(
-        //     |_| Err(Status::unavailable("")), // TODO:
-        // )?;
+        // TODO: insert
 
-        // // insert
+        // TODO: persis?
 
         if real {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);
