@@ -5,6 +5,12 @@ package matchengine;
 import "google/api/annotations.proto";
 
 service Matchengine {
+  rpc RegisterUser(RegisterUserRequest) returns (UserInfo) {
+    option (google.api.http) = {
+      post : "/registeruser"
+      body : "*"
+    };
+  }
   rpc BalanceQuery(BalanceQueryRequest) returns (BalanceQueryResponse) {
     option (google.api.http) = {
       get : "/balances/{user_id}"
@@ -75,7 +81,20 @@ service Matchengine {
   rpc DebugReset(DebugResetRequest) returns (DebugResetResponse) {}
   rpc DebugReload(DebugReloadRequest) returns (DebugReloadResponse) {}
 }
+
 //
+message RegisterUserRequest {
+  uint32 user_id = 1;
+  string l1_address = 2;
+  string l2_pubkey = 2;
+}
+
+message UserInfo {
+  uint32 user_id = 1;
+  string l1_address = 2;
+  string l2_pubkey = 2;
+}
+
 message BalanceQueryRequest {
   uint32 user_id = 1;
   repeated string assets = 2; // optional
