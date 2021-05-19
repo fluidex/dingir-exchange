@@ -5,7 +5,7 @@ use crate::dto::*;
 use crate::history::{DatabaseHistoryWriter, HistoryWriter};
 use crate::market;
 use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager, UnifyMessageManager};
-use crate::models::{self};
+use crate::models::{self, tablenames};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
@@ -399,9 +399,18 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
-        // get_last_user_id
+        // TODO: cache?
+        // TODO: use persistor?
+        // TODO: add a user_manager? or combine with asset_manager?
 
-        // inser
+        // get_last_user_id
+        // TODO: select ... order by id desc limit 1?
+        let query = format!("select count(*) from {}", tablenames::ACCOUNT);
+        let last_user_id: (i32,) = sqlx::query_as(&query).fetch_one(self.dbg_pool).await.map_err(
+            |_| Err(Status::unavailable("")), // TODO:
+        )?;
+
+        // insert
 
         if real {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);
