@@ -145,6 +145,7 @@ pub struct Controller {
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
+const OPERATION_REGISTER_USER: &str = "register_user";
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
@@ -394,7 +395,22 @@ impl Controller {
     }
 
     pub fn register_user(&mut self, real: bool, req: RegisterUserRequest) -> std::result::Result<UserInfo, Status> {
-        unimplemented!()
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
+
+        // get_last_user_id
+
+        // inser
+
+        if real {
+            self.append_operation_log(OPERATION_REGISTER_USER, &req);
+        }
+        Ok(UserInfo {
+            user_id: req.user_id,
+            l1_address: req.l1_address,
+            l2_pubkey: req.l2_pubkey,
+        })
     }
 
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
