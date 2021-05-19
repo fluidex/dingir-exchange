@@ -86,13 +86,13 @@ service Matchengine {
 message RegisterUserRequest {
   uint32 user_id = 1;
   string l1_address = 2;
-  string l2_pubkey = 2;
+  string l2_pubkey = 3;
 }
 
 message UserInfo {
   uint32 user_id = 1;
   string l1_address = 2;
-  string l2_pubkey = 2;
+  string l2_pubkey = 3;
 }
 
 message BalanceQueryRequest {
