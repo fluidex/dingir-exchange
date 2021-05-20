@@ -397,7 +397,7 @@ impl Controller {
         self.persistor.service_available()
     }
 
-    pub fn register_user(&mut self, real: bool, req: RegisterUserRequest) -> std::result::Result<UserInfo, Status> {
+    pub fn register_user(&mut self, real: bool, req: UserInfo) -> std::result::Result<UserInfo, Status> {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }

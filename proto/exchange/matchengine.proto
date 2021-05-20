@@ -5,7 +5,7 @@ package matchengine;
 import "google/api/annotations.proto";
 
 service Matchengine {
-  rpc RegisterUser(RegisterUserRequest) returns (UserInfo) {
+  rpc RegisterUser(UserInfo) returns (UserInfo) {
     option (google.api.http) = {
       post : "/registeruser"
       body : "*"
@@ -83,12 +83,6 @@ service Matchengine {
 }
 
 //
-message RegisterUserRequest {
-  uint32 user_id = 1;
-  string l1_address = 2;
-  string l2_pubkey = 3;
-}
-
 message UserInfo {
   uint32 user_id = 1;
   string l1_address = 2;
