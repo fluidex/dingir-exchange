@@ -54,7 +54,8 @@ pub struct MarketDesc {
 pub struct AccountDesc {
     pub id: i32, // TODO: i32 or i64?
     pub l1_address: String,
-    pub l2_address: String,
+    // pub l2_address: String,
+    pub l2_pubkey: String,
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
