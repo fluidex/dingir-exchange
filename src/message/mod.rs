@@ -7,7 +7,7 @@ pub mod consumer;
 pub mod persist;
 pub mod producer;
 
-pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, USER_TOPIC, TRADES_TOPIC, UNIFY_TOPIC};
+pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserMessage {

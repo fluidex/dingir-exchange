@@ -1,7 +1,7 @@
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageManager};
 
-pub use crate::models::{BalanceHistory, AccountDesc};
+pub use crate::models::{AccountDesc, BalanceHistory};
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
@@ -44,8 +44,7 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
         });
     }
     fn register_user(&mut self, user: AccountDesc) {
-        self.0.push_user_message(&UserMessage {
-        });
+        self.0.push_user_message(&UserMessage {});
     }
 }
 
