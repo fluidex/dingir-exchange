@@ -8,10 +8,14 @@ pub trait PersistExector {
         true
     }
     fn put_balance(&mut self, balance: BalanceHistory);
+    fn register_user(&mut self, balance: BalanceHistory);
 }
 
 impl PersistExector for Box<dyn PersistExector + '_> {
     fn put_balance(&mut self, balance: BalanceHistory) {
+        self.as_mut().put_balance(balance)
+    }
+    fn register_user(&mut self, balance: BalanceHistory) {
         self.as_mut().put_balance(balance)
     }
 }
@@ -22,12 +26,24 @@ impl PersistExector for DummyPersistor {
         self.0
     }
     fn put_balance(&mut self, _balance: BalanceHistory) {}
+    fn register_user(&mut self, _balance: BalanceHistory) {}
 }
 
 pub struct MessengerAsPersistor<'a, T>(&'a mut T);
 
 impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
+        self.0.push_balance_message(&BalanceMessage {
+            timestamp: balance.time.timestamp() as f64,
+            user_id: balance.user_id as u32,
+            asset: balance.asset.clone(),
+            business: balance.business.clone(),
+            change: balance.change.to_string(),
+            balance: balance.balance.to_string(),
+            detail: balance.detail,
+        });
+    }
+    fn register_user(&mut self, balance: BalanceHistory) {
         self.0.push_balance_message(&BalanceMessage {
             timestamp: balance.time.timestamp() as f64,
             user_id: balance.user_id as u32,
@@ -46,6 +62,9 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.append_balance_history(balance);
     }
+    fn register_user(&mut self, balance: BalanceHistory) {
+        self.0.append_balance_history(balance);
+    }
 }
 
 impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
@@ -53,6 +72,10 @@ impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
         self.0.real_persist() || self.1.real_persist()
     }
     fn put_balance(&mut self, balance: BalanceHistory) {
+        self.0.put_balance(balance.clone());
+        self.1.put_balance(balance);
+    }
+    fn register_user(&mut self, balance: BalanceHistory) {
         self.0.put_balance(balance.clone());
         self.1.put_balance(balance);
     }
