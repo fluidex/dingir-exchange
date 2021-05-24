@@ -88,7 +88,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         self.balance_writer.append(data).ok();
     }
     fn append_user(&mut self, user: models::AccountDesc) {
-        self.balance_writer.append(user).ok();
+        self.user_writer.append(user).ok();
     }
     fn append_order_history(&mut self, order: &market::Order) {
         self.order_writer.append(order.into()).ok();

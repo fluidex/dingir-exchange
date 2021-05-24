@@ -2,7 +2,7 @@ use crate::asset::{self, AssetManager, BalanceManager};
 use crate::config;
 use crate::matchengine::{controller, market};
 use crate::message::{self, Message, UnifyMessageManager};
-use crate::models::BalanceHistory;
+use crate::models::{BalanceHistory, AccountDesc};
 use crate::types::OrderEventType;
 use rust_decimal_macros::*;
 
@@ -183,16 +183,8 @@ impl asset::PersistExector for &mut MockPersistor {
             detail: balance.detail,
         })))
     }
-    fn register_user(&mut self, balance: BalanceHistory) {
-        self.messages.push(Message::BalanceMessage(Box::new(message::BalanceMessage {
-            timestamp: balance.time.timestamp() as f64,
-            user_id: balance.user_id as u32,
-            asset: balance.asset.clone(),
-            business: balance.business.clone(),
-            change: balance.change.to_string(),
-            balance: balance.balance.to_string(),
-            detail: balance.detail,
-        })))
+    fn register_user(&mut self, user: AccountDesc) {
+        unimplemented!()
     }
 }
 
