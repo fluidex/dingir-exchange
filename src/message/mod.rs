@@ -11,9 +11,9 @@ pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserMessage {
-    user_id: u32,
-    l1_address: String,
-    l2_pubkey: String,
+    pub user_id: u32,
+    pub l1_address: String,
+    pub l2_pubkey: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -141,6 +141,7 @@ pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 #[serde(tag = "type", content = "value")]
 pub enum Message {
     BalanceMessage(Box<BalanceMessage>),
+    UserMessage(Box<UserMessage>),
     OrderMessage(Box<OrderMessage>),
     TradeMessage(Box<Trade>),
 }

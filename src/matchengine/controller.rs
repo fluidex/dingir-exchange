@@ -432,8 +432,8 @@ impl Controller {
             detail["id"] = serde_json::Value::from(req.user_id);
             self.persistor.is_real(real).persist_for_user().register_user(models::AccountDesc {
                 id: req.user_id as i32,
-                l1_address: req.l1_address,
-                l2_pubkey: req.l2_pubkey,
+                l1_address: req.l1_address.clone(),
+                l2_pubkey: req.l2_pubkey.clone(),
             });
         }
 

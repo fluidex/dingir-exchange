@@ -184,7 +184,11 @@ impl asset::PersistExector for &mut MockPersistor {
         })))
     }
     fn register_user(&mut self, user: AccountDesc) {
-        unimplemented!()
+        self.messages.push(Message::UserMessage(Box::new(message::UserMessage {
+            user_id: user.id as u32,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        })))
     }
 }
 
