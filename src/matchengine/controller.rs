@@ -61,6 +61,18 @@ impl<'c> PersistorGen<'c> {
             )),
         }
     }
+
+    fn persist_for_user(self) -> Box<dyn asset::PersistExector + 'c> {
+        match self.policy {
+            PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
+            PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
+            PersistPolicy::ToMessage => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+            PersistPolicy::Both => Box::new((
+                asset::persistor_for_db(&mut self.base.history_writer),
+                asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
+            )),
+        }
+    }
 }
 
 impl DefaultPersistor {
@@ -418,7 +430,7 @@ impl Controller {
         if real {
             let mut detail: serde_json::Value = json!({});
             detail["id"] = serde_json::Value::from(req.user_id);
-            self.persistor.register_user(models::AccountDesc {
+            self.persistor.is_real(real).persist_for_user().register_user(models::AccountDesc {
                 id: req.user_id as i32,
                 l1_address: req.l1_address,
                 l2_pubkey: req.l2_pubkey,
