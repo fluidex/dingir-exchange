@@ -2,7 +2,7 @@ use crate::asset::{self, AssetManager, BalanceManager};
 use crate::config;
 use crate::matchengine::{controller, market};
 use crate::message::{self, Message, UnifyMessageManager};
-use crate::models::{BalanceHistory, AccountDesc};
+use crate::models::{AccountDesc, BalanceHistory};
 use crate::types::OrderEventType;
 use rust_decimal_macros::*;
 
