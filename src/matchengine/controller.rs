@@ -415,18 +415,15 @@ impl Controller {
             },
         );
 
-        // if real {
-        //     detail["id"] = serde_json::Value::from(req.user_id);
-        //     persistor.put_balance(BalanceHistory {
-        //         time: FTimestamp(utils::current_timestamp()).into(),
-        //         user_id: user_id as i32,
-        //         asset: asset.to_string(),
-        //         business,
-        //         change,
-        //         balance: new_balance,
-        //         detail: detail.to_string(),
-        //     });
-        // }
+        if real {
+            let mut detail: serde_json::Value =json!({});
+            detail["id"] = serde_json::Value::from(req.user_id);
+            self.persistor.register_user(models::AccountDesc {
+                id: req.user_id as i32,
+                l1_address: req.l1_address,
+                l2_pubkey: req.l2_pubkey,
+            });
+        }
 
         if real {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);

@@ -45,7 +45,7 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     }
     fn register_user(&mut self, user: AccountDesc) {
         self.0.push_user_message(&UserMessage {
-            user_id: user.id,
+            user_id: user.id as u32,
             l1_address: user.l1_address,
             l2_pubkey: user.l2_pubkey,
         });
