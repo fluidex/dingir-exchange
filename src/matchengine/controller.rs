@@ -416,7 +416,7 @@ impl Controller {
         );
 
         if real {
-            let mut detail: serde_json::Value =json!({});
+            let mut detail: serde_json::Value = json!({});
             detail["id"] = serde_json::Value::from(req.user_id);
             self.persistor.register_user(models::AccountDesc {
                 id: req.user_id as i32,
