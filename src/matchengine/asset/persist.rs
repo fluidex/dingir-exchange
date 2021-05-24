@@ -1,5 +1,5 @@
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageManager};
+use crate::message::{BalanceMessage, UserMessage, MessageManager};
 
 pub use crate::models::{AccountDesc, BalanceHistory};
 
@@ -44,7 +44,11 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
         });
     }
     fn register_user(&mut self, user: AccountDesc) {
-        self.0.push_user_message(&UserMessage {});
+        self.0.push_user_message(&UserMessage {
+            user_id: user.id,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        });
     }
 }
 
@@ -54,8 +58,8 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.append_balance_history(balance);
     }
-    fn register_user(&mut self, balance: BalanceHistory) {
-        self.0.append_balance_history(balance);
+    fn register_user(&mut self,user: AccountDesc) {
+        self.0.append_user(user);
     }
 }
 
