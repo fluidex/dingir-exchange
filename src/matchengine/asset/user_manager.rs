@@ -1,4 +1,4 @@
-use crate::config;
+use crate::models::{tablenames, AccountDesc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -15,9 +15,14 @@ pub struct UserManager {
 }
 
 impl UserManager {
-    pub fn new(user_config: &[config::User]) -> Self {
+    pub fn new(pool: &sqlx::Pool<crate::types::DbType>) -> Result<Self> {
         let mut users: HashMap<u32, UserInfo> = HashMap::new();
-        for item in user_config.iter() {
+
+        let query = format!("select * from {}", tablenames::ACCOUNT);
+        // async?
+        let db_users: Vec<AccountDesc> = sqlx::query_as(&query).fetch_all(pool).await?;
+
+        for item in db_users.iter() {
             users.insert(
                 item.id,
                 UserInfo {
@@ -26,7 +31,8 @@ impl UserManager {
                 },
             );
         }
-        Self { users }
+
+        Ok(Self { users })
     }
 }
 
