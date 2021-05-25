@@ -16,6 +16,14 @@ pub struct Asset {
     pub logo_uri: String,
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct User {
+    pub id: u32,
+    pub l1_address: String,
+    pub l2_pubkey: String,
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MarketUnit {

@@ -1,3 +1,4 @@
+use crate::config;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -7,16 +8,25 @@ pub struct UserInfo {
     pub l2_pubkey: String,
 }
 
-// TODO: combine with balance_manager/?
+// TODO: combine with balance_manager?
 #[derive(Clone)]
 pub struct UserManager {
     pub users: HashMap<u32, UserInfo>,
 }
 
 impl UserManager {
-    // TODO:
-    pub fn new() -> Self {
-        Self { users: HashMap::new() }
+    pub fn new(user_config: &[config::User]) -> Self {
+        let mut users: HashMap<u32, UserInfo> = HashMap::new();
+        for item in user_config.iter() {
+            users.insert(
+                item.id,
+                UserInfo {
+                    l1_address: item.l1_address,
+                    l2_pubkey: item.l2_pubkey,
+                },
+            );
+        }
+        Self { users }
     }
 }
 
