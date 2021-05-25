@@ -210,6 +210,7 @@ impl sqlxextend::TableSchemas for AccountDesc {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for AccountDesc {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
         arg.add(&self.l1_address);
         arg.add(&self.l2_pubkey);
     }
