@@ -1,10 +1,9 @@
+use crate::history::HistoryWriter;
+use crate::message::MessageManager;
 use crate::message::UserMessage;
-use crate::message::{ MessageManager};
 pub use crate::models::AccountDesc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::history::HistoryWriter;
-
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -87,13 +86,3 @@ pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> Mes
 pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
     DBAsPersistor(history_writer)
 }
-
-// pub fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {
-//     MessengerAsPersistor(messenger)
-// }
-
-// pub fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
-//     DBAsPersistor(history_writer)
-// }
-
-
