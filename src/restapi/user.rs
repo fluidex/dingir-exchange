@@ -6,6 +6,7 @@ use actix_web::{
     HttpRequest, Responder,
 };
 
+// TODO: get_by_user_id still fails
 pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
     let mut is_debug: bool = false;
     if *req.match_info().get("debug").unwrap_or("false") == *"true" {
@@ -31,7 +32,6 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             let user_info = &*user_map.get(user_id).unwrap();
             Ok(Json(user_info.clone()))
         } else {
-            // TODO: get_by_user_id still fails
             Err(RpcError::bad_request("invalid user id or address"))
         }
     } else {
@@ -49,15 +49,15 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             .map_err(|_| RpcError::bad_request("invalid user id or address"))?;
 
         // update cache
-        let count = user_map.len();
         user_map.insert(
-            user.l1_address,
+            user.l1_address.clone(),
             AccountDesc {
-                id: count as i32,
-                l1_address: user.l1_address,
-                l2_pubkey: user.l2_pubkey,
+                id: user.id,
+                l1_address: user.l1_address.clone(),
+                l2_pubkey: user.l2_pubkey.clone(),
             },
         );
+
         Ok(Json(user))
     }
 }
