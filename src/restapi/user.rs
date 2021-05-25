@@ -24,7 +24,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
                     AccountDesc {
                         id: count as i32,
                         l1_address: user_id.to_string(),
-                        l2_address: Default::default(),
+                        l2_pubkey: Default::default(),
                     },
                 );
             }
@@ -35,13 +35,29 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             Err(RpcError::bad_request("invalid user id or address"))
         }
     } else {
-        // TODO: this API result should be cached, either in-memory or using redis
-        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_address = $1", ACCOUNT);
+        let mut user_map = data.user_addr_map.lock().unwrap();
+        if user_map.contains_key(user_id) {
+            let user_info = &*user_map.get(user_id).unwrap();
+            return Ok(Json(user_info.clone()));
+        }
+
+        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
         let user: AccountDesc = sqlx::query_as(&sql_query)
             .bind(user_id)
             .fetch_one(&data.db)
             .await
             .map_err(|_| RpcError::bad_request("invalid user id or address"))?;
+
+        // update cache
+        let count = user_map.len();
+        user_map.insert(
+            user.l1_address,
+            AccountDesc {
+                id: count as i32,
+                l1_address: user.l1_address,
+                l2_pubkey: user.l2_pubkey,
+            },
+        );
         Ok(Json(user))
     }
 }
