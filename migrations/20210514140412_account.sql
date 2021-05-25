@@ -3,7 +3,6 @@
 CREATE TABLE account (
     id SERIAL PRIMARY KEY, -- need to be consistent with rollup account_id
     l1_address VARCHAR(64) NOT NULL DEFAULT '',
-    -- l2_address VARCHAR(64) NOT NULL DEFAULT '',
     l2_pubkey VARCHAR(64) NOT NULL DEFAULT ''
 );
 

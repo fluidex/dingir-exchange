@@ -42,11 +42,6 @@ pub struct TickerResult {
     pub to: u64,
 }
 
-#[derive(Serialize, Copy, Clone)]
-pub struct UserInfo {
-    pub user_id: i64,
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct MarketTrade {
     pub time: String,
