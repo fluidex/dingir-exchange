@@ -29,7 +29,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
                 );
             }
             let user_info = &*user_map.get(user_id).unwrap();
-            Ok(web::Json(user_info.clone()))
+            Ok(Json(user_info.clone()))
         } else {
             // TODO: get_by_user_id still fails
             Err(RpcError::bad_request("invalid user id or address"))
@@ -37,7 +37,6 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
     } else {
         // TODO: this API result should be cached, either in-memory or using redis
         let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_address = $1", ACCOUNT);
-        // TODO: fecth_one? fecth_optional?
         let user: AccountDesc = sqlx::query_as(&sql_query)
             .bind(user_id)
             .fetch_one(&data.db)
