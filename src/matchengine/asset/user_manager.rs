@@ -35,6 +35,12 @@ impl UserManager {
     }
 }
 
+impl Default for UserManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // // TODO: select ... order by id desc limit 1?
 // let query = format!("select count(*) from {}", tablenames::ACCOUNT);
 // let last_user_id: (i32,) = sqlx::query_as(&query).fetch_one(self.dbg_pool).await.map_err(
