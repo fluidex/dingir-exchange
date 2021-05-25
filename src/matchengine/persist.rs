@@ -153,6 +153,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_base: order.finished_base,
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
+                post_only: order.post_only,
             };
             market.insert_order(order);
         }
@@ -331,6 +332,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 finished_base: order.finished_base,
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
+                post_only: order.post_only,
             }
         });
 

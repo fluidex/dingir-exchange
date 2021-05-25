@@ -169,6 +169,7 @@ pub struct OrderSlice {
     pub finished_base: DecimalDbType,
     pub finished_quote: DecimalDbType,
     pub finished_fee: DecimalDbType,
+    pub post_only: bool,
 }
 
 // xx_id here means the last persisted entry id

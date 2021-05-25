@@ -35,6 +35,7 @@ pub fn order_to_proto(o: &market::Order) -> OrderInfo {
         finished_base: o.finished_base.to_string(),
         finished_quote: o.finished_quote.to_string(),
         finished_fee: o.finished_fee.to_string(),
+        post_only: o.post_only,
     }
 }
 
@@ -64,5 +65,6 @@ pub fn order_input_from_proto(req: &OrderPutRequest) -> Result<market::OrderInpu
             Decimal::from_str(req.maker_fee.as_str())?
         },
         market: req.market.clone(),
+        post_only: req.post_only,
     })
 }
