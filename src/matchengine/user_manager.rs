@@ -7,7 +7,6 @@ pub struct UserInfo {
     pub l2_pubkey: String,
 }
 
-// TODO: combine with balance_manager?
 #[derive(Clone)]
 pub struct UserManager {
     pub users: HashMap<u32, UserInfo>,

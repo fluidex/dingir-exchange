@@ -1,4 +1,4 @@
-use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController, UserManager};
+use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self, PersistPolicy};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
@@ -9,6 +9,7 @@ use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
+use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
 use anyhow::anyhow;
@@ -421,7 +422,7 @@ impl Controller {
 
         self.user_manager.users.insert(
             req.user_id,
-            crate::asset::user_manager::UserInfo {
+            user_manager::UserInfo {
                 l1_address: req.l1_address.clone(),
                 l2_pubkey: req.l2_pubkey.clone(),
             },
