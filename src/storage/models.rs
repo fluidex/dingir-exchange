@@ -206,12 +206,15 @@ impl sqlxextend::TableSchemas for AccountDesc {
     fn table_name() -> &'static str {
         ACCOUNT
     }
-    const ARGN: i32 = 3;
+    const ARGN: i32 = 2;
+    fn default_argsn() -> Vec<i32> {
+        vec![1]
+    }
 }
 
+// TODO: check insert?
 impl sqlxextend::BindQueryArg<'_, DbType> for AccountDesc {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
         arg.add(&self.l1_address);
         arg.add(&self.l2_pubkey);
     }
