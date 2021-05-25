@@ -1,6 +1,7 @@
-use actix_web::{web, HttpRequest};
-
-use actix_web::web::Json;
+use actix_web::{
+    web::{self, Json},
+    HttpRequest,
+};
 use core::cmp::min;
 use serde::Serialize;
 

@@ -14,33 +14,15 @@ use std::sync::Mutex;
 
 use dingir_exchange::restapi;
 
-use restapi::errors::RpcError;
 use restapi::manage::market;
 use restapi::personal_history::my_orders;
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
 use restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
-use restapi::types::UserInfo;
+use restapi::user::get_user;
 
 async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
     "pong"
-}
-
-async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
-    let user_id = req.match_info().get("id_or_addr").unwrap();
-    if user_id.starts_with("0x") {
-        let mut user_map = data.user_addr_map.lock().unwrap();
-        if !user_map.contains_key(user_id) {
-            // TODO: real query from DB
-            let count = user_map.len();
-            user_map.insert(user_id.to_string(), UserInfo { user_id: count as i64 });
-        }
-        let user_info = *user_map.get(user_id).unwrap();
-        Ok(web::Json(user_info))
-    } else {
-        // TODO: get_by_user_id still fails
-        Err(RpcError::bad_request("invalid user id or address"))
-    }
 }
 
 #[actix_web::main]
