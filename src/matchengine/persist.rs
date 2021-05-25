@@ -239,7 +239,6 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
         log::info!("set order_id and trade_id to {} {}", slice.end_order_id, slice.end_trade_id);
     }
     load_operation_log_from_db(conn, end_operation_log_id as u64, controller).await;
-    // load_operation_log_from_db(controller).await;
     Ok(())
 }
 

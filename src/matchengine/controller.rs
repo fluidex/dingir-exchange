@@ -779,6 +779,9 @@ impl Controller {
             OPERATION_TRANSFER => {
                 self.transfer(false, serde_json::from_str(params)?)?;
             }
+            OPERATION_REGISTER_USER => {
+                self.register_user(false, serde_json::from_str(params)?)?;
+            }
             _ => return Err(anyhow!("invalid operation {}", method)),
         }
         Ok(())
