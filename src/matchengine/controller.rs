@@ -63,14 +63,14 @@ impl<'c> PersistorGen<'c> {
         }
     }
 
-    fn persist_for_user(self) -> Box<dyn asset::PersistExector + 'c> {
+    fn persist_for_user(self) -> Box<dyn user_manager::PersistExector + 'c> {
         match self.policy {
-            PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
-            PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessage => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+            PersistPolicy::Dummy => Box::new(user_manager::DummyPersistor(false)),
+            PersistPolicy::ToDB => Box::new(user_manager::persistor_for_db(&mut self.base.history_writer)),
+            PersistPolicy::ToMessage => Box::new(user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
             PersistPolicy::Both => Box::new((
-                asset::persistor_for_db(&mut self.base.history_writer),
-                asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
+                user_manager::persistor_for_db(&mut self.base.history_writer),
+                user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
             )),
         }
     }

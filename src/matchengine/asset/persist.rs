@@ -1,22 +1,18 @@
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageManager, UserMessage};
+use crate::message::{BalanceMessage, MessageManager};
 
-pub use crate::models::{AccountDesc, BalanceHistory};
+pub use crate::models::{BalanceHistory};
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
         true
     }
     fn put_balance(&mut self, balance: BalanceHistory);
-    fn register_user(&mut self, user: AccountDesc);
 }
 
 impl PersistExector for Box<dyn PersistExector + '_> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.as_mut().put_balance(balance)
-    }
-    fn register_user(&mut self, user: AccountDesc) {
-        self.as_mut().register_user(user)
     }
 }
 
@@ -26,7 +22,6 @@ impl PersistExector for DummyPersistor {
         self.0
     }
     fn put_balance(&mut self, _balance: BalanceHistory) {}
-    fn register_user(&mut self, _user: AccountDesc) {}
 }
 
 pub struct MessengerAsPersistor<'a, T>(&'a mut T);
@@ -43,13 +38,6 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
             detail: balance.detail,
         });
     }
-    fn register_user(&mut self, user: AccountDesc) {
-        self.0.push_user_message(&UserMessage {
-            user_id: user.id as u32,
-            l1_address: user.l1_address,
-            l2_pubkey: user.l2_pubkey,
-        });
-    }
 }
 
 pub struct DBAsPersistor<'a, T>(&'a mut T);
@@ -57,9 +45,6 @@ pub struct DBAsPersistor<'a, T>(&'a mut T);
 impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.append_balance_history(balance);
-    }
-    fn register_user(&mut self, user: AccountDesc) {
-        self.0.append_user(user);
     }
 }
 
@@ -70,10 +55,6 @@ impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.put_balance(balance.clone());
         self.1.put_balance(balance);
-    }
-    fn register_user(&mut self, user: AccountDesc) {
-        self.0.register_user(user.clone());
-        self.1.register_user(user);
     }
 }
 

@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::message::{UserMessage};
+pub use crate::models::{AccountDesc};
+
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -22,4 +25,78 @@ impl Default for UserManager {
     fn default() -> Self {
         Self::new()
     }
+}
+
+
+pub trait PersistExector {
+    fn real_persist(&self) -> bool {
+        true
+    }
+    fn register_user(&mut self, user: AccountDesc);
+}
+
+impl PersistExector for Box<dyn PersistExector + '_> {
+    fn register_user(&mut self, user: AccountDesc) {
+        self.as_mut().register_user(user)
+    }
+}
+
+pub(super) struct DummyPersistor {
+    pub(super) real_persist: bool,
+}
+impl DummyPersistor {
+    pub(super) fn new(real_persist: bool) -> Self {
+        Self { real_persist }
+    }
+}
+/*
+impl PersistExector for &mut DummyPersistor {
+    fn real_persist(&self) -> bool {
+        self.real_persist
+    }
+}
+*/
+impl PersistExector for DummyPersistor {
+    fn real_persist(&self) -> bool {
+        self.real_persist
+    }
+    fn register_user(&mut self, _user: AccountDesc) {}
+}
+
+pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
+
+impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.push_user_message(&UserMessage {
+            user_id: user.id as u32,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        });
+    }    
+}
+
+impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
+    fn real_persist(&self) -> bool {
+        self.0.real_persist() || self.1.real_persist()
+    }
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.register_user(user.clone());
+        self.1.register_user(user);
+    }
+}
+
+pub(super) struct DBAsPersistor<'a, T>(&'a mut T);
+
+impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.append_user(user);
+    }
+}
+
+pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {
+    MessengerAsPersistor(messenger)
+}
+
+pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
+    DBAsPersistor(history_writer)
 }
