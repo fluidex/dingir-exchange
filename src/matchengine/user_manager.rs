@@ -1,8 +1,7 @@
+use crate::message::UserMessage;
+pub use crate::models::AccountDesc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::message::{UserMessage};
-pub use crate::models::{AccountDesc};
-
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -26,7 +25,6 @@ impl Default for UserManager {
         Self::new()
     }
 }
-
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
@@ -72,7 +70,7 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
             l1_address: user.l1_address,
             l2_pubkey: user.l2_pubkey,
         });
-    }    
+    }
 }
 
 impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {

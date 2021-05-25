@@ -1,7 +1,7 @@
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageManager};
 
-pub use crate::models::{BalanceHistory};
+pub use crate::models::BalanceHistory;
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
