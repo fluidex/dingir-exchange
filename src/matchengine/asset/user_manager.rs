@@ -1,4 +1,3 @@
-use crate::models::{tablenames, AccountDesc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -15,24 +14,24 @@ pub struct UserManager {
 }
 
 impl UserManager {
-    pub fn new(pool: &sqlx::Pool<crate::types::DbType>) -> Result<Self> {
-        let mut users: HashMap<u32, UserInfo> = HashMap::new();
+    pub fn new() -> Self {
+        Self { users: HashMap::new() }
 
-        let query = format!("select * from {}", tablenames::ACCOUNT);
-        // async?
-        let db_users: Vec<AccountDesc> = sqlx::query_as(&query).fetch_all(pool).await?;
+        // let query = format!("select * from {}", tablenames::ACCOUNT);
+        // // async?
+        // let db_users: Vec<AccountDesc> = sqlx::query_as(&query).fetch_all(pool).await?;
 
-        for item in db_users.iter() {
-            users.insert(
-                item.id,
-                UserInfo {
-                    l1_address: item.l1_address,
-                    l2_pubkey: item.l2_pubkey,
-                },
-            );
-        }
+        // for item in db_users.iter() {
+        //     users.insert(
+        //         item.id,
+        //         UserInfo {
+        //             l1_address: item.l1_address,
+        //             l2_pubkey: item.l2_pubkey,
+        //         },
+        //     );
+        // }
 
-        Ok(Self { users })
+        // Ok(Self { users })
     }
 }
 
