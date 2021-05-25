@@ -1,7 +1,10 @@
 use crate::message::UserMessage;
+use crate::message::{ MessageManager};
 pub use crate::models::AccountDesc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::history::HistoryWriter;
+
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -39,29 +42,15 @@ impl PersistExector for Box<dyn PersistExector + '_> {
     }
 }
 
-pub(super) struct DummyPersistor {
-    pub(super) real_persist: bool,
-}
-impl DummyPersistor {
-    pub(super) fn new(real_persist: bool) -> Self {
-        Self { real_persist }
-    }
-}
-/*
-impl PersistExector for &mut DummyPersistor {
-    fn real_persist(&self) -> bool {
-        self.real_persist
-    }
-}
-*/
+pub struct DummyPersistor(pub bool);
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
-        self.real_persist
+        self.0
     }
     fn register_user(&mut self, _user: AccountDesc) {}
 }
 
-pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
+pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T);
 
 impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     fn register_user(&mut self, user: AccountDesc) {
@@ -98,3 +87,13 @@ pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> Mes
 pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
     DBAsPersistor(history_writer)
 }
+
+// pub fn persistor_for_message<T: MessageManager>(messenger: &mut T) -> MessengerAsPersistor<'_, T> {
+//     MessengerAsPersistor(messenger)
+// }
+
+// pub fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
+//     DBAsPersistor(history_writer)
+// }
+
+
