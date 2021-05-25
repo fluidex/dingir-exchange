@@ -16,22 +16,6 @@ pub struct UserManager {
 impl UserManager {
     pub fn new() -> Self {
         Self { users: HashMap::new() }
-
-        // let query = format!("select * from {}", tablenames::ACCOUNT);
-        // // async?
-        // let db_users: Vec<AccountDesc> = sqlx::query_as(&query).fetch_all(pool).await?;
-
-        // for item in db_users.iter() {
-        //     users.insert(
-        //         item.id,
-        //         UserInfo {
-        //             l1_address: item.l1_address,
-        //             l2_pubkey: item.l2_pubkey,
-        //         },
-        //     );
-        // }
-
-        // Ok(Self { users })
     }
 }
 
@@ -40,9 +24,3 @@ impl Default for UserManager {
         Self::new()
     }
 }
-
-// // TODO: select ... order by id desc limit 1?
-// let query = format!("select count(*) from {}", tablenames::ACCOUNT);
-// let last_user_id: (i32,) = sqlx::query_as(&query).fetch_one(self.dbg_pool).await.map_err(
-//     |_| Err(Status::unavailable("")), // TODO:
-// )?;
