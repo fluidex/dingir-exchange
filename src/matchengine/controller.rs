@@ -9,6 +9,7 @@ use crate::models::{self};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
+use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
 use anyhow::anyhow;
@@ -58,6 +59,18 @@ impl<'c> PersistorGen<'c> {
             PersistPolicy::Both => Box::new((
                 asset::persistor_for_db(&mut self.base.history_writer),
                 asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
+            )),
+        }
+    }
+
+    fn persist_for_user(self) -> Box<dyn user_manager::PersistExector + 'c> {
+        match self.policy {
+            PersistPolicy::Dummy => Box::new(user_manager::DummyPersistor(false)),
+            PersistPolicy::ToDB => Box::new(user_manager::persistor_for_db(&mut self.base.history_writer)),
+            PersistPolicy::ToMessage => Box::new(user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
+            PersistPolicy::Both => Box::new((
+                user_manager::persistor_for_db(&mut self.base.history_writer),
+                user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
             )),
         }
     }
@@ -133,6 +146,7 @@ pub struct Controller {
     //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
     pub sequencer: Sequencer,
+    pub user_manager: UserManager,
     pub balance_manager: BalanceManager,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
@@ -145,6 +159,7 @@ pub struct Controller {
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
+const OPERATION_REGISTER_USER: &str = "register_user";
 const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
@@ -154,6 +169,7 @@ const OPERATION_TRANSFER: &str = "transfer";
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
     let settings = cfgs.0;
     let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+    let user_manager = UserManager::new();
     let balance_manager = BalanceManager::new(&settings.assets).unwrap();
     let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
     let history_writer = DatabaseHistoryWriter::new(
@@ -193,6 +209,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         settings,
         sequencer,
         //            asset_manager,
+        user_manager,
         balance_manager,
         update_controller,
         markets,
@@ -391,6 +408,44 @@ impl Controller {
             return false;
         }
         self.persistor.service_available()
+    }
+
+    pub fn register_user(&mut self, real: bool, req: UserInfo) -> std::result::Result<UserInfo, Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
+
+        let last_user_id = self.user_manager.users.len() as u32;
+        if last_user_id + 1 != req.user_id {
+            return Err(Status::invalid_argument("inconsist user_id"));
+        }
+
+        self.user_manager.users.insert(
+            req.user_id,
+            user_manager::UserInfo {
+                l1_address: req.l1_address.clone(),
+                l2_pubkey: req.l2_pubkey.clone(),
+            },
+        );
+
+        if real {
+            let mut detail: serde_json::Value = json!({});
+            detail["id"] = serde_json::Value::from(req.user_id);
+            self.persistor.is_real(real).persist_for_user().register_user(models::AccountDesc {
+                id: req.user_id as i32,
+                l1_address: req.l1_address.clone(),
+                l2_pubkey: req.l2_pubkey.clone(),
+            });
+        }
+
+        if real {
+            self.append_operation_log(OPERATION_REGISTER_USER, &req);
+        }
+        Ok(UserInfo {
+            user_id: req.user_id,
+            l1_address: req.l1_address,
+            l2_pubkey: req.l2_pubkey,
+        })
     }
 
     pub fn update_balance(&mut self, real: bool, req: BalanceUpdateRequest) -> std::result::Result<BalanceUpdateResponse, Status> {
@@ -724,6 +779,9 @@ impl Controller {
             }
             OPERATION_TRANSFER => {
                 self.transfer(false, serde_json::from_str(params)?)?;
+            }
+            OPERATION_REGISTER_USER => {
+                self.register_user(false, serde_json::from_str(params)?)?;
             }
             _ => return Err(anyhow!("invalid operation {}", method)),
         }

@@ -6,5 +6,6 @@ pub mod market;
 pub mod persist;
 pub mod sequencer;
 pub mod server;
+pub mod user_manager;
 
 mod mock;

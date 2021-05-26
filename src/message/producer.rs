@@ -175,6 +175,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
 pub const ORDERS_TOPIC: &str = "orders";
 pub const TRADES_TOPIC: &str = "trades";
 pub const BALANCES_TOPIC: &str = "balances";
+pub const USER_TOPIC: &str = "register_user";
 pub const UNIFY_TOPIC: &str = "unifyevents";
 
 use std::collections::LinkedList;
@@ -184,6 +185,7 @@ pub struct SimpleMessageScheme {
     orders_list: LinkedList<String>,
     trades_list: LinkedList<String>,
     balances_list: LinkedList<String>,
+    users_list: LinkedList<String>,
     last_poped: Option<(&'static str, String)>,
 }
 
@@ -196,7 +198,7 @@ impl MessageScheme for SimpleMessageScheme {
         vec![("queue.buffering.max.ms", "1")]
     }
     fn is_full(&self) -> bool {
-        self.trades_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100
+        self.trades_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100 || self.users_list.len() >= 100
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
@@ -204,6 +206,7 @@ impl MessageScheme for SimpleMessageScheme {
             BALANCES_TOPIC => &mut self.balances_list,
             TRADES_TOPIC => &mut self.trades_list,
             ORDERS_TOPIC => &mut self.orders_list,
+            USER_TOPIC => &mut self.users_list,
             _ => unreachable!(),
         };
 
@@ -216,7 +219,7 @@ impl MessageScheme for SimpleMessageScheme {
         let mut list = &mut self.balances_list;
         let mut topic_name = BALANCES_TOPIC;
 
-        let mut candi_list = [&mut self.orders_list, &mut self.trades_list];
+        let mut candi_list = [&mut self.orders_list, &mut self.trades_list, &mut self.users_list];
         let iters = [ORDERS_TOPIC, TRADES_TOPIC].iter().zip(&mut candi_list);
 
         for i in iters.into_iter() {

@@ -7,7 +7,14 @@ pub mod consumer;
 pub mod persist;
 pub mod producer;
 
-pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC};
+pub use producer::{BALANCES_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserMessage {
+    pub user_id: u32,
+    pub l1_address: String,
+    pub l2_pubkey: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceMessage {
@@ -45,6 +52,7 @@ pub trait MessageManager {
     fn push_order_message(&mut self, order: &OrderMessage);
     fn push_trade_message(&mut self, trade: &Trade);
     fn push_balance_message(&mut self, balance: &BalanceMessage);
+    fn push_user_message(&mut self, user: &UserMessage);
 }
 
 pub struct RdProducerStub<T> {
@@ -116,6 +124,10 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
         let message = serde_json::to_string(&balance).unwrap();
         self.push_message_and_topic(message, BALANCES_TOPIC)
     }
+    fn push_user_message(&mut self, user: &UserMessage) {
+        let message = serde_json::to_string(&user).unwrap();
+        self.push_message_and_topic(message, USER_TOPIC)
+    }
 }
 
 pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
@@ -129,6 +141,7 @@ pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 #[serde(tag = "type", content = "value")]
 pub enum Message {
     BalanceMessage(Box<BalanceMessage>),
+    UserMessage(Box<UserMessage>),
     OrderMessage(Box<OrderMessage>),
     TradeMessage(Box<Trade>),
 }

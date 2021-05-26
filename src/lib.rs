@@ -6,7 +6,7 @@
 #![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 pub mod matchengine;
-pub use matchengine::{asset, controller, dto, history, market, persist, sequencer, server};
+pub use matchengine::{asset, controller, dto, history, market, persist, sequencer, server, user_manager};
 pub mod storage;
 pub use storage::{database, models, sqlxextend};
 pub mod config;

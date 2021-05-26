@@ -200,6 +200,24 @@ use crate::sqlxextend;
 use crate::types;
 pub use types::DbType;
 
+/* --------------------- models::AccountDesc -----------------------------*/
+impl sqlxextend::TableSchemas for AccountDesc {
+    fn table_name() -> &'static str {
+        ACCOUNT
+    }
+    const ARGN: i32 = 3;
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for AccountDesc {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.id);
+        arg.add(&self.l1_address);
+        arg.add(&self.l2_pubkey);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for AccountDesc {}
+
 /* --------------------- models::BalanceHistory -----------------------------*/
 impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
