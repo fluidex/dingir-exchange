@@ -175,7 +175,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
 pub const ORDERS_TOPIC: &str = "orders";
 pub const TRADES_TOPIC: &str = "trades";
 pub const BALANCES_TOPIC: &str = "balances";
-pub const USER_TOPIC: &str = "register_user";
+pub const USER_TOPIC: &str = "registeruser";
 pub const UNIFY_TOPIC: &str = "unifyevents";
 
 use std::collections::LinkedList;
