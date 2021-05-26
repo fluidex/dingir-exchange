@@ -620,8 +620,8 @@ impl Controller {
 
         let from_user_id = req.from;
         let to_user_id = req.to;
-        if !self.user_manager.users.contains_key(to_user_id){
-            return Err(Status::invalid_argument("invalid to_user"));            
+        if !self.user_manager.users.contains_key(&to_user_id) {
+            return Err(Status::invalid_argument("invalid to_user"));
         }
 
         let balance_manager = &self.balance_manager;

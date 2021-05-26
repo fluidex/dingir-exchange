@@ -2,7 +2,8 @@ import { userId } from "./config.mjs"; // dotenv
 import {
   balanceQuery,
   debugReset,
-  transfer
+  transfer,
+  registerUser
 } from "./client.mjs";
 import { depositAssets, decimalEqual } from "./util.mjs";
 
@@ -17,6 +18,29 @@ async function setupAsset() {
   decimalEqual(balance1.ETH.available, "100");
   const balance2 = await balanceQuery(anotherUserId);
   decimalEqual(balance2.ETH.available, "0");
+}
+
+// Test no user_to
+async function failureWithNoUser2() {
+  const res = await transfer(userId, anotherUserId, "ETH", 50);
+
+  assert.equal(res.success, false);
+  assert.equal(res.asset, "ETH");
+  decimalEqual(res.balance_from, "100");
+
+  const balance1 = await balanceQuery(userId);
+  decimalEqual(balance1.ETH.available, "100");
+  const balance2 = await balanceQuery(anotherUserId);
+  decimalEqual(balance2.ETH.available, "0");
+
+  console.log("successTransferTest passed");
+}
+
+async function registerUsers() {
+  await registerUser({ id: 1, l1_address: "l1_address_1", l2_pubkey: "l2_pubkey_1" });
+  console.log("register user 1");
+  await registerUser({ id: 2, l1_address: "l1_address_2", l2_pubkey: "l2_pubkey_2" });
+  console.log("register user 2");
 }
 
 // Test failure with argument delta of value zero
@@ -69,9 +93,11 @@ async function successTransferTest() {
 
 async function simpleTest() {
   await setupAsset();
-  await failureWithZeroDeltaTest();
-  await failureWithInsufficientFromBalanceTest();
-  await successTransferTest();
+  // await failureWithNoUser2();
+  await registerUsers();
+  // await failureWithZeroDeltaTest();
+  // await failureWithInsufficientFromBalanceTest();
+  // await successTransferTest();
 }
 
 async function mainTest() {
