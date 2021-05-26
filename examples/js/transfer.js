@@ -37,9 +37,9 @@ async function failureWithNoUser2() {
 }
 
 async function registerUsers() {
-  await registerUser({ id: 1, l1_address: "l1_address_1", l2_pubkey: "l2_pubkey_1" });
+  await registerUser({ id: userId, l1_address: "l1_address_1", l2_pubkey: "l2_pubkey_1" });
   console.log("register user 1");
-  await registerUser({ id: 2, l1_address: "l1_address_2", l2_pubkey: "l2_pubkey_2" });
+  await registerUser({ id: anotherUserId, l1_address: "l1_address_2", l2_pubkey: "l2_pubkey_2" });
   console.log("register user 2");
 }
 
@@ -93,8 +93,7 @@ async function successTransferTest() {
 
 async function simpleTest() {
   await setupAsset();
-  // await failureWithNoUser2();
-  // await registerUsers();
+  await registerUsers();
   await failureWithZeroDeltaTest();
   await failureWithInsufficientFromBalanceTest();
   await successTransferTest();
