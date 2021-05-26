@@ -2,7 +2,8 @@ import { userId } from "./config.mjs"; // dotenv
 import {
   balanceQuery,
   debugReset,
-  transfer
+  transfer,
+  registerUser
 } from "./client.mjs";
 import { depositAssets, decimalEqual } from "./util.mjs";
 
@@ -17,6 +18,13 @@ async function setupAsset() {
   decimalEqual(balance1.ETH.available, "100");
   const balance2 = await balanceQuery(anotherUserId);
   decimalEqual(balance2.ETH.available, "0");
+}
+
+async function registerUsers() {
+  for (var i = 1; i <= anotherUserId; i++) {
+    await registerUser({ id: i, l1_address: "l1_address_"+i, l2_pubkey: "l2_pubkey_"+i });
+    console.log("register user", i);
+  }
 }
 
 // Test failure with argument delta of value zero
@@ -69,6 +77,7 @@ async function successTransferTest() {
 
 async function simpleTest() {
   await setupAsset();
+  await registerUsers();
   await failureWithZeroDeltaTest();
   await failureWithInsufficientFromBalanceTest();
   await successTransferTest();
