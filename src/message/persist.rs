@@ -666,8 +666,8 @@ impl<'r> From<&'r super::UserMessage> for models::AccountDesc {
     fn from(origin: &'r super::UserMessage) -> Self {
         Self {
             id: origin.user_id as i32,
-            l1_address: origin.l1_address,
-            l2_pubkey: origin.l2_pubkey,
+            l1_address: origin.l1_address.clone(),
+            l2_pubkey: origin.l2_pubkey.clone(),
         }
     }
 }
