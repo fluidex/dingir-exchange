@@ -94,10 +94,10 @@ async function successTransferTest() {
 async function simpleTest() {
   await setupAsset();
   // await failureWithNoUser2();
-  await registerUsers();
-  // await failureWithZeroDeltaTest();
-  // await failureWithInsufficientFromBalanceTest();
-  // await successTransferTest();
+  // await registerUsers();
+  await failureWithZeroDeltaTest();
+  await failureWithInsufficientFromBalanceTest();
+  await successTransferTest();
 }
 
 async function mainTest() {

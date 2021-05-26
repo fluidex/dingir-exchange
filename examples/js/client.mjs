@@ -134,8 +134,8 @@ export async function debugReload() {
 
 export async function registerUser(user) {
   return await client.RegisterUser({
-    user_id: user.id
-    // l1_address: user.l1_address,
-    // l2_pubkey: user.l2_pubkey,
+    user_id: user.id,
+    l1_address: user.l1_address,
+    l2_pubkey: user.l2_pubkey,
   });
 }
