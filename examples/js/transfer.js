@@ -20,22 +20,6 @@ async function setupAsset() {
   decimalEqual(balance2.ETH.available, "0");
 }
 
-// Test no user_to
-async function failureWithNoUser2() {
-  const res = await transfer(userId, anotherUserId, "ETH", 50);
-
-  assert.equal(res.success, false);
-  assert.equal(res.asset, "ETH");
-  decimalEqual(res.balance_from, "100");
-
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.ETH.available, "100");
-  const balance2 = await balanceQuery(anotherUserId);
-  decimalEqual(balance2.ETH.available, "0");
-
-  console.log("successTransferTest passed");
-}
-
 async function registerUsers() {
   for (var i = 1; i <= anotherUserId; i++) {
     await registerUser({ id: i, l1_address: "l1_address_"+i, l2_pubkey: "l2_pubkey_"+i });
