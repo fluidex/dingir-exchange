@@ -37,10 +37,10 @@ async function failureWithNoUser2() {
 }
 
 async function registerUsers() {
-  await registerUser({ id: userId, l1_address: "l1_address_1", l2_pubkey: "l2_pubkey_1" });
-  console.log("register user 1");
-  await registerUser({ id: anotherUserId, l1_address: "l1_address_2", l2_pubkey: "l2_pubkey_2" });
-  console.log("register user 2");
+  for (var i = 1; i <= anotherUserId; i++) {
+    await registerUser({ id: i, l1_address: "l1_address_"+i, l2_pubkey: "l2_pubkey_"+i });
+    console.log("register user", i);
+  }
 }
 
 // Test failure with argument delta of value zero
