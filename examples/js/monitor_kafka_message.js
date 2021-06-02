@@ -3,7 +3,7 @@ import Dotenv from "dotenv";
 
 async function main() {
   Dotenv.config();
-  const consumer = new KafkaConsumer(true).Init();
+  const consumer = new KafkaConsumer().Init(true);
   await consumer;
 }
 
