@@ -202,7 +202,6 @@ pub struct InternalTx {
     pub amount: DecimalDbType,
 }
 
-
 /*
     Not like diesel, we still need more code for insert action here
     May be we could use macro to save these works
