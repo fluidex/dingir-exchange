@@ -19,6 +19,7 @@ pub mod tablenames {
     pub const BALANCESLICE: &str = "balance_slice";
     pub const SLICEHISTORY: &str = "slice_history";
     pub const MARKETTRADE: &str = "market_trade";
+    pub const INTERNALTX: &str = "internal_tx";
 }
 
 use tablenames::*;
@@ -191,6 +192,16 @@ pub struct MarketTrade {
     pub quote_amount: DecimalDbType,
     pub taker_side: OrderSide,
 }
+
+#[derive(sqlx::FromRow, Debug, Clone)]
+pub struct InternalTx {
+    pub time: TimestampDbType,
+    pub user_from: i32,
+    pub user_to: i32,
+    pub asset: String,
+    pub amount: DecimalDbType,
+}
+
 
 /*
     Not like diesel, we still need more code for insert action here
