@@ -45,13 +45,11 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.0.push_transfer_message(&TransferMessage {
-        //     timestamp: balance.time.timestamp() as f64,
-        //     user_id: balance.user_id as u32,
-        //     asset: balance.asset.clone(),
-        //     business: balance.business.clone(),
-        //     change: balance.change.to_string(),
-        //     balance: balance.balance.to_string(),
-        //     detail: balance.detail,
+            time: tx.time.timestamp() as f64, // TODO: use milli seconds
+            user_from: tx.user_from as u32,
+            user_to: tx.user_to as u32,
+            asset: tx.asset.to_string(),
+            amount: tx.amount.to_string(),
         });
     }
 }
