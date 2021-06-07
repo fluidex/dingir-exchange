@@ -676,12 +676,11 @@ impl Controller {
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
         if real {
-            // let mut detail: serde_json::Value = json!({});
-            // detail["id"] = serde_json::Value::from(req.user_id);
-            // self.persistor.is_real(real).persist_for_balance().put_transfer(models::AccountDesc {
-            //     id: req.user_id as i32,
-            //     l1_address: req.l1_address.clone(),
-            //     l2_pubkey: req.l2_pubkey.clone(),
+            // self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
+            //     user_from: req.user_id as i32,
+            //     user_to: req.user_id as i32,
+            //     asset: req.l1_address.clone(),
+            //     amout: req.l2_pubkey.clone(),
             // });
 
             self.append_operation_log(OPERATION_TRANSFER, &req);
