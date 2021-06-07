@@ -2,9 +2,10 @@ use crate::asset::{self, AssetManager, BalanceManager};
 use crate::config;
 use crate::matchengine::{controller, market};
 use crate::message::{self, Message, UnifyMessageManager};
-use crate::models::{AccountDesc, BalanceHistory};
+use crate::models::{AccountDesc, BalanceHistory, InternalTx};
 use crate::types::OrderEventType;
 use crate::user_manager;
+use crate::utils::FTimestamp;
 use rust_decimal_macros::*;
 
 use std::fs::File;
@@ -182,6 +183,15 @@ impl asset::PersistExector for &mut MockPersistor {
             change: balance.change.to_string(),
             balance: balance.balance.to_string(),
             detail: balance.detail,
+        })))
+    }
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.messages.push(Message::TransferMessage(Box::new(message::TransferMessage {
+            time: FTimestamp::from(&tx.time).into(),
+            user_from: tx.user_from as u32,
+            user_to: tx.user_to as u32,
+            asset: tx.asset.to_string(),
+            amount: tx.amount.to_string(),
         })))
     }
 }

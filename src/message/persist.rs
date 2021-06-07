@@ -665,9 +665,21 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
 impl<'r> From<&'r super::UserMessage> for models::AccountDesc {
     fn from(origin: &'r super::UserMessage) -> Self {
         Self {
-            id: origin.user_id as i32,
+            id: origin.user_id as i32, // TODO: will this overflow?
             l1_address: origin.l1_address.clone(),
             l2_pubkey: origin.l2_pubkey.clone(),
+        }
+    }
+}
+
+impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
+    fn from(origin: &'r super::TransferMessage) -> Self {
+        Self {
+            time: FTimestamp(origin.time).into(),
+            user_from: origin.user_from as i32, // TODO: will this overflow?
+            user_to: origin.user_to as i32,     // TODO: will this overflow?
+            asset: origin.asset.clone(),
+            amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
         }
     }
 }

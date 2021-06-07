@@ -649,7 +649,8 @@ impl Controller {
         let change = delta.round_dp(prec);
 
         let business = "transfer";
-        let business_id = chrono::prelude::Utc::now().timestamp_millis() as u64;
+        let timestamp = FTimestamp(utils::current_timestamp());
+        let business_id = (timestamp.0 * 1_000_f64) as u64; // milli-seconds
         let detail_json: serde_json::Value = if req.memo.is_empty() {
             json!({})
         } else {
@@ -683,6 +684,14 @@ impl Controller {
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
         if real {
+            self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
+                time: timestamp.into(),
+                user_from: from_user_id as i32, // TODO: will this overflow?
+                user_to: to_user_id as i32,     // TODO: will this overflow?
+                asset: asset_id.to_string(),
+                amount: change,
+            });
+
             self.append_operation_log(OPERATION_TRANSFER, &req);
         }
 

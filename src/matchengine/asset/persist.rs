@@ -1,18 +1,22 @@
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageManager};
-
-pub use crate::models::BalanceHistory;
+use crate::message::{BalanceMessage, MessageManager, TransferMessage};
+pub use crate::models::{BalanceHistory, InternalTx};
+use crate::utils::FTimestamp;
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
         true
     }
     fn put_balance(&mut self, balance: BalanceHistory);
+    fn put_transfer(&mut self, tx: InternalTx);
 }
 
 impl PersistExector for Box<dyn PersistExector + '_> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.as_mut().put_balance(balance)
+    }
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.as_mut().put_transfer(tx)
     }
 }
 
@@ -22,6 +26,7 @@ impl PersistExector for DummyPersistor {
         self.0
     }
     fn put_balance(&mut self, _balance: BalanceHistory) {}
+    fn put_transfer(&mut self, _tx: InternalTx) {}
 }
 
 pub struct MessengerAsPersistor<'a, T>(&'a mut T);
@@ -38,6 +43,15 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
             detail: balance.detail,
         });
     }
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.0.push_transfer_message(&TransferMessage {
+            time: FTimestamp::from(&tx.time).into(),
+            user_from: tx.user_from as u32,
+            user_to: tx.user_to as u32,
+            asset: tx.asset.to_string(),
+            amount: tx.amount.to_string(),
+        });
+    }
 }
 
 pub struct DBAsPersistor<'a, T>(&'a mut T);
@@ -45,6 +59,9 @@ pub struct DBAsPersistor<'a, T>(&'a mut T);
 impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.append_balance_history(balance);
+    }
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.0.append_internal_transfer(tx);
     }
 }
 
@@ -55,6 +72,10 @@ impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.0.put_balance(balance.clone());
         self.1.put_balance(balance);
+    }
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.0.put_transfer(tx.clone());
+        self.1.put_transfer(tx);
     }
 }
 
