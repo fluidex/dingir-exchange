@@ -184,18 +184,14 @@ impl asset::PersistExector for &mut MockPersistor {
             detail: balance.detail,
         })))
     }
-    fn put_transfer(&mut self, _tx: InternalTx) {
-        // self.messages.push(Message::BalanceMessage(Box::new(message::BalanceMessage {
-        //     timestamp: balance.time.timestamp() as f64,
-        //     user_id: balance.user_id as u32,
-        //     asset: balance.asset.clone(),
-        //     business: balance.business.clone(),
-        //     change: balance.change.to_string(),
-        //     balance: balance.balance.to_string(),
-        //     detail: balance.detail,
-        // })))
-        // TODO:
-        unimplemented!()
+    fn put_transfer(&mut self, tx: InternalTx) {
+        self.messages.push(Message::TransferMessage(Box::new(message::TransferMessage {
+            time: tx.time.timestamp() as f64, // TODO: use milli seconds
+            user_from: tx.user_from as u32,
+            user_to: tx.user_to as u32,
+            asset: tx.asset.to_string(),
+            amount: tx.amount.to_string(),
+        })))
     }
 }
 

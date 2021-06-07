@@ -156,6 +156,7 @@ pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 #[serde(tag = "type", content = "value")]
 pub enum Message {
     BalanceMessage(Box<BalanceMessage>),
+    TransferMessage(Box<TransferMessage>),
     UserMessage(Box<UserMessage>),
     OrderMessage(Box<OrderMessage>),
     TradeMessage(Box<Trade>),
