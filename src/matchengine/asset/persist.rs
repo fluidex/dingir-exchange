@@ -61,7 +61,7 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
         self.0.append_balance_history(balance);
     }
     fn put_transfer(&mut self, tx: InternalTx) {
-        unimplemented!();
+        self.0.append_internal_transfer(tx);
     }
 }
 
