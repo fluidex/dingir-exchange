@@ -1,7 +1,7 @@
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageManager, TransferMessage};
-use crate::utils::FTimestamp;
 pub use crate::models::{BalanceHistory, InternalTx};
+use crate::utils::FTimestamp;
 
 pub trait PersistExector {
     fn real_persist(&self) -> bool {
