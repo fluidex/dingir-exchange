@@ -2,8 +2,9 @@ use crate::asset::{self, AssetManager, BalanceManager};
 use crate::config;
 use crate::matchengine::{controller, market};
 use crate::message::{self, Message, UnifyMessageManager};
-use crate::models::{BalanceHistory, InternalTx};
+use crate::models::{AccountDesc, BalanceHistory, InternalTx};
 use crate::types::OrderEventType;
+use crate::user_manager;
 use rust_decimal_macros::*;
 
 use std::fs::File;
@@ -198,11 +199,24 @@ impl asset::PersistExector for &mut MockPersistor {
     }
 }
 
+impl user_manager::PersistExector for &mut MockPersistor {
+    fn register_user(&mut self, user: AccountDesc) {
+        self.messages.push(Message::UserMessage(Box::new(message::UserMessage {
+            user_id: user.id as u32,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        })))
+    }
+}
+
 impl controller::IntoPersistor for MockPersistor {
     fn persistor_for_market<'c>(&'c mut self, _real: bool, _market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
         Box::new(self)
     }
     fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
+        Box::new(self)
+    }
+    fn persistor_for_user<'c>(&'c mut self, _real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
         Box::new(self)
     }
 }

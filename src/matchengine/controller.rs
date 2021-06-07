@@ -102,6 +102,7 @@ pub trait IntoPersistor {
     }
     fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c>;
     fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c>;
+    fn persistor_for_user<'c>(&'c mut self, real: bool) -> Box<dyn user_manager::PersistExector + 'c>;
 }
 
 impl IntoPersistor for DefaultPersistor {
@@ -114,6 +115,9 @@ impl IntoPersistor for DefaultPersistor {
     fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c> {
         self.is_real(real).persist_for_balance()
     }
+    fn persistor_for_user<'c>(&'c mut self, real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
+        self.is_real(real).persist_for_user()
+    }
 }
 
 impl IntoPersistor for UnifyMessageManager {
@@ -125,6 +129,9 @@ impl IntoPersistor for UnifyMessageManager {
     }
     fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
         Box::new(asset::persistor_for_message(self))
+    }
+    fn persistor_for_user<'c>(&'c mut self, _real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
+        Box::new(user_manager::persistor_for_message(self))
     }
 }
 
