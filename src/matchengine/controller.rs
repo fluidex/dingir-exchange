@@ -683,21 +683,14 @@ impl Controller {
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
-        let model = models::InternalTx {
-            time: chrono::NaiveDateTime::from(utils::FTimestamp(timestamp)),
-            user_from: from_user_id as i32,
-            user_to: to_user_id as i32,
-            asset: asset_id.to_string(),
-            amount: change,
-        };
-
         if real {
-            // self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
-            //     user_from: req.user_id as i32,
-            //     user_to: req.user_id as i32,
-            //     asset: req.l1_address.clone(),
-            //     amout: req.l2_pubkey.clone(),
-            // });
+            self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
+                time: chrono::NaiveDateTime::from(utils::FTimestamp(timestamp)),
+                user_from: from_user_id as i32,
+                user_to: to_user_id as i32,
+                asset: asset_id.to_string(),
+                amount: change,
+            });
 
             self.append_operation_log(OPERATION_TRANSFER, &req);
         }
