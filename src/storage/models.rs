@@ -210,6 +210,26 @@ use crate::sqlxextend;
 use crate::types;
 pub use types::DbType;
 
+/* --------------------- models::InternalTx -----------------------------*/
+impl sqlxextend::TableSchemas for InternalTx {
+    fn table_name() -> &'static str {
+        INTERNALTX
+    }
+    const ARGN: i32 = 5;
+}
+
+impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
+    fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
+        arg.add(self.time);
+        arg.add(self.user_from);
+        arg.add(self.user_to);
+        arg.add(&self.asset);
+        arg.add(self.amount);
+    }
+}
+
+impl sqlxextend::SqlxAction<'_, sqlxextend::InsertTable, DbType> for InternalTx {}
+
 /* --------------------- models::AccountDesc -----------------------------*/
 impl sqlxextend::TableSchemas for AccountDesc {
     fn table_name() -> &'static str {
