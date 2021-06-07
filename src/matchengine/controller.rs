@@ -686,8 +686,8 @@ impl Controller {
         if real {
             self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
                 time: timestamp.into(),
-                user_from: from_user_id as i32,
-                user_to: to_user_id as i32,
+                user_from: from_user_id as i32, // TODO: will this overflow?
+                user_to: to_user_id as i32,     // TODO: will this overflow?
                 asset: asset_id.to_string(),
                 amount: change,
             });
