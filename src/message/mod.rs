@@ -29,7 +29,11 @@ pub struct BalanceMessage {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransferMessage {
-    // TODO:
+    pub time: f64,
+    pub user_from: u32,
+    pub user_to: u32,
+    pub asset: String,
+    pub amount: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
