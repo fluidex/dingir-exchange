@@ -1,5 +1,5 @@
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageManager};
+use crate::message::{BalanceMessage, MessageManager, TransferMessage};
 
 pub use crate::models::{BalanceHistory, InternalTx};
 
@@ -44,7 +44,15 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
         });
     }
     fn put_transfer(&mut self, tx: InternalTx) {
-        unimplemented!();
+        self.0.push_transfer_message(&TransferMessage {
+        //     timestamp: balance.time.timestamp() as f64,
+        //     user_id: balance.user_id as u32,
+        //     asset: balance.asset.clone(),
+        //     business: balance.business.clone(),
+        //     change: balance.change.to_string(),
+        //     balance: balance.balance.to_string(),
+        //     detail: balance.detail,
+        });
     }
 }
 
