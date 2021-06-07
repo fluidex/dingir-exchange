@@ -27,7 +27,7 @@ pub trait HistoryWriter {
 pub struct DummyHistoryWriter;
 impl HistoryWriter for DummyHistoryWriter {
     fn append_balance_history(&mut self, _data: models::BalanceHistory) {}
-    fn append_internal_transfer(&mut self, data: models::InternalTx) {}
+    fn append_internal_transfer(&mut self, _data: models::InternalTx) {}
     fn append_user(&mut self, _user: models::AccountDesc) {}
     fn append_order_history(&mut self, _order: &market::Order) {}
     fn append_expired_order_history(&mut self, _order: &market::Order) {}
