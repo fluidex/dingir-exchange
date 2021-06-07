@@ -186,6 +186,7 @@ pub struct SimpleMessageScheme {
     orders_list: LinkedList<String>,
     trades_list: LinkedList<String>,
     balances_list: LinkedList<String>,
+    internaltxs_list: LinkedList<String>,
     users_list: LinkedList<String>,
     last_poped: Option<(&'static str, String)>,
 }
@@ -199,14 +200,19 @@ impl MessageScheme for SimpleMessageScheme {
         vec![("queue.buffering.max.ms", "1")]
     }
     fn is_full(&self) -> bool {
-        self.trades_list.len() >= 100 || self.orders_list.len() >= 100 || self.balances_list.len() >= 100 || self.users_list.len() >= 100
+        self.orders_list.len() >= 100
+            || self.trades_list.len() >= 100
+            || self.balances_list.len() >= 100
+            || self.internaltxs_list.len() >= 100
+            || self.users_list.len() >= 100
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
         let list = match title_tip {
-            BALANCES_TOPIC => &mut self.balances_list,
-            TRADES_TOPIC => &mut self.trades_list,
             ORDERS_TOPIC => &mut self.orders_list,
+            TRADES_TOPIC => &mut self.trades_list,
+            BALANCES_TOPIC => &mut self.balances_list,
+            INTERNALTX_TOPIC => &mut self.internaltxs_list,
             USER_TOPIC => &mut self.users_list,
             _ => unreachable!(),
         };
