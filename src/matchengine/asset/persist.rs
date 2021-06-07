@@ -1,6 +1,6 @@
 use crate::history::HistoryWriter;
 use crate::message::{BalanceMessage, MessageManager, TransferMessage};
-
+use crate::utils::FTimestamp;
 pub use crate::models::{BalanceHistory, InternalTx};
 
 pub trait PersistExector {
@@ -45,7 +45,7 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.0.push_transfer_message(&TransferMessage {
-            time: tx.time.timestamp() as f64, // TODO: use milli seconds
+            time: FTimestamp::from(&tx.time).into(),
             user_from: tx.user_from as u32,
             user_to: tx.user_to as u32,
             asset: tx.asset.to_string(),

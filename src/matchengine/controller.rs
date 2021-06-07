@@ -649,8 +649,8 @@ impl Controller {
         let change = delta.round_dp(prec);
 
         let business = "transfer";
-        let timestamp: f64 = utils::current_timestamp();
-        let business_id = (timestamp * 1_000_f64) as u64; // milli-seconds
+        let timestamp = FTimestamp(utils::current_timestamp());
+        let business_id = (timestamp.0 * 1_000_f64) as u64; // milli-seconds
         let detail_json: serde_json::Value = if req.memo.is_empty() {
             json!({})
         } else {
@@ -685,7 +685,7 @@ impl Controller {
 
         if real {
             self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
-                time: chrono::NaiveDateTime::from(utils::FTimestamp(timestamp)),
+                time: timestamp.into(),
                 user_from: from_user_id as i32,
                 user_to: to_user_id as i32,
                 asset: asset_id.to_string(),

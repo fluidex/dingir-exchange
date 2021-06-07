@@ -186,7 +186,7 @@ impl asset::PersistExector for &mut MockPersistor {
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.messages.push(Message::TransferMessage(Box::new(message::TransferMessage {
-            time: tx.time.timestamp() as f64, // TODO: use milli seconds
+            time: FTimestamp::from(&tx.time).into(),
             user_from: tx.user_from as u32,
             user_to: tx.user_to as u32,
             asset: tx.asset.to_string(),
