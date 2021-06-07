@@ -190,8 +190,8 @@ impl user_manager::PersistExector for &mut MockPersistor {
     fn register_user(&mut self, user: AccountDesc) {
         self.messages.push(Message::UserMessage(Box::new(message::UserMessage {
             user_id: user.id as u32,
-            l1_address: user.l1_address.clone(),
-            l2_pubkey: user.l2_pubkey.clone(),
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
         })))
     }
 }
