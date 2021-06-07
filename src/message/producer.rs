@@ -227,7 +227,7 @@ impl MessageScheme for SimpleMessageScheme {
         let mut topic_name = BALANCES_TOPIC;
 
         let mut candi_list = [&mut self.orders_list, &mut self.trades_list, &mut self.users_list];
-        let iters = [ORDERS_TOPIC, TRADES_TOPIC].iter().zip(&mut candi_list);
+        let iters = [ORDERS_TOPIC, TRADES_TOPIC, USER_TOPIC].iter().zip(&mut candi_list);
 
         for i in iters.into_iter() {
             let (tp_name, l) = i;
