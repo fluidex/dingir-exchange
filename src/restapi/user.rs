@@ -41,12 +41,12 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             return Ok(Json(user_info.clone()));
         }
 
-        let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
-        let user: AccountDesc = sqlx::query_as(&sql_query)
-            .bind(user_id)
-            .fetch_one(&data.db)
-            .await
-            .map_err(|_| RpcError::bad_request("invalid user id or address"))?;
+        let sql_query = format!("select * from {} where l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
+        //let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
+        let user: AccountDesc = sqlx::query_as(&sql_query).bind(user_id).fetch_one(&data.db).await?;
+        // the default error conversion is good enough.
+        // converting any error into one type will lose information, eg: bug: inconsistent type in sql (restapi/user select) https://github.com/Fluidex/dingir-exchange/issues/171
+        //            .map_err(|e| {println!("{:?}", e); RpcError::bad_request("invalid user id or address")})?;
 
         // update cache
         user_map.insert(

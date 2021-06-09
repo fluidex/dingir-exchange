@@ -53,7 +53,11 @@ pub fn order_input_from_proto(req: &OrderPutRequest) -> Result<market::OrderInpu
             market::OrderType::MARKET
         },
         amount: Decimal::from_str(req.amount.as_str())?,
-        price: Decimal::from_str(req.price.as_str())?,
+        price: Decimal::from_str(if req.order_type == OrderType::Market as i32 && req.price.is_empty() {
+            "0"
+        } else {
+            req.price.as_str()
+        })?,
         taker_fee: if req.taker_fee.is_empty() {
             Decimal::zero()
         } else {
