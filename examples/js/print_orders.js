@@ -16,7 +16,7 @@ async function main() {
     assert.equal(closedOrders.orders.length, 2);
   }
   console.log("active orders:");
-  const openOrders = (await axios.get(`http://${server}/api/orders/ETH_USDT/3`))
+  const openOrders = (await axios.get(`http://${server}/api/orders/ETH_USDT/4`))
     .data;
   console.log(openOrders);
   if (isCI) {

@@ -104,13 +104,7 @@ export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
 
-export async function transfer(
-  from,
-  to,
-  asset,
-  delta,
-  memo
-) {
+export async function transfer(from, to, asset, delta, memo) {
   return await client.transfer({
     from,
     to,
@@ -136,6 +130,6 @@ export async function registerUser(user) {
   return await client.RegisterUser({
     user_id: user.id,
     l1_address: user.l1_address,
-    l2_pubkey: user.l2_pubkey,
+    l2_pubkey: user.l2_pubkey
   });
 }

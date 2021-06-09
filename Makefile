@@ -12,7 +12,7 @@ fmtsql:
 	find migrations -type f | xargs -L 1 pg_format --type-case 2 -i
 
 fmtrs:
-	cargo fmt
+	cargo fmt --all
 
 fmtjs:
 	cd examples/js && yarn fmt

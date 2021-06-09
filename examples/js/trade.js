@@ -29,6 +29,9 @@ import Decimal from "decimal.js";
 import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
 
+const askUser = userId;
+const bidUser = userId + 1;
+
 async function infoList() {
   console.log(await assetList([]));
   console.log(await marketList([]));
@@ -37,26 +40,28 @@ async function infoList() {
 
 async function setupAsset() {
   // check balance is zero
-  const balance1 = await balanceQuery(userId);
+  const balance1 = await balanceQuery(askUser);
   decimalEqual(balance1.USDT.available, "0");
   decimalEqual(balance1.USDT.frozen, "0");
   decimalEqual(balance1.ETH.available, "0");
   decimalEqual(balance1.ETH.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, userId);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser);
 
   // check deposit success
-  const balance2 = await balanceQuery(userId);
+  const balance2 = await balanceQuery(askUser);
   decimalEqual(balance2.USDT.available, "100");
   decimalEqual(balance2.USDT.frozen, "0");
   decimalEqual(balance2.ETH.available, "50");
   decimalEqual(balance2.ETH.frozen, "0");
+
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser);
 }
 
 // Test order put and cancel
 async function orderTest() {
   const order = await orderPut(
-    userId,
+    askUser,
     market,
     ORDER_SIDE_BID,
     ORDER_TYPE_LIMIT,
@@ -66,7 +71,7 @@ async function orderTest() {
     fee
   );
   console.log(order);
-  const balance3 = await balanceQuery(userId);
+  const balance3 = await balanceQuery(askUser);
   decimalEqual(balance3.USDT.available, "89");
   decimalEqual(balance3.USDT.frozen, "11");
 
@@ -80,8 +85,8 @@ async function orderTest() {
   const depth = await orderDepth(market, 100, /*not merge*/ "0");
   assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "10" }] });
 
-  await orderCancel(userId, market, 1);
-  const balance4 = await balanceQuery(userId);
+  await orderCancel(askUser, market, 1);
+  const balance4 = await balanceQuery(askUser);
   decimalEqual(balance4.USDT.available, "100");
   decimalEqual(balance4.USDT.frozen, "0");
 
@@ -91,7 +96,7 @@ async function orderTest() {
 // Test order trading
 async function tradeTest() {
   const askOrder = await orderPut(
-    userId,
+    askUser,
     market,
     ORDER_SIDE_ASK,
     ORDER_TYPE_LIMIT,
@@ -101,7 +106,7 @@ async function tradeTest() {
     fee
   );
   const bidOrder = await orderPut(
-    userId,
+    bidUser,
     market,
     ORDER_SIDE_BID,
     ORDER_TYPE_LIMIT,
@@ -143,11 +148,18 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   const depth = await orderDepth(market, 100, /*not merge*/ "0");
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.USDT.available, "93.4");
-  decimalEqual(balance1.USDT.frozen, "6.6");
-  decimalEqual(balance1.ETH.available, "50");
+  // 4 * 1.1 sell, filled 4
+  const balance1 = await balanceQuery(askUser);
+  decimalEqual(balance1.USDT.available, "104.4");
+  decimalEqual(balance1.USDT.frozen, "0");
+  decimalEqual(balance1.ETH.available, "46");
   decimalEqual(balance1.ETH.frozen, "0");
+  // 10 * 1.1 buy, filled 4
+  const balance2 = await balanceQuery(bidUser);
+  decimalEqual(balance2.USDT.available, "89");
+  decimalEqual(balance2.USDT.frozen, "6.6");
+  decimalEqual(balance2.ETH.available, "54");
+  decimalEqual(balance2.ETH.frozen, "0");
 }
 
 async function simpleTest() {

@@ -66,9 +66,9 @@ export async function depositAssets(assets, userId) {
   }
 }
 
-export async function putLimitOrder(side, amount, price) {
+export async function putLimitOrder(userId, side, amount, price) {
   if (VERBOSE) {
-    console.log("putLimitOrder", { side, amount, price });
+    console.log("putLimitOrder", { userId, side, amount, price });
   }
   return await orderPut(
     userId,
@@ -94,6 +94,9 @@ export function getRandomInt(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min)) + min;
+}
+export function getRandomElem(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 export async function putRandOrder() {
   // TODO: market order?

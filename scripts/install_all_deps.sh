@@ -37,6 +37,11 @@ function install_sys_deps() {
 	sudo apt install libpq-dev cmake gcc g++ postgresql-client-12
 }
 
+function install_dev_deps() {
+       echo 'install some useful tools for development'
+       sudo apt install pkg-config libssl-dev
+}
+
 function install_all() {
 	install_sys_deps
 	install_rust
