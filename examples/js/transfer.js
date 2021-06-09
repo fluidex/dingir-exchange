@@ -12,7 +12,7 @@ import { strict as assert } from "assert";
 const anotherUserId = userId + 1;
 
 async function setupAsset() {
-  await depositAssets({ ETH: "100.0" });
+  await depositAssets({ ETH: "100.0" }, userId);
 
   const balance1 = await balanceQuery(userId);
   decimalEqual(balance1.ETH.available, "100");
