@@ -43,7 +43,7 @@ async function setupAsset() {
   decimalEqual(balance1.ETH.available, "0");
   decimalEqual(balance1.ETH.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" });
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, userId);
 
   // check deposit success
   const balance2 = await balanceQuery(userId);
