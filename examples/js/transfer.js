@@ -1,15 +1,10 @@
 import { userId } from "./config.mjs"; // dotenv
-import {
-  balanceQuery,
-  debugReset,
-  transfer,
-  registerUser
-} from "./client.mjs";
+import { balanceQuery, debugReset, transfer, registerUser } from "./client.mjs";
 import { depositAssets, decimalEqual } from "./util.mjs";
 
 import { strict as assert } from "assert";
 
-const anotherUserId = userId + 1;
+const anotherUserId = userId + 10;
 
 async function setupAsset() {
   await depositAssets({ ETH: "100.0" }, userId);
@@ -22,7 +17,11 @@ async function setupAsset() {
 
 async function registerUsers() {
   for (var i = 1; i <= anotherUserId; i++) {
-    await registerUser({ id: i, l1_address: "l1_address_"+i, l2_pubkey: "l2_pubkey_"+i });
+    await registerUser({
+      id: i,
+      l1_address: "l1_address_" + i,
+      l2_pubkey: "l2_pubkey_" + i
+    });
     console.log("register user", i);
   }
 }
