@@ -27,7 +27,7 @@ async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await marketSummary(market)).trade_count;
   console.log("cancel", tradeCountBefore, "trades");
   console.log(await orderCancelAll(userId, market));
-  await depositAssets({ USDT: "10000000", ETH: "10000" });
+  await depositAssets({ USDT: "10000000", ETH: "10000" }, userId);
   const balancesBefore = await balanceQuery(userId);
   const USDTBefore = decimalAdd(
     balancesBefore.USDT.available,
