@@ -111,6 +111,9 @@ impl<T: MessageScheme> RdProducerContext<T> {
         let mut producer_queue_full = false;
 
         loop {
+            // never ever dead loop...
+            std::thread::sleep(Duration::from_millis(1));
+            //
             //current implement in mod.rs lead to arbitrary dropping of messages
             //in the flush() method, I try to fix it here ...
             //basically, it should be enough to make use of the ability of
