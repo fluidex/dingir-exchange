@@ -1,6 +1,11 @@
 use crate::history::HistoryWriter;
-use crate::message::{BalanceMessage, MessageManager, TransferMessage};
+use crate::matchengine::market::Order;
+use crate::matchengine::market::Trade;
+use crate::message::UserMessage;
+use crate::message::{BalanceMessage, MessageManager, OrderMessage, TransferMessage};
+pub use crate::models::AccountDesc;
 pub use crate::models::{BalanceHistory, InternalTx};
+use crate::types::OrderEventType;
 use crate::utils::FTimestamp;
 
 pub trait PersistExector {
@@ -9,6 +14,9 @@ pub trait PersistExector {
     }
     fn put_balance(&mut self, balance: BalanceHistory);
     fn put_transfer(&mut self, tx: InternalTx);
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType);
+    fn put_trade(&mut self, trade: &Trade);
+    fn register_user(&mut self, user: AccountDesc);
 }
 
 impl PersistExector for Box<dyn PersistExector + '_> {
@@ -18,15 +26,34 @@ impl PersistExector for Box<dyn PersistExector + '_> {
     fn put_transfer(&mut self, tx: InternalTx) {
         self.as_mut().put_transfer(tx)
     }
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
+        self.as_mut().put_order(order, at_step)
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        self.as_mut().put_trade(trade)
+    }
+    fn register_user(&mut self, user: AccountDesc) {
+        self.as_mut().register_user(user)
+    }
 }
 
-pub struct DummyPersistor(pub bool);
+pub struct DummyPersistor {
+    pub real_persist: bool,
+}
+impl DummyPersistor {
+    pub fn new(real_persist: bool) -> Self {
+        Self { real_persist }
+    }
+}
 impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
-        self.0
+        self.real_persist
     }
     fn put_balance(&mut self, _balance: BalanceHistory) {}
     fn put_transfer(&mut self, _tx: InternalTx) {}
+    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
+    fn put_trade(&mut self, _trade: &Trade) {}
+    fn register_user(&mut self, _user: AccountDesc) {}
 }
 
 pub struct MessengerAsPersistor<'a, T>(&'a mut T);
@@ -52,6 +79,24 @@ impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
             amount: tx.amount.to_string(),
         });
     }
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
+        self.0.push_order_message(&OrderMessage {
+            event: at_step,
+            order: order.clone(),
+            base: order.base.to_string(),
+            quote: order.quote.to_string(),
+        });
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        self.0.push_trade_message(trade);
+    }
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.push_user_message(&UserMessage {
+            user_id: user.id as u32,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        });
+    }
 }
 
 pub struct DBAsPersistor<'a, T>(&'a mut T);
@@ -62,6 +107,21 @@ impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.0.append_internal_transfer(tx);
+    }
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
+        //only persist on finish
+        match at_step {
+            OrderEventType::FINISH => self.0.append_order_history(order),
+            OrderEventType::EXPIRED => self.0.append_expired_order_history(order),
+            OrderEventType::PUT => (),
+            _ => (),
+        }
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        self.0.append_pair_user_trade(trade);
+    }
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.append_user(user);
     }
 }
 
@@ -76,6 +136,18 @@ impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
     fn put_transfer(&mut self, tx: InternalTx) {
         self.0.put_transfer(tx.clone());
         self.1.put_transfer(tx);
+    }
+    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
+        self.0.put_order(order, at_step);
+        self.1.put_order(order, at_step);
+    }
+    fn put_trade(&mut self, trade: &Trade) {
+        self.0.put_trade(trade);
+        self.1.put_trade(trade);
+    }
+    fn register_user(&mut self, user: AccountDesc) {
+        self.0.register_user(user.clone());
+        self.1.register_user(user);
     }
 }
 

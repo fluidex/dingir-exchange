@@ -1,11 +1,12 @@
-use crate::asset::{self, BalanceManager, BalanceType, BalanceUpdateController};
-use crate::config::{self, PersistPolicy};
+use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
+use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
-use crate::history::{DatabaseHistoryWriter, HistoryWriter};
+use crate::history::DatabaseHistoryWriter;
 use crate::market;
-use crate::message::{new_message_manager_with_kafka_backend, ChannelMessageManager, MessageManager, UnifyMessageManager};
+use crate::message::new_message_manager_with_kafka_backend;
 use crate::models::{self};
+use crate::persist::DefaultPersistor;
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
@@ -23,117 +24,6 @@ use tonic::{self, Status};
 
 use std::collections::HashMap;
 use std::str::FromStr;
-
-pub struct DefaultPersistor {
-    history_writer: DatabaseHistoryWriter,
-    message_manager: Option<ChannelMessageManager>,
-    policy: PersistPolicy,
-}
-
-pub struct PersistorGen<'c> {
-    base: &'c mut DefaultPersistor,
-    policy: PersistPolicy,
-}
-
-impl<'c> PersistorGen<'c> {
-    fn persist_for_market(self, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
-        match self.policy {
-            PersistPolicy::Dummy => Box::new(market::DummyPersistor::new(false)),
-            PersistPolicy::ToDB => Box::new(market::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessage => Box::new(market::persistor_for_message(
-                self.base.message_manager.as_mut().unwrap(),
-                market_tag,
-            )),
-            PersistPolicy::Both => Box::new((
-                market::persistor_for_db(&mut self.base.history_writer),
-                market::persistor_for_message(self.base.message_manager.as_mut().unwrap(), market_tag),
-            )),
-        }
-    }
-
-    fn persist_for_balance(self) -> Box<dyn asset::PersistExector + 'c> {
-        match self.policy {
-            PersistPolicy::Dummy => Box::new(asset::DummyPersistor(false)),
-            PersistPolicy::ToDB => Box::new(asset::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessage => Box::new(asset::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
-            PersistPolicy::Both => Box::new((
-                asset::persistor_for_db(&mut self.base.history_writer),
-                asset::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
-            )),
-        }
-    }
-
-    fn persist_for_user(self) -> Box<dyn user_manager::PersistExector + 'c> {
-        match self.policy {
-            PersistPolicy::Dummy => Box::new(user_manager::DummyPersistor(false)),
-            PersistPolicy::ToDB => Box::new(user_manager::persistor_for_db(&mut self.base.history_writer)),
-            PersistPolicy::ToMessage => Box::new(user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap())),
-            PersistPolicy::Both => Box::new((
-                user_manager::persistor_for_db(&mut self.base.history_writer),
-                user_manager::persistor_for_message(self.base.message_manager.as_mut().unwrap()),
-            )),
-        }
-    }
-}
-
-impl DefaultPersistor {
-    fn is_real(&mut self, real: bool) -> PersistorGen<'_> {
-        let policy = if real { self.policy } else { PersistPolicy::Dummy };
-        PersistorGen { base: self, policy }
-    }
-
-    fn service_available(&self) -> bool {
-        //if self.message_manager.as_ref().map(ChannelMessageManager::is_block).unwrap_or(true) {
-        if self.message_manager.is_some() && self.message_manager.as_ref().unwrap().is_block() {
-            log::warn!("message_manager full");
-            return false;
-        }
-        if self.history_writer.is_block() {
-            log::warn!("history_writer full");
-            return false;
-        }
-        true
-    }
-}
-
-pub trait IntoPersistor {
-    fn service_available(&self) -> bool {
-        true
-    }
-    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c>;
-    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c>;
-    fn persistor_for_user<'c>(&'c mut self, real: bool) -> Box<dyn user_manager::PersistExector + 'c>;
-}
-
-impl IntoPersistor for DefaultPersistor {
-    fn service_available(&self) -> bool {
-        self.service_available()
-    }
-    fn persistor_for_market<'c>(&'c mut self, real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
-        self.is_real(real).persist_for_market(market_tag)
-    }
-    fn persistor_for_balance<'c>(&'c mut self, real: bool) -> Box<dyn asset::PersistExector + 'c> {
-        self.is_real(real).persist_for_balance()
-    }
-    fn persistor_for_user<'c>(&'c mut self, real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
-        self.is_real(real).persist_for_user()
-    }
-}
-
-impl IntoPersistor for UnifyMessageManager {
-    fn service_available(&self) -> bool {
-        !self.is_block()
-    }
-    fn persistor_for_market<'c>(&'c mut self, _real: bool, market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
-        Box::new(market::persistor_for_message(self, market_tag))
-    }
-    fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
-        Box::new(asset::persistor_for_message(self))
-    }
-    fn persistor_for_user<'c>(&'c mut self, _real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
-        Box::new(user_manager::persistor_for_message(self))
-    }
-}
 
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;
@@ -370,8 +260,8 @@ impl Controller {
             .values()
             .map(|market| market_list_response::MarketInfo {
                 name: String::from(market.name),
-                base: market.base.clone(),
-                quote: market.quote.clone(),
+                base: market.base.into(),
+                quote: market.quote.into(),
                 fee_precision: market.fee_prec,
                 base_precision: market.base_prec,
                 quote_precision: market.quote_prec,
@@ -438,7 +328,7 @@ impl Controller {
         if real {
             let mut detail: serde_json::Value = json!({});
             detail["id"] = serde_json::Value::from(req.user_id);
-            self.persistor.is_real(real).persist_for_user().register_user(models::AccountDesc {
+            self.persistor.is_real(real).get_persistor().register_user(models::AccountDesc {
                 id: req.user_id as i32,
                 l1_address: req.l1_address.clone(),
                 l2_pubkey: req.l2_pubkey.clone(),
@@ -473,7 +363,7 @@ impl Controller {
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).persist_for_balance(),
+                self.persistor.is_real(real).get_persistor(),
                 req.user_id,
                 req.asset.as_str(),
                 req.business.clone(),
@@ -500,7 +390,7 @@ impl Controller {
         }
         let market = self.markets.get_mut(&req.market).unwrap();
         let balance_manager = &mut self.balance_manager;
-        let persistor = self.persistor.is_real(real).persist_for_market(market.tag());
+        let persistor = self.persistor.is_real(real).get_persistor();
 
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
@@ -528,7 +418,7 @@ impl Controller {
             return Err(Status::invalid_argument("invalid user"));
         }
         let balance_manager = &mut self.balance_manager;
-        let persistor = self.persistor.is_real(real).persist_for_market(market.tag());
+        let persistor = self.persistor.is_real(real).get_persistor();
 
         market.cancel(balance_manager.into(), persistor, order.id);
         if real {
@@ -547,7 +437,7 @@ impl Controller {
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
         let total = market.cancel_all_for_user(
             (&mut self.balance_manager).into(),
-            self.persistor.is_real(real).persist_for_market(market.tag()),
+            self.persistor.is_real(real).get_persistor(),
             req.user_id,
         ) as u32;
         if real {
@@ -660,7 +550,7 @@ impl Controller {
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).persist_for_balance(),
+                self.persistor.is_real(real).get_persistor(),
                 from_user_id,
                 asset_id,
                 business.to_owned(),
@@ -673,7 +563,7 @@ impl Controller {
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).persist_for_balance(),
+                self.persistor.is_real(real).get_persistor(),
                 to_user_id,
                 asset_id,
                 business.to_owned(),
@@ -684,7 +574,7 @@ impl Controller {
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
         if real {
-            self.persistor.is_real(real).persist_for_balance().put_transfer(models::InternalTx {
+            self.persistor.is_real(real).get_persistor().put_transfer(models::InternalTx {
                 time: timestamp.into(),
                 user_from: from_user_id as i32, // TODO: will this overflow?
                 user_to: to_user_id as i32,     // TODO: will this overflow?
