@@ -1,222 +1,32 @@
 #![allow(clippy::if_same_then_else)]
 use crate::asset::{BalanceManager, BalanceType};
 use crate::config;
-use crate::history::HistoryWriter;
-use crate::message::{MessageManager, OrderMessage};
+use crate::persist::PersistExector;
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType};
 use crate::utils;
 
-use std::cmp::{min, Ordering};
+use std::cmp::min;
 use std::collections::BTreeMap;
 use std::iter::Iterator;
-use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub use types::{OrderSide, OrderType};
 
-#[derive(PartialEq, PartialOrd, Eq, Ord)]
-pub struct MarketKeyAsk {
-    pub order_price: Decimal,
-    pub order_id: u64,
-}
-pub type MarketKey = MarketKeyAsk;
-
-#[derive(PartialEq, Eq)]
-pub struct MarketKeyBid {
-    pub order_price: Decimal,
-    pub order_id: u64,
-}
-
-impl Ord for MarketKeyBid {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let price_order = self.order_price.cmp(&other.order_price);
-        if price_order == Ordering::Equal {
-            self.order_id.cmp(&other.order_id).reverse()
-        } else {
-            price_order.reverse()
-        }
-    }
-}
-
-impl PartialOrd for MarketKeyBid {
-    fn partial_cmp(&self, other: &MarketKeyBid) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum MarketString {
-    Left(&'static str),
-    Right(String),
-}
-
-impl From<&'static str> for MarketString {
-    fn from(str: &'static str) -> Self {
-        MarketString::Left(str)
-    }
-}
-
-impl std::ops::Deref for MarketString {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            MarketString::Left(str) => *str,
-            MarketString::Right(stri) => stri.as_str(),
-        }
-    }
-}
-
-impl serde::ser::Serialize for MarketString {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            MarketString::Left(str) => serializer.serialize_str(*str),
-            MarketString::Right(stri) => serializer.serialize_str(stri.as_str()),
-        }
-    }
-}
-
-impl<'de> serde::de::Deserialize<'de> for MarketString {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Ok(MarketString::Right(s))
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Order {
-    pub id: u64,
-    pub market: MarketString,
-    #[serde(rename = "type")]
-    pub type_: OrderType, // enum
-    pub side: OrderSide,
-    pub user: u32,
-    pub create_time: f64,
-    pub update_time: f64,
-    pub price: Decimal,
-    pub amount: Decimal,
-    pub taker_fee: Decimal,
-    pub maker_fee: Decimal,
-    pub remain: Decimal,
-    pub frozen: Decimal,
-    pub finished_base: Decimal,
-    pub finished_quote: Decimal,
-    pub finished_fee: Decimal,
-    pub post_only: bool,
-}
-
-/*
-fn de_market_string<'de, D: serde::de::Deserializer<'de>>(_deserializer: D) -> Result<&'static str, D::Error> {
-    Ok("Test")
-}
-*/
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct VerboseOrderState {
-    price: Decimal,
-    amount: Decimal,
-    finished_base: Decimal,
-    finished_quote: Decimal,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct VerboseBalanceState {
-    pub bid_user_base: Decimal,
-    pub bid_user_quote: Decimal,
-    pub ask_user_base: Decimal,
-    pub ask_user_quote: Decimal,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct VerboseTradeState {
-    // emit all the related state
-    pub ask_order_state: VerboseOrderState,
-    pub bid_order_state: VerboseOrderState,
-    pub balance: VerboseBalanceState,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Trade {
-    pub id: u64,
-    pub timestamp: f64, // unix epoch timestamp,
-    pub market: String,
-    pub base: String,
-    pub quote: String,
-    pub price: Decimal,
-    pub amount: Decimal,
-    pub quote_amount: Decimal,
-
-    pub ask_user_id: u32,
-    pub ask_order_id: u64,
-    pub ask_role: MarketRole, // take/make
-    pub ask_fee: Decimal,
-
-    pub bid_user_id: u32,
-    pub bid_order_id: u64,
-    pub bid_role: MarketRole,
-    pub bid_fee: Decimal,
-
-    #[cfg(feature = "emit_state_diff")]
-    pub state_before: VerboseTradeState,
-    #[cfg(feature = "emit_state_diff")]
-    pub state_after: VerboseTradeState,
-}
-
-impl Order {
-    pub fn get_ask_key(&self) -> MarketKeyAsk {
-        MarketKeyAsk {
-            order_price: self.price,
-            order_id: self.id,
-        }
-    }
-    pub fn get_bid_key(&self) -> MarketKeyBid {
-        MarketKeyBid {
-            order_price: self.price,
-            order_id: self.id,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct OrderRc(Arc<RwLock<Order>>);
-
-/*
-    simulate behavior like RefCell, the syncing is ensured by locking in higher rank
-    here we use RwLock only for avoiding unsafe tag, we can just use raw pointer
-    casted from ARc rather than RwLock here if we do not care about unsafe
-*/
-impl OrderRc {
-    fn new(order: Order) -> Self {
-        OrderRc(Arc::new(RwLock::new(order)))
-    }
-
-    pub(super) fn borrow(&self) -> RwLockReadGuard<'_, Order> {
-        self.0.try_read().expect("Lock for parent entry ensure it")
-    }
-
-    pub(super) fn borrow_mut(&mut self) -> RwLockWriteGuard<'_, Order> {
-        self.0.try_write().expect("Lock for parent entry ensure it")
-    }
-
-    fn deep(&self) -> Order {
-        self.borrow().clone()
-    }
-}
-
-pub fn is_order_ask(order: &Order) -> bool {
-    order.side == OrderSide::ASK
-}
+mod order;
+pub use order::*;
+mod trade;
+pub use trade::*;
 
 pub struct Market {
     pub name: &'static str,
-    pub base: String,
-    pub quote: String,
+    pub base: &'static str,
+    pub quote: &'static str,
     pub base_prec: u32,
     pub quote_prec: u32,
     pub fee_prec: u32,
@@ -232,103 +42,6 @@ pub struct Market {
 
     // other options
     pub disable_self_trade: bool,
-}
-
-pub trait PersistExector {
-    fn real_persist(&self) -> bool {
-        true
-    }
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType);
-    fn put_trade(&mut self, trade: &Trade);
-}
-
-impl PersistExector for Box<dyn PersistExector + '_> {
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
-        self.as_mut().put_order(order, at_step)
-    }
-    fn put_trade(&mut self, trade: &Trade) {
-        self.as_mut().put_trade(trade)
-    }
-}
-
-pub(super) struct DummyPersistor {
-    pub(super) real_persist: bool,
-}
-impl DummyPersistor {
-    pub(super) fn new(real_persist: bool) -> Self {
-        Self { real_persist }
-    }
-}
-/*
-impl PersistExector for &mut DummyPersistor {
-    fn real_persist(&self) -> bool {
-        self.real_persist
-    }
-    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
-    fn put_trade(&mut self, _trade: &Trade) {}
-}
-*/
-impl PersistExector for DummyPersistor {
-    fn real_persist(&self) -> bool {
-        self.real_persist
-    }
-    fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
-    fn put_trade(&mut self, _trade: &Trade) {}
-}
-
-pub(super) struct MessengerAsPersistor<'a, T>(&'a mut T, (String, String));
-
-impl<T: MessageManager> PersistExector for MessengerAsPersistor<'_, T> {
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
-        self.0.push_order_message(&OrderMessage {
-            event: at_step,
-            order: order.clone(),
-            base: self.1 .0.clone(),
-            quote: self.1 .1.clone(),
-        });
-    }
-    fn put_trade(&mut self, trade: &Trade) {
-        self.0.push_trade_message(trade);
-    }
-}
-
-impl<T1: PersistExector, T2: PersistExector> PersistExector for (T1, T2) {
-    fn real_persist(&self) -> bool {
-        self.0.real_persist() || self.1.real_persist()
-    }
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
-        self.0.put_order(order, at_step);
-        self.1.put_order(order, at_step);
-    }
-    fn put_trade(&mut self, trade: &Trade) {
-        self.0.put_trade(trade);
-        self.1.put_trade(trade);
-    }
-}
-
-pub(super) struct DBAsPersistor<'a, T>(&'a mut T);
-
-impl<T: HistoryWriter> PersistExector for DBAsPersistor<'_, T> {
-    fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
-        //only persist on finish
-        match at_step {
-            OrderEventType::FINISH => self.0.append_order_history(order),
-            OrderEventType::EXPIRED => self.0.append_expired_order_history(order),
-            OrderEventType::PUT => (),
-            _ => (),
-        }
-    }
-    fn put_trade(&mut self, trade: &Trade) {
-        self.0.append_pair_user_trade(trade);
-    }
-}
-
-pub(super) fn persistor_for_message<T: MessageManager>(messenger: &mut T, tag: (String, String)) -> MessengerAsPersistor<'_, T> {
-    MessengerAsPersistor(messenger, tag)
-}
-
-pub(super) fn persistor_for_db<T: HistoryWriter>(history_writer: &mut T) -> DBAsPersistor<'_, T> {
-    DBAsPersistor(history_writer)
 }
 
 pub struct BalanceManagerWrapper<'a> {
@@ -387,11 +100,11 @@ impl Market {
         {
             return Err(anyhow!("invalid precision"));
         }
-
+        let leak_fn = |x: &str| -> &'static str { Box::leak(x.to_string().into_boxed_str()) };
         let market = Market {
-            name: Box::leak(market_conf.name.clone().into_boxed_str()),
-            base: market_conf.base.asset_id.clone(),
-            quote: market_conf.quote.asset_id.clone(),
+            name: leak_fn(&market_conf.name),
+            base: leak_fn(&market_conf.base.asset_id),
+            quote: leak_fn(&market_conf.quote.asset_id),
             base_prec: market_conf.base.prec,
             quote_prec: market_conf.quote.prec,
             fee_prec: market_conf.fee_prec,
@@ -407,7 +120,7 @@ impl Market {
     }
 
     pub fn tag(&self) -> (String, String) {
-        (self.base.clone(), self.quote.clone())
+        (self.base.into(), self.quote.into())
     }
 
     pub fn reset(&mut self) {
@@ -418,7 +131,7 @@ impl Market {
         self.orders.clear();
     }
     pub fn frozen_balance(&self, balance_manager: &mut BalanceManagerWrapper<'_>, order: &Order) {
-        let asset = if is_order_ask(order) { &self.base } else { &self.quote };
+        let asset = if order.is_ask() { &self.base } else { &self.quote };
 
         balance_manager.balance_frozen(order.user, asset, &order.frozen);
     }
@@ -427,7 +140,7 @@ impl Market {
         if order.remain.is_zero() {
             return;
         }
-        let asset = if is_order_ask(&order) { &self.base } else { &self.quote };
+        let asset = if order.is_ask() { &self.base } else { &self.quote };
         balance_manager.balance_unfrozen(order.user, asset, &order.frozen);
     }
     pub fn insert_order(&mut self, mut order: Order) -> Order {
@@ -609,8 +322,8 @@ impl Market {
                 id: trade_id,
                 timestamp: utils::current_timestamp(),
                 market: self.name.to_string(),
-                base: self.base.clone(),
-                quote: self.quote.clone(),
+                base: self.base.into(),
+                quote: self.quote.into(),
                 price,
                 amount: traded_base_amount,
                 quote_amount: traded_quote_amount,
@@ -811,6 +524,8 @@ impl Market {
             create_time: t,
             update_time: t,
             market: self.name.into(),
+            base: self.base.into(),
+            quote: self.quote.into(),
             user: order_input.user_id,
             price: order_input.price,
             amount: order_input.amount,
@@ -961,7 +676,7 @@ struct BalanceHistoryFromFee {
 mod tests {
     use super::*;
     use crate::matchengine::mock;
-    use crate::message::Message;
+    use crate::message::{Message, OrderMessage};
     use mock::*;
     use rust_decimal_macros::*;
 

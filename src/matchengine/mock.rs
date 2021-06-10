@@ -1,10 +1,10 @@
-use crate::asset::{self, AssetManager, BalanceManager};
+use crate::asset::{AssetManager, BalanceManager};
 use crate::config;
-use crate::matchengine::{controller, market};
+use crate::matchengine::market;
 use crate::message::{self, Message, UnifyMessageManager};
 use crate::models::{AccountDesc, BalanceHistory, InternalTx};
+use crate::persist::{IntoPersistor, PersistExector};
 use crate::types::OrderEventType;
-use crate::user_manager;
 use crate::utils::FTimestamp;
 use rust_decimal_macros::*;
 
@@ -117,7 +117,7 @@ pub fn get_simple_balance_manager(assets: Vec<config::Asset>) -> BalanceManager 
     BalanceManager::new(&assets).unwrap()
 }
 
-pub fn get_mocking_persistor() -> Box<dyn controller::IntoPersistor> {
+pub fn get_mocking_persistor() -> Box<dyn IntoPersistor> {
     match std::env::var("KAFKA_BROKER") {
         Ok(val) => Box::new(UnifyMessageManager::new_and_run(&val).unwrap()),
         Err(_) => Box::new(MockPersistor::new()),
@@ -157,7 +157,7 @@ impl Drop for MockPersistor {
     }
 }
 
-impl market::PersistExector for &mut MockPersistor {
+impl PersistExector for &mut MockPersistor {
     fn put_order(&mut self, order: &market::Order, at_step: OrderEventType) {
         //self.orders.push(order.clone());
         self.messages.push(Message::OrderMessage(Box::new(message::OrderMessage {
@@ -171,9 +171,6 @@ impl market::PersistExector for &mut MockPersistor {
         //self.trades.push(trade.clone());
         self.messages.push(Message::TradeMessage(Box::new(trade.clone())));
     }
-}
-
-impl asset::PersistExector for &mut MockPersistor {
     fn put_balance(&mut self, balance: BalanceHistory) {
         self.messages.push(Message::BalanceMessage(Box::new(message::BalanceMessage {
             timestamp: balance.time.timestamp() as f64,
@@ -194,9 +191,6 @@ impl asset::PersistExector for &mut MockPersistor {
             amount: tx.amount.to_string(),
         })))
     }
-}
-
-impl user_manager::PersistExector for &mut MockPersistor {
     fn register_user(&mut self, user: AccountDesc) {
         self.messages.push(Message::UserMessage(Box::new(message::UserMessage {
             user_id: user.id as u32,
@@ -206,14 +200,8 @@ impl user_manager::PersistExector for &mut MockPersistor {
     }
 }
 
-impl controller::IntoPersistor for MockPersistor {
-    fn persistor_for_market<'c>(&'c mut self, _real: bool, _market_tag: (String, String)) -> Box<dyn market::PersistExector + 'c> {
-        Box::new(self)
-    }
-    fn persistor_for_balance<'c>(&'c mut self, _real: bool) -> Box<dyn asset::PersistExector + 'c> {
-        Box::new(self)
-    }
-    fn persistor_for_user<'c>(&'c mut self, _real: bool) -> Box<dyn user_manager::PersistExector + 'c> {
+impl IntoPersistor for MockPersistor {
+    fn get_persistor<'c>(&'c mut self, _real: bool) -> Box<dyn PersistExector + 'c> {
         Box::new(self)
     }
 }
