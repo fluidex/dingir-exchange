@@ -29,9 +29,12 @@ $ cd $DingirExchangeDir
 $ cd docker
 $ docker-compose up # Lanuch the external dependency services like Postgresql and Kafka
 $ cd $DingirExchangeDir
-$ cargo run --bin matchengine
-$ cd $DingirExchangeDir/examples/js
-$ node trade.js # This script will put orders into the exchange. Then you can see some others got matched, deals(trades) are generated, and users' balances are changed accordingly. 
+$ cargo run --bin matchengine # or `make startall` to start all services
+$ cd $DingirExchangeDir/examples/js ; npm i
+# This script will put orders into the exchange.
+# Then you will find some orders got matched, trades generated,
+# and users' balances updated accordingly. 
+$ npx ts-node trade.ts 
 ```
 
 ## Related Projects
