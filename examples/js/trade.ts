@@ -8,7 +8,7 @@ import {
   ORDER_SIDE_ASK,
   ORDER_TYPE_MARKET,
   ORDER_TYPE_LIMIT
-} from "./config.mjs"; // dotenv
+} from "./config"; // dotenv
 import {
   balanceQuery,
   orderPut,
@@ -20,10 +20,11 @@ import {
   orderCancel,
   orderDepth,
   debugReset,
-  debugReload
-} from "./client.mjs";
-import { depositAssets, printBalance, sleep, decimalEqual } from "./util.mjs";
-import { KafkaConsumer } from "./kafka_client.mjs";
+  debugReload,
+  balanceQueryByAsset
+} from "./client";
+import { depositAssets, printBalance, sleep, decimalEqual } from "./util";
+import { KafkaConsumer } from "./kafka_client";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
@@ -33,27 +34,31 @@ const askUser = userId;
 const bidUser = userId + 1;
 
 async function infoList() {
-  console.log(await assetList([]));
-  console.log(await marketList([]));
+  console.log(await assetList());
+  console.log(await marketList());
   console.log(await marketSummary(market));
 }
 
 async function setupAsset() {
   // check balance is zero
   const balance1 = await balanceQuery(askUser);
-  decimalEqual(balance1.USDT.available, "0");
-  decimalEqual(balance1.USDT.frozen, "0");
-  decimalEqual(balance1.ETH.available, "0");
-  decimalEqual(balance1.ETH.frozen, "0");
+  let usdtBalance = balance1.get("USDT");
+  let ethBalance = balance1.get("ETH");
+  decimalEqual(usdtBalance.available, "0");
+  decimalEqual(usdtBalance.frozen, "0");
+  decimalEqual(ethBalance.available, "0");
+  decimalEqual(ethBalance.frozen, "0");
 
   await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser);
 
   // check deposit success
   const balance2 = await balanceQuery(askUser);
-  decimalEqual(balance2.USDT.available, "100");
-  decimalEqual(balance2.USDT.frozen, "0");
-  decimalEqual(balance2.ETH.available, "50");
-  decimalEqual(balance2.ETH.frozen, "0");
+  usdtBalance = balance1.get("USDT");
+  ethBalance = balance1.get("ETH");
+  decimalEqual(usdtBalance.available, "100");
+  decimalEqual(usdtBalance.frozen, "0");
+  decimalEqual(ethBalance.available, "50");
+  decimalEqual(ethBalance.frozen, "0");
 
   await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser);
 }
@@ -71,9 +76,9 @@ async function orderTest() {
     fee
   );
   console.log(order);
-  const balance3 = await balanceQuery(askUser);
-  decimalEqual(balance3.USDT.available, "89");
-  decimalEqual(balance3.USDT.frozen, "11");
+  const balance3 = await balanceQueryByAsset(askUser, "USDT");
+  decimalEqual(balance3.available, "89");
+  decimalEqual(balance3.frozen, "11");
 
   const orderPending = await orderDetail(market, order.id);
   assert.deepEqual(orderPending, order);
@@ -86,9 +91,9 @@ async function orderTest() {
   assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "10" }] });
 
   await orderCancel(askUser, market, 1);
-  const balance4 = await balanceQuery(askUser);
-  decimalEqual(balance4.USDT.available, "100");
-  decimalEqual(balance4.USDT.frozen, "0");
+  const balance4 = await balanceQueryByAsset(askUser, "USDT");
+  decimalEqual(balance4.available, "100");
+  decimalEqual(balance4.frozen, "0");
 
   console.log("orderTest passed");
 }
@@ -150,16 +155,20 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   // 4 * 1.1 sell, filled 4
   const balance1 = await balanceQuery(askUser);
-  decimalEqual(balance1.USDT.available, "104.4");
-  decimalEqual(balance1.USDT.frozen, "0");
-  decimalEqual(balance1.ETH.available, "46");
-  decimalEqual(balance1.ETH.frozen, "0");
+  let usdtBalance = balance1.get("USDT");
+  let ethBalance = balance1.get("ETH");
+  decimalEqual(usdtBalance.available, "104.4");
+  decimalEqual(usdtBalance.frozen, "0");
+  decimalEqual(ethBalance.available, "46");
+  decimalEqual(ethBalance.frozen, "0");
   // 10 * 1.1 buy, filled 4
   const balance2 = await balanceQuery(bidUser);
-  decimalEqual(balance2.USDT.available, "89");
-  decimalEqual(balance2.USDT.frozen, "6.6");
-  decimalEqual(balance2.ETH.available, "54");
-  decimalEqual(balance2.ETH.frozen, "0");
+  usdtBalance = balance2.get("USDT");
+  ethBalance = balance2.get("ETH");
+  decimalEqual(usdtBalance.available, "89");
+  decimalEqual(usdtBalance.frozen, "6.6");
+  decimalEqual(ethBalance.available, "54");
+  decimalEqual(ethBalance.frozen, "0");
 }
 
 async function simpleTest() {

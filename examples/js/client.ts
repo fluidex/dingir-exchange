@@ -1,4 +1,6 @@
 import caller from "@eeston/grpc-caller";
+import Decimal from "decimal.js";
+
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
   keepCase: true,
@@ -11,13 +13,22 @@ const server = process.env.GRPC_SERVER || "localhost:50051";
 console.log("using grpc", server);
 const client = caller(`${server}`, { file, load }, "Matchengine");
 
-export async function balanceQuery(user_id) {
+export async function balanceQuery(user_id) : Promise<Map<string, any>> {
   const balances = (await client.BalanceQuery({ user_id: user_id })).balances;
-  let result = {};
+  let result = new Map();
   for (const entry of balances) {
-    result[entry.asset_id] = entry;
+    result.set(entry.asset_id, entry);
   }
   return result;
+}
+
+export async function balanceQueryByAsset(user_id, asset) {
+  const allBalances = (await client.BalanceQuery({ user_id: user_id, assets: [asset] })).balances;
+  const balance = allBalances.find(item => item.asset_id == asset);
+  let available = new Decimal(balance.available);
+  let frozen = new Decimal(balance.frozen);
+  let total = available.add(frozen);
+  return {available, frozen, total};
 }
 
 export async function balanceUpdate(
@@ -88,8 +99,8 @@ export async function marketSummary(req) {
   return resp;
 }
 
-export async function reloadMarkets(full) {
-  return await client.ReloadMarkets({ from_scratch: full || false });
+export async function reloadMarkets(from_scratch: boolean = false) {
+  return await client.ReloadMarkets({ from_scratch });
 }
 
 export async function orderCancel(user_id, market, order_id) {
@@ -104,7 +115,7 @@ export async function orderDepth(market, limit, interval) {
   return await client.OrderBookDepth({ market, limit, interval });
 }
 
-export async function transfer(from, to, asset, delta, memo) {
+export async function transfer(from, to, asset, delta, memo="") {
   return await client.transfer({
     from,
     to,

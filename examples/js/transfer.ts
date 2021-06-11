@@ -1,6 +1,6 @@
-import { userId } from "./config.mjs"; // dotenv
-import { balanceQuery, debugReset, transfer, registerUser } from "./client.mjs";
-import { depositAssets, decimalEqual } from "./util.mjs";
+import { userId } from "./config"; // dotenv
+import { balanceQuery, debugReset, transfer, registerUser, balanceQueryByAsset } from "./client";
+import { depositAssets, decimalEqual } from "./util";
 
 import { strict as assert } from "assert";
 
@@ -9,10 +9,10 @@ const anotherUserId = userId + 10;
 async function setupAsset() {
   await depositAssets({ ETH: "100.0" }, userId);
 
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.ETH.available, "100");
-  const balance2 = await balanceQuery(anotherUserId);
-  decimalEqual(balance2.ETH.available, "0");
+  const balance1 = await balanceQueryByAsset(userId, "ETH");
+  decimalEqual(balance1.available, "100");
+  const balance2 = await balanceQueryByAsset(anotherUserId, "ETH");
+  decimalEqual(balance2.available, "0");
 }
 
 async function registerUsers() {
@@ -34,10 +34,10 @@ async function failureWithZeroDeltaTest() {
   assert.equal(res.asset, "ETH");
   decimalEqual(res.balance_from, "100");
 
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.ETH.available, "100");
-  const balance2 = await balanceQuery(anotherUserId);
-  decimalEqual(balance2.ETH.available, "0");
+  const balance1 = await balanceQueryByAsset(userId, "ETH");
+  decimalEqual(balance1.available, "100");
+  const balance2 = await balanceQueryByAsset(anotherUserId, "ETH");
+  decimalEqual(balance2.available, "0");
 
   console.log("failureWithZeroDeltaTest passed");
 }
@@ -50,10 +50,10 @@ async function failureWithInsufficientFromBalanceTest() {
   assert.equal(res.asset, "ETH");
   decimalEqual(res.balance_from, "100");
 
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.ETH.available, "100");
-  const balance2 = await balanceQuery(anotherUserId);
-  decimalEqual(balance2.ETH.available, "0");
+  const balance1 = await balanceQueryByAsset(userId, "ETH");
+  decimalEqual(balance1.available, "100");
+  const balance2 = await balanceQueryByAsset(anotherUserId, "ETH");
+  decimalEqual(balance2.available, "0");
 
   console.log("failureWithInsufficientFromBalanceTest passed");
 }
@@ -66,10 +66,10 @@ async function successTransferTest() {
   assert.equal(res.asset, "ETH");
   decimalEqual(res.balance_from, "50");
 
-  const balance1 = await balanceQuery(userId);
-  decimalEqual(balance1.ETH.available, "50");
-  const balance2 = await balanceQuery(anotherUserId);
-  decimalEqual(balance2.ETH.available, "50");
+  const balance1 = await balanceQueryByAsset(userId, "ETH");
+  decimalEqual(balance1.available, "50");
+  const balance2 = await balanceQueryByAsset(anotherUserId, "ETH");
+  decimalEqual(balance2.available, "50");
 
   console.log("successTransferTest passed");
 }

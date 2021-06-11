@@ -1,6 +1,6 @@
 //deposit a lot to engine, so we would not encounter "balance not enough" failure
 
-import { depositAssets } from "./util.mjs";
+import { depositAssets } from "./util";
 
 async function main() {
   //if I really had so much money ....

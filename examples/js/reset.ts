@@ -1,9 +1,9 @@
-import { debugDump } from "./client.mjs";
+import { debugReset } from "./client";
 
 async function main() {
   //    Dotenv.config()
   try {
-    await debugDump();
+    await debugReset();
   } catch (error) {
     console.error("Catched error:", error);
   }

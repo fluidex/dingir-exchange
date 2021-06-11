@@ -1,6 +1,6 @@
 import axios from "axios";
 import { strict as assert } from "assert";
-import "./config.mjs";
+import "./config";
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
