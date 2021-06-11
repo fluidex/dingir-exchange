@@ -1,5 +1,5 @@
 import { ORDER_SIDE_BID, ORDER_SIDE_ASK, market, userId } from "./config.mjs";
-import { orderCancelAll } from "./client.mjs";
+import { orderCancelAll, debugReset } from "./client.mjs";
 import {
   sleep,
   putLimitOrder,
@@ -51,6 +51,7 @@ async function run() {
   }
 }
 async function main() {
+  await debugReset();
   await initAssets();
   await run();
 }

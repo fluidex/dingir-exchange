@@ -51,7 +51,7 @@ impl Default for Market {
             min_amount: Decimal::from_str("0.01").unwrap(),
             base: Default::default(),
             quote: Default::default(),
-            disable_self_trade: false,
+            disable_self_trade: true,
         }
     }
 }
