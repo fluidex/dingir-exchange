@@ -53,8 +53,9 @@ async function setupAsset() {
 
   // check deposit success
   const balance2 = await balanceQuery(askUser);
-  usdtBalance = balance1.get("USDT");
-  ethBalance = balance1.get("ETH");
+  usdtBalance = balance2.get("USDT");
+  ethBalance = balance2.get("ETH");
+  console.log(usdtBalance);
   decimalEqual(usdtBalance.available, "100");
   decimalEqual(usdtBalance.frozen, "0");
   decimalEqual(ethBalance.available, "50");

@@ -1,4 +1,4 @@
-import caller from "@eeston/grpc-caller";
+import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
 
 const file = "../../proto/exchange/matchengine.proto";
