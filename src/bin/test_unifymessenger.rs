@@ -51,16 +51,17 @@ fn main() {
         .expect("build runtime");
 
     let writer = MessageWriter {
-        out_file: Mutex::new(File::create("output.txt").unwrap()),
+        out_file: Mutex::new(File::create("unify_msgs_output.txt").unwrap()),
     };
 
     rt.block_on(async move {
         let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
-            .set("group.id", &settings.consumer_group)
+            .set("group.id", "unify_msg_dumper")
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "6000")
             .set("enable.auto.commit", "true")
+            //.set("enable.auto.commit", "false")
             .set("auto.offset.reset", "earliest")
             .create()
             .unwrap();
