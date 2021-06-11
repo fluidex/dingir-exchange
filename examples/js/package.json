@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "scripts": {
     "fmt": "npx prettier --write *.ts *.js *.mjs package.json"
   },
