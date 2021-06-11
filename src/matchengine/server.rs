@@ -144,9 +144,6 @@ impl Matchengine for GrpcHandler {
         let stub = self.stub.read().await;
         Ok(Response::new(stub.order_query(request.into_inner())?))
     }
-    //async fn order_book(&self, _request: tonic::Request<OrderBookRequest>) -> Result<tonic::Response<OrderBookResponse>, tonic::Status> {
-    //    unimplemented!()
-    //}
     async fn order_book_depth(
         &self,
         request: tonic::Request<OrderBookDepthRequest>,

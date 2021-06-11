@@ -1,12 +1,12 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, market, userId } from "./config.mjs";
-import { orderCancelAll } from "./client.mjs";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, market, userId } from "./config";
+import { orderCancelAll, debugReset } from "./client";
 import {
   sleep,
   putLimitOrder,
   getRandomFloatAround,
   getRandomElem,
   depositAssets
-} from "./util.mjs";
+} from "./util";
 import axios from "axios";
 
 const botsIds = [10, 11, 12, 13, 14];
@@ -52,6 +52,7 @@ async function run() {
   }
 }
 async function main() {
+  await debugReset();
   await initAssets();
   await run();
 }

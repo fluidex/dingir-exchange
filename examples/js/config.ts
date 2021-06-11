@@ -1,4 +1,4 @@
-import Dotenv from "dotenv";
+import * as Dotenv from "dotenv";
 Dotenv.config();
 
 export const VERBOSE = !!process.env.VERBOSE;

@@ -1,6 +1,7 @@
-import { market, userId } from "./config.mjs"; // dotenv
+import { market, userId } from "./config"; // dotenv
 import {
   balanceQuery,
+  balanceQueryByAsset,
   orderPut,
   balanceUpdate,
   assetList,
@@ -12,7 +13,7 @@ import {
   orderDepth,
   debugReset,
   debugReload
-} from "./client.mjs";
+} from "./client";
 
 import {
   depositAssets,
@@ -21,26 +22,19 @@ import {
   sleep,
   decimalAdd,
   decimalEqual
-} from "./util.mjs";
+} from "./util";
 
 async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await marketSummary(market)).trade_count;
   console.log("cancel", tradeCountBefore, "trades");
   console.log(await orderCancelAll(userId, market));
   await depositAssets({ USDT: "10000000", ETH: "10000" }, userId);
-  const balancesBefore = await balanceQuery(userId);
-  const USDTBefore = decimalAdd(
-    balancesBefore.USDT.available,
-    balancesBefore.USDT.frozen
-  );
-  const ETHBefore = decimalAdd(
-    balancesBefore.USDT.available,
-    balancesBefore.USDT.frozen
-  );
+  const USDTBefore = await balanceQueryByAsset(userId, "USDT");
+  const ETHBefore = await balanceQueryByAsset(userId, "ETH");
   await printBalance();
-  const startTime = new Date();
+  const startTime = Date.now();
   function elapsedSecs() {
-    return (new Date() - startTime) / 1000;
+    return (Date.now() - startTime) / 1000;
   }
   let count = 0;
   // TODO: check balance before and after stress test
@@ -48,7 +42,7 @@ async function stressTest({ parallel, interval, repeat }) {
   while (true) {
     let promises = [];
     for (let i = 0; i < parallel; i++) {
-      promises.push(putRandOrder());
+      promises.push(putRandOrder(userId));
     }
     await Promise.all(promises);
     if (interval > 0) {
@@ -70,15 +64,8 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   const totalTime = elapsedSecs();
   await printBalance();
-  const balancesAfter = await balanceQuery(userId);
-  const USDTAfter = decimalAdd(
-    balancesAfter.USDT.available,
-    balancesAfter.USDT.frozen
-  );
-  const ETHAfter = decimalAdd(
-    balancesAfter.USDT.available,
-    balancesAfter.USDT.frozen
-  );
+  const USDTAfter = await balanceQueryByAsset(userId, "USDT");
+  const ETHAfter = await balanceQueryByAsset(userId, "ETH");
   decimalEqual(USDTAfter, USDTBefore);
   decimalEqual(ETHAfter, ETHBefore);
   const tradeCountAfter = (await marketSummary(market)).trade_count;

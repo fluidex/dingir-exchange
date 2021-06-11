@@ -1,6 +1,9 @@
-import Kafka from "kafkajs";
+import * as Kafka from "kafkajs";
 
 export class KafkaConsumer {
+  verbose: boolean;
+  consumer: any;
+  messages: Map<string, Array<any>>;
   async Init(
     verbose = false,
     topics = ["balances", "trades", "orders", "unifyevents"]
@@ -16,7 +19,7 @@ export class KafkaConsumer {
     await consumer.connect();
     const fromBeginning = false;
     for (const topic of topics) {
-      this[topic] = [];
+      this.messages.set(topic, []);
       await consumer.subscribe({ topic, fromBeginning });
     }
     return consumer.run({
@@ -30,21 +33,15 @@ export class KafkaConsumer {
             value: message.value.toString()
           });
         }
-        this[topic].push(message.value.toString());
+        this.messages.get(topic).push(message.value.toString());
       }
     });
   }
   Reset() {
-    this.orders = [];
-    this.balances = [];
-    this.trades = [];
+    this.messages = new Map();
   }
-  GetAllMessages() {
-    return {
-      orders: this.orders,
-      balances: this.balances,
-      trades: this.trades
-    };
+  GetAllMessages(): Map<string, Array<any>> {
+    return this.messages;
   }
   async Stop() {
     await this.consumer.disconnect();

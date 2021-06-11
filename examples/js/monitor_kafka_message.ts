@@ -1,5 +1,5 @@
-import { KafkaConsumer } from "./kafka_client.mjs";
-import Dotenv from "dotenv";
+import { KafkaConsumer } from "./kafka_client";
+import * as Dotenv from "dotenv";
 
 async function main() {
   Dotenv.config();

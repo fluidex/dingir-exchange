@@ -2,10 +2,11 @@ use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
+use crate::history::DatabaseHistoryWriter;
 use crate::market;
 use crate::message::{FullOrderMessageManager, SimpleMessageManager};
 use crate::models::{self};
-use crate::persist::{CompositePersistor, DummyPersistor, MessengerBasedPersistor, PersistExector};
+use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileBasedPersistor, MessengerBasedPersistor, PersistExector};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
@@ -38,6 +39,44 @@ impl OperationLogConsumer for OperationLogSender {
     }
 }
 
+// TODO: reuse pool of two dbs when they are same?
+fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
+    let persist_to_mq = true;
+    let persist_to_mq_full_order = true;
+    let persist_to_db = false;
+    let persist_to_file = false;
+    let mut persistor = Box::new(CompositePersistor::default());
+    if persist_to_mq {
+        persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
+            SimpleMessageManager::new_and_run(&settings.brokers).unwrap(),
+        ))));
+    }
+    if persist_to_mq_full_order {
+        persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
+            FullOrderMessageManager::new_and_run(&settings.brokers).unwrap(),
+        ))));
+    }
+    if persist_to_db {
+        // persisting to db is disabled now
+        let pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+        persistor.add_persistor(Box::new(DBBasedPersistor::new(Box::new(
+            DatabaseHistoryWriter::new(
+                &DatabaseWriterConfig {
+                    spawn_limit: 4,
+                    apply_benchmark: true,
+                    capability_limit: 8192,
+                },
+                &pool,
+            )
+            .unwrap(),
+        ))));
+    }
+    if persist_to_file {
+        persistor.add_persistor(Box::new(FileBasedPersistor::new("persistor_output.txt")));
+    }
+    persistor
+}
+
 pub struct Controller {
     //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
@@ -66,21 +105,10 @@ const OPERATION_TRANSFER: &str = "transfer";
 
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
     let settings = cfgs.0;
-    let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
+    let main_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap();
     let user_manager = UserManager::new();
     let balance_manager = BalanceManager::new(&settings.assets).unwrap();
-    /*
-    // persisting to db is disabled now
-    let history_writer = DatabaseHistoryWriter::new(
-        &DatabaseWriterConfig {
-            spawn_limit: 4,
-            apply_benchmark: true,
-            capability_limit: 8192,
-        },
-        &history_pool,
-    )
-    .unwrap();
-    */
+
     let update_controller = BalanceUpdateController::new();
     //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
     let sequencer = Sequencer::default();
@@ -89,12 +117,8 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         let market = market::Market::new(entry, &balance_manager).unwrap();
         markets.insert(entry.name.clone(), market);
     }
-    let main_pool = if settings.db_log == settings.db_history {
-        history_pool
-    } else {
-        sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap()
-    };
 
+    let persistor = create_persistor(&settings);
     let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
         spawn_limit: 4,
         apply_benchmark: true,
@@ -102,15 +126,6 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     })
     .start_schedule(&main_pool)
     .unwrap();
-
-    //let persist_policy = settings.history_persist_policy;
-    let mut persistor = Box::new(CompositePersistor::default());
-    persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-        SimpleMessageManager::new_and_run(&settings.brokers).unwrap(),
-    ))));
-    persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-        FullOrderMessageManager::new_and_run(&settings.brokers).unwrap(),
-    ))));
     Controller {
         settings,
         sequencer,
@@ -127,7 +142,6 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     }
 }
 
-//impl<LogHandlerType> Controller where LogHandlerType: OperationLogConsumer + Send {
 impl Controller {
     //fn get_persistor(&mut self, real: bool) -> &mut Box<dyn PersistExector> {
     //if real {&mut self.persistor} else { &mut self.dummy_persistor }

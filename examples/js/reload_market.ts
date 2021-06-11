@@ -1,9 +1,9 @@
-import { debugReset } from "./client.mjs";
+import { reloadMarkets } from "./client";
 
 async function main() {
   //    Dotenv.config()
   try {
-    await debugReset();
+    await reloadMarkets();
   } catch (error) {
     console.error("Catched error:", error);
   }

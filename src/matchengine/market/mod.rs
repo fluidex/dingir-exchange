@@ -696,7 +696,7 @@ mod tests {
             Ok(b) => Box::new(crate::persist::MessengerBasedPersistor::new(Box::new(
                 crate::message::FullOrderMessageManager::new_and_run(&b).unwrap(),
             ))),
-            Err(_) => Box::new(crate::persist::FileBasedPersistor::new("output.txt")),
+            Err(_) => Box::new(crate::persist::FileBasedPersistor::new("market_test_output.txt")),
         };
         //let persistor = &mut persistor;
         let mut update_controller = BalanceUpdateController::new();
@@ -759,18 +759,6 @@ mod tests {
             };
             market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
         }
-        /*
-        use std::fs::File;
-        use std::io::Write;
-        let output_file_name = "output.txt";
-        let mut file = File::create(output_file_name).unwrap();
-        for item in self.messages.iter() {
-            let s = serde_json::to_string(item).unwrap();
-            file.write_fmt(format_args!("{}\n", s)).unwrap();
-        }
-        log::info!("output done")
-        //rust file need not to be closed manually
-        */
     }
 
     #[test]

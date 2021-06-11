@@ -3,7 +3,6 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::single_char_pattern)]
-#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use sqlx::postgres::Postgres;

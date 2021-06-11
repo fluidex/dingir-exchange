@@ -9,7 +9,7 @@ import {
   ORDER_TYPE_MARKET,
   ORDER_TYPE_LIMIT,
   VERBOSE
-} from "./config.mjs"; // dotenv
+} from "./config"; // dotenv
 import {
   balanceQuery,
   orderPut,
@@ -22,7 +22,7 @@ import {
   orderDepth,
   debugReset,
   debugReload
-} from "./client.mjs";
+} from "./client";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
@@ -98,12 +98,12 @@ export function getRandomInt(min, max) {
 export function getRandomElem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-export async function putRandOrder() {
+export async function putRandOrder(userId) {
   // TODO: market order?
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
   const price = getRandomFloat(1350, 1450);
   const amount = getRandomFloat(0.5, 1.5);
-  const order = await putLimitOrder(side, amount, price);
+  const order = await putLimitOrder(userId, side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }
 
