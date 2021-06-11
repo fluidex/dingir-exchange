@@ -88,7 +88,7 @@ jobs:
       - name: Run trading tests
         run: |
           cd ./examples/js/
-          node trade.js
+          npx ts-node trade.js
           sleep 5
-          node print_orders.js 
-          node transfer.js
+          npx ts-node print_orders.js 
+          npx ts-node transfer.js
