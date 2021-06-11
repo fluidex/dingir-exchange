@@ -1,15 +1,6 @@
 use crate::asset::{AssetManager, BalanceManager};
 use crate::config;
-use crate::matchengine::market;
-use crate::message::{self, Message, UnifyMessageManager};
-use crate::models::{AccountDesc, BalanceHistory, InternalTx};
-use crate::persist::{IntoPersistor, PersistExector};
-use crate::types::OrderEventType;
-use crate::utils::FTimestamp;
 use rust_decimal_macros::*;
-
-use std::fs::File;
-use std::io::Write;
 
 pub fn get_simple_market_config() -> config::Market {
     config::Market {
@@ -117,91 +108,7 @@ pub fn get_simple_balance_manager(assets: Vec<config::Asset>) -> BalanceManager 
     BalanceManager::new(&assets).unwrap()
 }
 
-pub fn get_mocking_persistor() -> Box<dyn IntoPersistor> {
-    match std::env::var("KAFKA_BROKER") {
-        Ok(val) => Box::new(UnifyMessageManager::new_and_run(&val).unwrap()),
-        Err(_) => Box::new(MockPersistor::new()),
-    }
-}
-
-pub(super) struct MockPersistor {
-    //orders: Vec<market::Order>,
-    //trades: Vec<market::Trade>,
-    pub messages: Vec<crate::message::Message>,
-}
-impl MockPersistor {
-    pub(super) fn new() -> Self {
-        Self {
-            //orders: Vec::new(),
-            //trades: Vec::new(),
-            messages: Vec::new(),
-        }
-    }
-}
-
 fn get_market_base_and_quote(market: &str) -> (String, String) {
     let splits: Vec<&str> = market.split("_").collect();
     (splits[0].to_owned(), splits[1].to_owned())
-}
-
-impl Drop for MockPersistor {
-    fn drop(&mut self) {
-        let output_file_name = "output.txt";
-        let mut file = File::create(output_file_name).unwrap();
-        for item in self.messages.iter() {
-            let s = serde_json::to_string(item).unwrap();
-            file.write_fmt(format_args!("{}\n", s)).unwrap();
-        }
-        log::info!("output done")
-        //rust file need not to be closed manually
-    }
-}
-
-impl PersistExector for &mut MockPersistor {
-    fn put_order(&mut self, order: &market::Order, at_step: OrderEventType) {
-        //self.orders.push(order.clone());
-        self.messages.push(Message::OrderMessage(Box::new(message::OrderMessage {
-            event: at_step,
-            order: order.clone(),
-            base: get_market_base_and_quote(&*order.market).0,
-            quote: get_market_base_and_quote(&*order.market).1,
-        })));
-    }
-    fn put_trade(&mut self, trade: &market::Trade) {
-        //self.trades.push(trade.clone());
-        self.messages.push(Message::TradeMessage(Box::new(trade.clone())));
-    }
-    fn put_balance(&mut self, balance: BalanceHistory) {
-        self.messages.push(Message::BalanceMessage(Box::new(message::BalanceMessage {
-            timestamp: balance.time.timestamp() as f64,
-            user_id: balance.user_id as u32,
-            asset: balance.asset.clone(),
-            business: balance.business.clone(),
-            change: balance.change.to_string(),
-            balance: balance.balance.to_string(),
-            detail: balance.detail,
-        })))
-    }
-    fn put_transfer(&mut self, tx: InternalTx) {
-        self.messages.push(Message::TransferMessage(Box::new(message::TransferMessage {
-            time: FTimestamp::from(&tx.time).into(),
-            user_from: tx.user_from as u32,
-            user_to: tx.user_to as u32,
-            asset: tx.asset.to_string(),
-            amount: tx.amount.to_string(),
-        })))
-    }
-    fn register_user(&mut self, user: AccountDesc) {
-        self.messages.push(Message::UserMessage(Box::new(message::UserMessage {
-            user_id: user.id as u32,
-            l1_address: user.l1_address,
-            l2_pubkey: user.l2_pubkey,
-        })))
-    }
-}
-
-impl IntoPersistor for MockPersistor {
-    fn get_persistor<'c>(&'c mut self, _real: bool) -> Box<dyn PersistExector + 'c> {
-        Box::new(self)
-    }
 }

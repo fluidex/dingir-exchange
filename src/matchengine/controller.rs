@@ -2,11 +2,10 @@ use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::dto::*;
-use crate::history::DatabaseHistoryWriter;
 use crate::market;
-use crate::message::new_message_manager_with_kafka_backend;
+use crate::message::{FullOrderMessageManager, SimpleMessageManager};
 use crate::models::{self};
-use crate::persist::DefaultPersistor;
+use crate::persist::{CompositePersistor, DummyPersistor, MessengerBasedPersistor, PersistExector};
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
@@ -50,7 +49,9 @@ pub struct Controller {
     pub markets: HashMap<String, market::Market>,
     // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
-    pub persistor: DefaultPersistor,
+    pub persistor: Box<dyn PersistExector>,
+    // TODO: is this needed?
+    pub dummy_persistor: Box<dyn PersistExector>,
     dbg_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
@@ -68,7 +69,8 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     let history_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_history).unwrap();
     let user_manager = UserManager::new();
     let balance_manager = BalanceManager::new(&settings.assets).unwrap();
-    let message_manager = new_message_manager_with_kafka_backend(&settings.brokers).unwrap();
+    /*
+    // persisting to db is disabled now
     let history_writer = DatabaseHistoryWriter::new(
         &DatabaseWriterConfig {
             spawn_limit: 4,
@@ -78,6 +80,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         &history_pool,
     )
     .unwrap();
+    */
     let update_controller = BalanceUpdateController::new();
     //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
     let sequencer = Sequencer::default();
@@ -100,8 +103,14 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     .start_schedule(&main_pool)
     .unwrap();
 
-    let persist_policy = settings.history_persist_policy;
-
+    //let persist_policy = settings.history_persist_policy;
+    let mut persistor = Box::new(CompositePersistor::default());
+    persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
+        SimpleMessageManager::new_and_run(&settings.brokers).unwrap(),
+    ))));
+    persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
+        FullOrderMessageManager::new_and_run(&settings.brokers).unwrap(),
+    ))));
     Controller {
         settings,
         sequencer,
@@ -111,11 +120,8 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         update_controller,
         markets,
         log_handler: Box::<OperationLogSender>::new(log_handler),
-        persistor: DefaultPersistor {
-            history_writer,
-            message_manager: Some(message_manager),
-            policy: persist_policy,
-        },
+        persistor,
+        dummy_persistor: DummyPersistor::new_box(),
         dbg_pool: main_pool,
         market_load_cfg: cfgs.1,
     }
@@ -123,6 +129,12 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
 
 //impl<LogHandlerType> Controller where LogHandlerType: OperationLogConsumer + Send {
 impl Controller {
+    //fn get_persistor(&mut self, real: bool) -> &mut Box<dyn PersistExector> {
+    //if real {&mut self.persistor} else { &mut self.dummy_persistor }
+    //}
+    //fn get_persistor(&mut self, real: bool) -> Box<dyn PersistExector> {
+    //    if real {self.persistor} else { self.dummy_persistor }
+    //}
     pub fn asset_list(&self, _req: AssetListRequest) -> Result<AssetListResponse, Status> {
         let result = AssetListResponse {
             asset_lists: self
@@ -328,7 +340,7 @@ impl Controller {
         if real {
             let mut detail: serde_json::Value = json!({});
             detail["id"] = serde_json::Value::from(req.user_id);
-            self.persistor.is_real(real).get_persistor().register_user(models::AccountDesc {
+            self.persistor.register_user(models::AccountDesc {
                 id: req.user_id as i32,
                 l1_address: req.l1_address.clone(),
                 l2_pubkey: req.l2_pubkey.clone(),
@@ -360,10 +372,12 @@ impl Controller {
         } else {
             serde_json::from_str(req.detail.as_str()).map_err(|_| Status::invalid_argument("invalid detail"))?
         };
+        //let persistor = self.get_persistor(real);
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).get_persistor(),
+                persistor,
                 req.user_id,
                 req.asset.as_str(),
                 req.business.clone(),
@@ -390,8 +404,8 @@ impl Controller {
         }
         let market = self.markets.get_mut(&req.market).unwrap();
         let balance_manager = &mut self.balance_manager;
-        let persistor = self.persistor.is_real(real).get_persistor();
-
+        //let persistor = self.get_persistor(real);
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
         let order = market
@@ -418,8 +432,8 @@ impl Controller {
             return Err(Status::invalid_argument("invalid user"));
         }
         let balance_manager = &mut self.balance_manager;
-        let persistor = self.persistor.is_real(real).get_persistor();
-
+        //let persistor = self.get_persistor(real);
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         market.cancel(balance_manager.into(), persistor, order.id);
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
@@ -435,11 +449,9 @@ impl Controller {
             .markets
             .get_mut(&req.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
-        let total = market.cancel_all_for_user(
-            (&mut self.balance_manager).into(),
-            self.persistor.is_real(real).get_persistor(),
-            req.user_id,
-        ) as u32;
+        //let persistor = self.get_persistor(real);
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
+        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -547,10 +559,12 @@ impl Controller {
             serde_json::from_str(req.memo.as_str()).map_err(|_| Status::invalid_argument("invalid memo"))?
         };
 
+        //let persistor = self.get_persistor(real);
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).get_persistor(),
+                persistor,
                 from_user_id,
                 asset_id,
                 business.to_owned(),
@@ -560,10 +574,11 @@ impl Controller {
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
-                self.persistor.is_real(real).get_persistor(),
+                persistor,
                 to_user_id,
                 asset_id,
                 business.to_owned(),
@@ -574,7 +589,7 @@ impl Controller {
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
         if real {
-            self.persistor.is_real(real).get_persistor().put_transfer(models::InternalTx {
+            self.persistor.put_transfer(models::InternalTx {
                 time: timestamp.into(),
                 user_from: from_user_id as i32, // TODO: will this overflow?
                 user_to: to_user_id as i32,     // TODO: will this overflow?

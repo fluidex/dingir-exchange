@@ -396,16 +396,17 @@ impl Market {
             #[cfg(feature = "emit_state_diff")]
             let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
 
-            if persistor.real_persist() {
-                let trade = Trade {
-                    #[cfg(feature = "emit_state_diff")]
-                    state_after,
-                    #[cfg(feature = "emit_state_diff")]
-                    state_before,
-                    ..trade
-                };
-                persistor.put_trade(&trade)
-            }
+            //if true persistor.real_persist() {
+            //if true
+            let trade = Trade {
+                #[cfg(feature = "emit_state_diff")]
+                state_after,
+                #[cfg(feature = "emit_state_diff")]
+                state_before,
+                ..trade
+            };
+            persistor.put_trade(&trade);
+            //}
             maker.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
 
             let maker_finished = maker.remain.is_zero();
@@ -680,7 +681,7 @@ mod tests {
     use mock::*;
     use rust_decimal_macros::*;
 
-    #[cfg(feature = "emit_state_diff")]
+    //#[cfg(feature = "emit_state_diff")]
     #[test]
     fn test_multi_orders() {
         use crate::asset::BalanceUpdateController;
@@ -690,7 +691,14 @@ mod tests {
         use rust_decimal::prelude::FromPrimitive;
 
         let only_int = true;
-        let mut persistor = get_mocking_persistor();
+        let broker = std::env::var("KAFKA_BROKER");
+        let mut persistor: Box<dyn PersistExector> = match broker {
+            Ok(b) => Box::new(crate::persist::MessengerBasedPersistor::new(Box::new(
+                crate::message::FullOrderMessageManager::new_and_run(&b).unwrap(),
+            ))),
+            Err(_) => Box::new(crate::persist::FileBasedPersistor::new("output.txt")),
+        };
+        //let persistor = &mut persistor;
         let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(if only_int { 0 } else { 6 }));
         let uid0 = 0;
@@ -699,7 +707,7 @@ mod tests {
             update_controller
                 .update_user_balance(
                     balance_manager,
-                    persistor.persistor_for_balance(true),
+                    &mut persistor,
                     user_id,
                     asset,
                     "deposit".to_owned(),
@@ -747,16 +755,22 @@ mod tests {
                 taker_fee: dec!(0),
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
+                post_only: false,
             };
-            market
-                .put_order(
-                    sequencer,
-                    balance_manager.into(),
-                    persistor.persistor_for_market(true, (market.base.clone(), market.quote.clone())),
-                    order,
-                )
-                .unwrap();
+            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
         }
+        /*
+        use std::fs::File;
+        use std::io::Write;
+        let output_file_name = "output.txt";
+        let mut file = File::create(output_file_name).unwrap();
+        for item in self.messages.iter() {
+            let s = serde_json::to_string(item).unwrap();
+            file.write_fmt(format_args!("{}\n", s)).unwrap();
+        }
+        log::info!("output done")
+        //rust file need not to be closed manually
+        */
     }
 
     #[test]
@@ -769,7 +783,7 @@ mod tests {
         balance_manager.add(102, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
 
         let sequencer = &mut Sequencer::default();
-        let mut persistor = MockPersistor::new();
+        let mut persistor = crate::persist::DummyPersistor::default();
         let ask_user_id = 101;
         let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
@@ -867,7 +881,7 @@ mod tests {
         balance_manager.add(202, BalanceType::AVAILABLE, &MockAsset::ETH.id(), &dec!(1000));
 
         let sequencer = &mut Sequencer::default();
-        let mut persistor = MockPersistor::new();
+        let mut persistor = crate::persist::MemBasedPersistor::default();
         let ask_user_id = 201;
         let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
