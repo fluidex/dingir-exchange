@@ -1,7 +1,10 @@
 import Kafka from "kafkajs";
 
 export class KafkaConsumer {
-  async Init(verbose = false) {
+  async Init(
+    verbose = false,
+    topics = ["balances", "trades", "orders", "unifyevents"]
+  ) {
     this.verbose = verbose;
     const brokers = process.env.KAFKA_BROKERS;
     const kafka = new Kafka.Kafka({
@@ -12,12 +15,10 @@ export class KafkaConsumer {
     this.consumer = consumer;
     await consumer.connect();
     const fromBeginning = false;
-    await consumer.subscribe({ topic: "balances", fromBeginning });
-    await consumer.subscribe({ topic: "trades", fromBeginning });
-    await consumer.subscribe({ topic: "orders", fromBeginning });
-    this.balances = [];
-    this.trades = [];
-    this.orders = [];
+    for (const topic of topics) {
+      this[topic] = [];
+      await consumer.subscribe({ topic, fromBeginning });
+    }
     return consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         if (this.verbose) {
@@ -25,6 +26,7 @@ export class KafkaConsumer {
             topic,
             partition,
             offset: message.offset,
+            key: message.key.toString(),
             value: message.value.toString()
           });
         }
