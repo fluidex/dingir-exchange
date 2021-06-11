@@ -13,7 +13,7 @@ type UserWriter = DatabaseWriter<models::AccountDesc>;
 type OrderWriter = DatabaseWriter<models::OrderHistory>;
 type TradeWriter = DatabaseWriter<models::UserTrade>;
 
-pub trait HistoryWriter {
+pub trait HistoryWriter: Sync + Send {
     fn is_block(&self) -> bool;
     //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);

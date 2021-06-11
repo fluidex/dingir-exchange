@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub type SimpleDeliverResult = Result<(), KafkaError>;
 
-pub trait MessageScheme: Default {
+pub trait MessageScheme: Default + Sync + Send {
     type DeliverOpaque: IntoOpaque;
     type K: Into<String>;
     type V: Into<String>;

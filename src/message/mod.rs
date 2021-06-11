@@ -1,5 +1,8 @@
 use crate::market::Order;
+pub use crate::models::{AccountDesc, BalanceHistory, InternalTx};
 use crate::types::OrderEventType;
+
+use crate::utils::FTimestamp;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +19,16 @@ pub struct UserMessage {
     pub l2_pubkey: String,
 }
 
+impl From<AccountDesc> for UserMessage {
+    fn from(user: AccountDesc) -> Self {
+        Self {
+            user_id: user.id as u32,
+            l1_address: user.l1_address,
+            l2_pubkey: user.l2_pubkey,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceMessage {
     pub timestamp: f64,
@@ -27,6 +40,20 @@ pub struct BalanceMessage {
     pub detail: String,
 }
 
+impl From<BalanceHistory> for BalanceMessage {
+    fn from(balance: BalanceHistory) -> Self {
+        Self {
+            timestamp: balance.time.timestamp() as f64,
+            user_id: balance.user_id as u32,
+            asset: balance.asset.clone(),
+            business: balance.business.clone(),
+            change: balance.change.to_string(),
+            balance: balance.balance.to_string(),
+            detail: balance.detail,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransferMessage {
     pub time: f64,
@@ -34,6 +61,18 @@ pub struct TransferMessage {
     pub user_to: u32,
     pub asset: String,
     pub amount: String,
+}
+
+impl From<InternalTx> for TransferMessage {
+    fn from(tx: InternalTx) -> Self {
+        Self {
+            time: FTimestamp::from(&tx.time).into(),
+            user_from: tx.user_from as u32,
+            user_to: tx.user_to as u32,
+            asset: tx.asset.to_string(),
+            amount: tx.amount.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -44,6 +83,16 @@ pub struct OrderMessage {
     pub quote: String,
 }
 
+impl OrderMessage {
+    pub fn from_order(order: &Order, at_step: OrderEventType) -> Self {
+        Self {
+            event: at_step,
+            order: order.clone(),
+            base: order.base.to_string(),
+            quote: order.quote.to_string(),
+        }
+    }
+}
 //re-export from market, act as TradeMessage
 pub use crate::market::Trade;
 
@@ -55,7 +104,7 @@ pub struct MessageSenderStatus {
     balances_len: usize,
 }
 
-pub trait MessageManager {
+pub trait MessageManager: Sync + Send {
     //fn push_message(&mut self, msg: &Message);
     fn is_block(&self) -> bool;
     fn push_order_message(&mut self, order: &OrderMessage);
@@ -144,9 +193,12 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     }
 }
 
-pub type ChannelMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
-//pub type ChannelMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
-pub type UnifyMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
+pub type SimpleMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
+
+// TODO: since now we enable SimpleMessageManager & FullOrderMessageManager both,
+// we only need to process useful (deposit,trade etc, which update the rollup global state) msgs only
+// and skip others
+pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
 // TODO: better naming?
@@ -195,6 +247,10 @@ impl MessageManager for DummyMessageManager {
 }
 */
 
-pub fn new_message_manager_with_kafka_backend(brokers: &str) -> Result<ChannelMessageManager> {
-    ChannelMessageManager::new_and_run(brokers)
+pub fn new_simple_message_manager(brokers: &str) -> Result<SimpleMessageManager> {
+    SimpleMessageManager::new_and_run(brokers)
+}
+
+pub fn new_full_order_message_manager(brokers: &str) -> Result<FullOrderMessageManager> {
+    FullOrderMessageManager::new_and_run(brokers)
 }
