@@ -5,7 +5,7 @@ import {
   putLimitOrder,
   getRandomFloatAround,
   getRandomElem,
-  depositAssets,
+  depositAssets
 } from "./util";
 import axios from "axios";
 

@@ -1,5 +1,11 @@
 import { userId } from "./config"; // dotenv
-import { balanceQuery, debugReset, transfer, registerUser, balanceQueryByAsset } from "./client";
+import {
+  balanceQuery,
+  debugReset,
+  transfer,
+  registerUser,
+  balanceQueryByAsset
+} from "./client";
 import { depositAssets, decimalEqual } from "./util";
 
 import { strict as assert } from "assert";

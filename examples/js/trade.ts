@@ -179,15 +179,15 @@ async function simpleTest() {
 
 function checkMessages(messages) {
   // TODO: more careful check
-  assert.equal(messages.orders.length, 5);
-  assert.equal(messages.balances.length, 2);
-  assert.equal(messages.trades.length, 1);
+  assert.equal(messages.get("orders").length, 5);
+  assert.equal(messages.get("balances").length, 2);
+  assert.equal(messages.get("trades").length, 1);
 }
 
 async function mainTest(withMQ) {
   await debugReset();
 
-  let kafkaConsumer;
+  let kafkaConsumer: KafkaConsumer;
   if (withMQ) {
     kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();

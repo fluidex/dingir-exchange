@@ -12,7 +12,7 @@ import {
   orderCancelAll,
   orderDepth,
   debugReset,
-  debugReload,
+  debugReload
 } from "./client";
 
 import {
