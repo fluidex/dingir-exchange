@@ -4,7 +4,8 @@ import {
   sleep,
   putLimitOrder,
   getRandomFloatAround,
-  getRandomElem
+  getRandomElem,
+  depositAssets
 } from "./util.mjs";
 import axios from "axios";
 
