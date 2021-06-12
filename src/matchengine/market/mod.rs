@@ -10,7 +10,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::iter::Iterator;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -261,10 +261,6 @@ impl Market {
         let mut need_cancel = false;
         for maker_ref in counter_orders {
             let mut maker = maker_ref.borrow_mut();
-            if taker.user == maker.user && self.disable_self_trade {
-                need_cancel = true;
-                break;
-            }
             if taker.remain.is_zero() {
                 break;
             }
@@ -282,17 +278,23 @@ impl Market {
             //let ask_order_id: u64 = ask_order.id;
             //let bid_order_id: u64 = bid_order.id;
 
-            if is_limit_order {
-                if ask_order.price.gt(&bid_order.price) {
-                    break;
-                } else if is_post_only_order {
-                    need_cancel = true;
-                    break;
-                }
+            if is_limit_order && ask_order.price.gt(&bid_order.price) {
+                break;
+            }
+            // new trade will be generated
+            if is_post_only_order {
+                need_cancel = true;
+                break;
+            }
+            if ask_order.user == bid_order.user && self.disable_self_trade {
+                need_cancel = true;
+                break;
             }
 
             let traded_base_amount = min(ask_order.remain, bid_order.remain);
+            debug_assert!(!traded_base_amount.is_zero());
             let traded_quote_amount = price * traded_base_amount;
+            debug_assert!(!traded_quote_amount.is_zero());
 
             quote_sum += traded_quote_amount;
             if taker_is_bid && is_market_order {
@@ -426,6 +428,7 @@ impl Market {
         if need_cancel {
             // Now both self trade orders and immediately triggered post_only
             // limit orders will be cancelled here.
+            // TODO: use CANCEL event here
             persistor.put_order(&taker, OrderEventType::FINISH);
         } else if taker.type_ == OrderType::MARKET {
             // market order can either filled or not
@@ -471,6 +474,9 @@ impl Market {
         if order_input.type_ == OrderType::MARKET {
             if !order_input.price.is_zero() {
                 return Err(anyhow!("market order should not have a price"));
+            }
+            if order_input.post_only {
+                bail!("market order cannot be post only");
             }
             if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
                 return Err(anyhow!("no counter orders"));
