@@ -4,7 +4,7 @@ CREATE TABLE internal_tx (
     user_from INT CHECK (user_from >= 0) NOT NULL,
     user_to INT CHECK (user_to >= 0) NOT NULL,
     asset VARCHAR(30) NOT NULL REFERENCES asset(id),
-    amount DECIMAL(30, 8) CHECK (amount >= 0) NOT NULL
+    amount DECIMAL(30, 8) CHECK (amount > 0) NOT NULL
 );
 
 CREATE INDEX internal_tx_idx_to_time ON internal_tx (user_to, time DESC);
