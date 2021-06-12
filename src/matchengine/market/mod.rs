@@ -239,6 +239,13 @@ impl Market {
         quote_limit: &Decimal,
     ) -> Order {
         log::debug!("execute_order {:?}", taker);
+
+        // the the older version, PUT means being inserted into orderbook
+        // so if an order is matched instantly, only 'FINISH' event will occur, no 'PUT' event
+        // now PUT means being created
+        // we can revisit this decision later
+        persistor.put_order(&taker, OrderEventType::PUT);
+
         let taker_is_ask = taker.side == OrderSide::ASK;
         let taker_is_bid = !taker_is_ask;
         let maker_is_bid = taker_is_ask;
@@ -246,7 +253,7 @@ impl Market {
         let is_limit_order = taker.type_ == OrderType::LIMIT;
         let is_market_order = !is_limit_order;
         let is_post_only_order = taker.post_only;
-        //let mut quote_available = *quote_limit;
+
         let mut quote_sum = Decimal::zero();
 
         let mut finished_orders = Vec::new();
@@ -440,7 +447,6 @@ impl Market {
             if taker.remain.is_zero() {
                 persistor.put_order(&taker, OrderEventType::FINISH);
             } else {
-                persistor.put_order(&taker, OrderEventType::PUT);
                 // `insert_order` will update the order info
                 taker = self.insert_order(taker);
                 self.frozen_balance(balance_manager, &taker);
