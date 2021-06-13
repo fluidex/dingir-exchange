@@ -13,7 +13,6 @@ chrono = { version = "0.4.19", features = [ "serde" ] }
 config_rs = { package = "config", version = "0.10.1" }
 crossbeam-channel = "0.5.0"
 dotenv = "0.15.0"
-env_logger = "0.8.3"
 futures = "0.3.13"
 futures-channel = "0.3.13"
 futures-core = { version = "0.3.13", default-features = false }
@@ -38,6 +37,9 @@ thiserror = "1.0.24"
 thread-id = "3.3.0"
 tokio = { version = "1.6.0", features = [ "full" ] }
 tonic = "0.4.0"
+tracing = "0.1"
+tracing-appender = "0.1"
+tracing-subscriber = "0.2"
 ttl_cache = "0.5.1"
 
 [build-dependencies]
