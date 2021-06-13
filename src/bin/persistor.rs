@@ -15,7 +15,12 @@ use message::persist::{self, TopicConfig, MIGRATOR};
 
 fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
+
+    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(non_blocking)
+        .init();
 
     let mut conf = config_rs::Config::new();
     let config_file = dotenv::var("CONFIG_FILE").unwrap();
