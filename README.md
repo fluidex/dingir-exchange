@@ -15,6 +15,30 @@ The core matching engine is a fully async, single threaded, memory based matchin
 
 The archtecture is heavily inspired by Redis and [Viabtc Exchange](https://github.com/viabtc/viabtc_exchange_server)
 
+## Prerequisite
+
+* cmake
+* librdkafka
+
+### MacOS
+
+```
+$ brew install cmake librdkafka
+```
+
+### Ubuntu / Debian
+
+```
+# apt install cmake librdkafka-dev
+```
+
+### RedHat / CentOS / Fedora
+
+```
+# dnf install cmake librdkafka-devel
+```
+
+
 ## Todos
 
 * push notifications using GRPC/websockets
