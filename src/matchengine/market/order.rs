@@ -1,4 +1,5 @@
 use crate::types::{OrderSide, OrderType};
+use crate::utils::intern_string;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -73,47 +74,36 @@ impl PartialOrd for MarketKeyBid {
     }
 }
 
-// TODO: just leak the string as 'str and derive Copy for this struct
-#[derive(Debug, Clone)]
-pub enum MarketString {
-    Left(&'static str),
-    Right(String),
-}
+#[derive(Debug, Clone, Copy)]
+pub struct MarketString(&'static str);
 
 impl From<&'static str> for MarketString {
     fn from(str: &'static str) -> Self {
-        MarketString::Left(str)
+        MarketString(str)
     }
 }
 
 impl std::ops::Deref for MarketString {
     type Target = str;
     fn deref(&self) -> &Self::Target {
-        match self {
-            MarketString::Left(str) => *str,
-            MarketString::Right(stri) => stri.as_str(),
-        }
+        self.0
     }
 }
 
 impl serde::ser::Serialize for MarketString {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            MarketString::Left(str) => serializer.serialize_str(*str),
-            MarketString::Right(stri) => serializer.serialize_str(stri.as_str()),
-        }
+        serializer.serialize_str(self.0)
     }
 }
 
 impl<'de> serde::de::Deserialize<'de> for MarketString {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
-        Ok(MarketString::Right(s))
+        Ok(intern_string(&s).into())
     }
 }
 
-// TODO: derive Copy for this struct
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Order {
     pub id: u64,
     pub base: MarketString,
