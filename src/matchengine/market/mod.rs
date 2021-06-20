@@ -359,7 +359,9 @@ impl Market {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
             }
             let ask_order_is_new = ask_order.finished_base.is_zero();
+            let ask_order_before = ask_order.clone();
             let bid_order_is_new = bid_order.finished_base.is_zero();
+            let bid_order_before = bid_order.clone();
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
@@ -417,8 +419,8 @@ impl Market {
                 state_after,
                 #[cfg(feature = "emit_state_diff")]
                 state_before,
-                ask_order: if ask_order_is_new { Some(ask_order.clone()) } else { None },
-                bid_order: if bid_order_is_new { Some(bid_order.clone()) } else { None },
+                ask_order: if ask_order_is_new { Some(ask_order_before) } else { None },
+                bid_order: if bid_order_is_new { Some(bid_order_before) } else { None },
                 ..trade
             };
             persistor.put_trade(&trade);
