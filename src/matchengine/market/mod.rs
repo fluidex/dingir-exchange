@@ -359,9 +359,9 @@ impl Market {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
             }
             let ask_order_is_new = ask_order.finished_base.is_zero();
-            let ask_order_before = ask_order.clone();
+            let ask_order_before = *ask_order;
             let bid_order_is_new = bid_order.finished_base.is_zero();
-            let bid_order_before = bid_order.clone();
+            let bid_order_before = *bid_order;
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
@@ -429,7 +429,7 @@ impl Market {
 
             let maker_finished = maker.remain.is_zero();
             if maker_finished {
-                finished_orders.push(maker.clone());
+                finished_orders.push(*maker);
             } else {
                 // When maker_finished, `order_finish` will send message.
                 // So we don't need to send the finish message here.

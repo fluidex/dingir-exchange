@@ -173,6 +173,6 @@ impl OrderRc {
     }
 
     pub(super) fn deep(&self) -> Order {
-        self.borrow().clone()
+        *self.borrow()
     }
 }
