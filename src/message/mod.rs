@@ -87,7 +87,7 @@ impl OrderMessage {
     pub fn from_order(order: &Order, at_step: OrderEventType) -> Self {
         Self {
             event: at_step,
-            order: order.clone(),
+            order: *order,
             base: order.base.to_string(),
             quote: order.quote.to_string(),
         }

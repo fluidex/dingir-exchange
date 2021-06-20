@@ -1,3 +1,4 @@
+use crate::market::Order;
 use crate::types::MarketRole;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,10 @@ pub struct Trade {
     pub bid_order_id: u64,
     pub bid_role: MarketRole,
     pub bid_fee: Decimal,
+
+    // only not none when this is this order's first trade
+    pub ask_order: Option<Order>,
+    pub bid_order: Option<Order>,
 
     #[cfg(feature = "emit_state_diff")]
     pub state_before: VerboseTradeState,

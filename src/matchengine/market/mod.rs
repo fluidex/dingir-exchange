@@ -344,6 +344,9 @@ impl Market {
                 bid_order_id: bid_order.id,
                 bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
                 bid_fee,
+
+                ask_order: None,
+                bid_order: None,
                 #[cfg(feature = "emit_state_diff")]
                 state_before: Default::default(),
                 #[cfg(feature = "emit_state_diff")]
@@ -355,6 +358,10 @@ impl Market {
             if self.disable_self_trade {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
             }
+            let ask_order_is_new = ask_order.finished_base.is_zero();
+            let ask_order_before = *ask_order;
+            let bid_order_is_new = bid_order.finished_base.is_zero();
+            let bid_order_before = *bid_order;
             ask_order.remain -= traded_base_amount;
             bid_order.remain -= traded_base_amount;
             ask_order.finished_base += traded_base_amount;
@@ -412,6 +419,8 @@ impl Market {
                 state_after,
                 #[cfg(feature = "emit_state_diff")]
                 state_before,
+                ask_order: if ask_order_is_new { Some(ask_order_before) } else { None },
+                bid_order: if bid_order_is_new { Some(bid_order_before) } else { None },
                 ..trade
             };
             persistor.put_trade(&trade);
@@ -420,7 +429,7 @@ impl Market {
 
             let maker_finished = maker.remain.is_zero();
             if maker_finished {
-                finished_orders.push(maker.clone());
+                finished_orders.push(*maker);
             } else {
                 // When maker_finished, `order_finish` will send message.
                 // So we don't need to send the finish message here.

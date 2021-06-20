@@ -614,6 +614,7 @@ dependencies = [
  "humantime-serde",
  "hyper",
  "itertools 0.10.0",
+ "lazy_static",
  "log",
  "nix",
  "num_enum",
