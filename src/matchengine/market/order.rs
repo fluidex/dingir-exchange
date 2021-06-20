@@ -73,6 +73,7 @@ impl PartialOrd for MarketKeyBid {
     }
 }
 
+// TODO: just leak the string as 'str and derive Copy for this struct
 #[derive(Debug, Clone)]
 pub enum MarketString {
     Left(&'static str),
@@ -111,6 +112,7 @@ impl<'de> serde::de::Deserialize<'de> for MarketString {
     }
 }
 
+// TODO: derive Copy for this struct
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Order {
     pub id: u64,
