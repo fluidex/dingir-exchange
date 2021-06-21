@@ -5,14 +5,10 @@ use rust_decimal_macros::*;
 pub fn get_simple_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit {
-            asset_id: MockAsset::ETH.id(),
-            prec: 4,
-        }, // amount: xx.xxxx
-        quote: config::MarketUnit {
-            asset_id: MockAsset::USDT.id(),
-            prec: 2,
-        }, // price xx.xx
+        base: MockAsset::ETH.id(),
+        quote: MockAsset::USDT.id(),
+        amount_prec: 4,
+        price_prec: 2,
         fee_prec: 2,
         min_amount: dec!(0.01),
         disable_self_trade: false,
@@ -21,14 +17,10 @@ pub fn get_simple_market_config() -> config::Market {
 pub fn get_integer_prec_market_config() -> config::Market {
     config::Market {
         name: String::from("ETH_USDT"),
-        base: config::MarketUnit {
-            asset_id: MockAsset::ETH.id(),
-            prec: 0,
-        },
-        quote: config::MarketUnit {
-            asset_id: MockAsset::USDT.id(),
-            prec: 0,
-        },
+        base: MockAsset::ETH.id(),
+        quote: MockAsset::USDT.id(),
+        amount_prec: 0,
+        price_prec: 0,
         fee_prec: 0,
         min_amount: dec!(0),
         disable_self_trade: true,

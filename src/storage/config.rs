@@ -23,14 +23,10 @@ impl From<MarketDesc> for config::Market {
         let market_name = origin.market_name.unwrap_or(origin.base_asset.clone() + "_" + &origin.quote_asset);
 
         config::Market {
-            base: config::MarketUnit {
-                asset_id: origin.base_asset,
-                prec: origin.precision_base as u32,
-            },
-            quote: config::MarketUnit {
-                asset_id: origin.quote_asset,
-                prec: origin.precision_quote as u32,
-            },
+            base: origin.base_asset,
+            quote: origin.quote_asset,
+            price_prec: origin.precision_price as u32,
+            amount_prec: origin.precision_amount as u32,
             fee_prec: origin.precision_fee as u32,
             name: market_name,
             min_amount: origin.min_amount,
@@ -69,7 +65,7 @@ fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     sqlx::query_as!(
         MarketDesc,
         "select id, create_time, base_asset, quote_asset, 
-        precision_base, precision_quote, precision_fee,
+        precision_amount, precision_price, precision_fee,
         min_amount, market_name from market where create_time > $1",
         t
     )
@@ -123,7 +119,7 @@ impl MarketConfigs {
     {
         let query = format!(
             "select id, create_time, base_asset, quote_asset, 
-        precision_base, precision_quote, precision_fee,
+        precision_amount, precision_price, precision_fee,
         min_amount, market_name from {} where create_time > $1",
             tablenames::MARKET
         );
@@ -199,15 +195,16 @@ where
     T: sqlx::Executor<'e, Database = DbType>,
 {
     sqlx::query(&format!(
-        "insert into {} (base_asset, quote_asset, precision_base, 
-            precision_quote, precision_fee, min_amount, market_name) 
+        "insert into {} (base_asset, quote_asset, 
+            precision_amount, precision_price, precision_fee, 
+            min_amount, market_name) 
             values ($1, $2, $3, $4, $5, $6, $7)",
         tablenames::MARKET
     ))
-    .bind(&market.base.asset_id)
-    .bind(&market.quote.asset_id)
-    .bind(market.base.prec as i16)
-    .bind(market.quote.prec as i16)
+    .bind(&market.base)
+    .bind(&market.quote)
+    .bind(market.amount_prec as i16)
+    .bind(market.price_prec as i16)
     .bind(market.fee_prec as i16)
     .bind(market.min_amount)
     .bind(&market.name)

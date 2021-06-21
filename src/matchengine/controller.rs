@@ -289,8 +289,8 @@ impl Controller {
                 base: market.base.into(),
                 quote: market.quote.into(),
                 fee_precision: market.fee_prec,
-                base_precision: market.base_prec,
-                quote_precision: market.quote_prec,
+                amount_precision: market.amount_prec,
+                price_precision: market.price_prec,
                 min_amount: market.min_amount.to_string(),
             })
             .collect();

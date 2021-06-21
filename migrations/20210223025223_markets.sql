@@ -20,8 +20,8 @@ CREATE TABLE market (
     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
     base_asset VARCHAR(30) NOT NULL REFERENCES asset(id) ON DELETE RESTRICT,
     quote_asset VARCHAR(30) NOT NULL REFERENCES asset(id) ON DELETE RESTRICT,
-    precision_base SMALLINT CHECK (precision_base >= 0) NOT NULL,
-    precision_quote SMALLINT CHECK (precision_quote >= 0) NOT NULL,
+    precision_amount SMALLINT CHECK (precision_amount >= 0) NOT NULL,
+    precision_price SMALLINT CHECK (precision_price >= 0) NOT NULL,
     precision_fee SMALLINT CHECK (precision_fee >= 0) NOT NULL,
     min_amount DECIMAL(16, 16) NOT NULL,
     market_name VARCHAR(30)

@@ -10,7 +10,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::iter::Iterator;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -27,8 +27,8 @@ pub struct Market {
     pub name: &'static str,
     pub base: &'static str,
     pub quote: &'static str,
-    pub base_prec: u32,
-    pub quote_prec: u32,
+    pub amount_prec: u32,
+    pub price_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
 
@@ -86,27 +86,22 @@ impl Market {
     pub fn new(market_conf: &config::Market, balance_manager: &BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
-        if !asset_exist(&market_conf.quote.asset_id) || !asset_exist(&market_conf.base.asset_id) {
-            return Err(anyhow!(
-                "invalid assert id {} {}",
-                market_conf.quote.asset_id,
-                market_conf.base.asset_id
-            ));
+        if !asset_exist(&market_conf.quote) || !asset_exist(&market_conf.base) {
+            bail!("invalid assert id {} {}", market_conf.quote, market_conf.base);
         }
 
-        if market_conf.base.prec + market_conf.quote.prec > asset_prec(&market_conf.quote.asset_id)
-            || market_conf.base.prec + market_conf.fee_prec > asset_prec(&market_conf.base.asset_id)
-            || market_conf.quote.prec + market_conf.fee_prec > asset_prec(&market_conf.quote.asset_id)
+        if market_conf.amount_prec + market_conf.fee_prec > asset_prec(&market_conf.base)
+            || market_conf.amount_prec + market_conf.price_prec + market_conf.fee_prec > asset_prec(&market_conf.quote)
         {
-            return Err(anyhow!("invalid precision"));
+            bail!("invalid precision");
         }
         let leak_fn = |x: &str| -> &'static str { Box::leak(x.to_string().into_boxed_str()) };
         let market = Market {
             name: leak_fn(&market_conf.name),
-            base: leak_fn(&market_conf.base.asset_id),
-            quote: leak_fn(&market_conf.quote.asset_id),
-            base_prec: market_conf.base.prec,
-            quote_prec: market_conf.quote.prec,
+            base: leak_fn(&market_conf.base),
+            quote: leak_fn(&market_conf.quote),
+            amount_prec: market_conf.amount_prec,
+            price_prec: market_conf.price_prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
             orders: BTreeMap::new(),
@@ -473,31 +468,33 @@ impl Market {
         order_input: OrderInput,
     ) -> Result<Order> {
         if order_input.amount.lt(&self.min_amount) {
-            return Err(anyhow!("invalid amount"));
+            bail!("invalid amount");
+        }
+        // FIXME
+        if !order_input.taker_fee.is_zero() || !order_input.maker_fee.is_zero() {
+            bail!("only 0 fee is supported now");
         }
         // TODO: refactor this
-        let base_prec = self.base_prec;
-        let quote_prec = self.quote_prec;
-        let amount = order_input.amount.round_dp(base_prec);
-        let price = order_input.price.round_dp(quote_prec);
-        // log::debug!("decimal {} {} {} {} ", self.base, base_prec, self.quote, quote_prec);
-        let order_input = OrderInput {
-            amount,
-            price,
-            ..order_input
-        };
+        let amount = order_input.amount.round_dp(self.amount_prec);
+        if amount != order_input.amount {
+            bail!("invalid amount precision");
+        }
+        let price = order_input.price.round_dp(self.price_prec);
+        if price != order_input.price {
+            bail!("invalid price precision");
+        }
         if order_input.type_ == OrderType::MARKET {
             if !order_input.price.is_zero() {
-                return Err(anyhow!("market order should not have a price"));
+                bail!("market order should not have a price");
             }
             if order_input.post_only {
                 bail!("market order cannot be post only");
             }
             if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
-                return Err(anyhow!("no counter orders"));
+                bail!("no counter orders");
             }
         } else if order_input.price.is_zero() {
-            return Err(anyhow!("invalid price for limit order"));
+            bail!("invalid price for limit order");
         }
 
         if order_input.side == OrderSide::ASK {
@@ -505,19 +502,19 @@ impl Market {
                 .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
                 .lt(&order_input.amount)
             {
-                return Err(anyhow!("balance not enough"));
+                bail!("balance not enough");
             }
         } else {
             let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
 
             if order_input.type_ == OrderType::LIMIT {
                 if balance.lt(&(order_input.amount * order_input.price)) {
-                    return Err(anyhow!(
+                    bail!(
                         "balance not enough: balance({}) < amount({}) * price({})",
                         &balance,
                         &order_input.amount,
                         &order_input.price
-                    ));
+                    );
                 }
             } else {
                 // We have already checked that counter order book is not empty,
@@ -527,7 +524,7 @@ impl Market {
                 // will be marked as `canceled(finished)`.
                 let top_counter_order_price = self.asks.values().next().unwrap().borrow().price;
                 if balance.lt(&(order_input.amount * top_counter_order_price)) {
-                    return Err(anyhow!("balance not enough"));
+                    bail!("balance not enough");
                 }
             }
         }

@@ -256,8 +256,8 @@ message MarketListResponse {
     string base = 2;  // base
     string quote = 3; // quote
     uint32 fee_precision = 4;
-    uint32 base_precision = 5;
-    uint32 quote_precision = 6;
+    uint32 amount_precision = 5;
+    uint32 price_precision = 6;
     string min_amount = 7;
   }
   repeated MarketInfo markets = 1;
