@@ -470,8 +470,8 @@ impl Market {
         if order_input.amount.lt(&self.min_amount) {
             bail!("invalid amount");
         }
-        // FIXME
-        if !order_input.taker_fee.is_zero() || !order_input.maker_fee.is_zero() {
+        // fee_prec == 0 means no fee allowed
+        if self.fee_prec == 0 && (!order_input.taker_fee.is_zero() || !order_input.maker_fee.is_zero()) {
             bail!("only 0 fee is supported now");
         }
         // TODO: refactor this
