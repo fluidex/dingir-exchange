@@ -1,4 +1,5 @@
 pub use crate::models::AccountDesc;
+use crate::types::ConnectionType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -16,6 +17,10 @@ pub struct UserManager {
 impl UserManager {
     pub fn new() -> Self {
         Self { users: HashMap::new() }
+    }
+
+    pub async fn load_users_from_db(&self, conn: &mut ConnectionType) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
