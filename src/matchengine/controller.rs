@@ -106,7 +106,7 @@ const OPERATION_TRANSFER: &str = "transfer";
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
     let settings = cfgs.0;
     let main_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap();
-    let user_manager = UserManager::new();
+    let user_manager = UserManager::new(); // load from db later
     let balance_manager = BalanceManager::new(&settings.assets).unwrap();
 
     let update_controller = BalanceUpdateController::new();

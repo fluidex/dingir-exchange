@@ -52,6 +52,7 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     };
 
     let mut grpc_stub = create_controller((settings, market_cfg));
+    grpc_stub.user_manager.load_users_from_db(&mut conn).await?;
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
 
     let grpc = GrpcHandler::new(grpc_stub);
