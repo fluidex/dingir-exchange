@@ -20,6 +20,7 @@ class Client {
 
   async connect() {
     this.markets = await this.marketList();
+    console.log("markets", this.markets);
   }
 
   async balanceQuery(user_id): Promise<Map<string, any>> {
@@ -68,9 +69,10 @@ class Client {
     if (!this.markets.has(market)) {
       throw new Error("invalid market " + market);
     }
-    // TODO: round down?
-    let amount_rounded = amount.toFixed(this.markets[market].amount_precision);
-    let price_rounded = price.toFixed(this.markets[market].price_precision);
+    // TODO: round down? decimal?
+    let marketInfo = this.markets.get(market);
+    let amount_rounded = Number(amount).toFixed(marketInfo.amount_precision);
+    let price_rounded = Number(price).toFixed(marketInfo.price_precision);
     return {
       user_id,
       market,

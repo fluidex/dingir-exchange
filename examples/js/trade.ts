@@ -76,7 +76,10 @@ async function orderTest() {
   assert.equal(summary.bid_count, 1);
 
   const depth = await client.orderDepth(market, 100, /*not merge*/ "0");
-  assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "10" }] });
+  assert.deepEqual(depth, {
+    asks: [],
+    bids: [{ price: "1.10", amount: "10.0000" }]
+  });
 
   await client.orderCancel(askUser, market, 1);
   const balance4 = await client.balanceQueryByAsset(askUser, "USDT");
