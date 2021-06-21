@@ -19,7 +19,20 @@ impl UserManager {
         Self { users: HashMap::new() }
     }
 
-    pub async fn load_users_from_db(&self, conn: &mut ConnectionType) -> anyhow::Result<()> {
+    pub async fn load_users_from_db(&mut self, conn: &mut ConnectionType) -> anyhow::Result<()> {
+        let users: Vec<AccountDesc> = sqlx::query_as!(AccountDesc, "SELECT * FROM account").fetch_all(conn).await?;
+
+        // lock?
+        for user in users {
+            self.users.insert(
+                user.id as u32,
+                UserInfo {
+                    l1_address: user.l1_address,
+                    l2_pubkey: user.l2_pubkey,
+                },
+            );
+        }
+
         Ok(())
     }
 }
