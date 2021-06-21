@@ -27,8 +27,10 @@ pub struct MarketUnit {
 #[serde(default)]
 pub struct Market {
     pub name: String,
-    pub base: MarketUnit,
-    pub quote: MarketUnit,
+    pub base: String,
+    pub quote: String,
+    pub amount_prec: u32,
+    pub price_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
     pub disable_self_trade: bool,
@@ -51,6 +53,8 @@ impl Default for Market {
             min_amount: Decimal::from_str("0.01").unwrap(),
             base: Default::default(),
             quote: Default::default(),
+            amount_prec: 0,
+            price_prec: 0,
             disable_self_trade: true,
         }
     }

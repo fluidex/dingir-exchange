@@ -48,13 +48,13 @@ pub mod market {
         let trade_pair = req.into_inner();
 
         if let Some(asset) = trade_pair.asset_base.as_ref() {
-            if asset.id != trade_pair.market.base.asset_id {
+            if asset.id != trade_pair.market.base {
                 return (String::from("Base asset not match"), http::StatusCode::BAD_REQUEST);
             }
         }
 
         if let Some(asset) = trade_pair.asset_quote.as_ref() {
-            if asset.id != trade_pair.market.quote.asset_id {
+            if asset.id != trade_pair.market.quote {
                 return (String::from("Quote asset not match"), http::StatusCode::BAD_REQUEST);
             }
         }

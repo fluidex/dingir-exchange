@@ -10,19 +10,7 @@ import {
   ORDER_TYPE_LIMIT,
   VERBOSE
 } from "./config"; // dotenv
-import {
-  balanceQuery,
-  orderPut,
-  balanceUpdate,
-  assetList,
-  marketList,
-  marketSummary,
-  orderDetail,
-  orderCancel,
-  orderDepth,
-  debugReset,
-  debugReload
-} from "./client";
+import { defaultClient as client } from "./client";
 
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
@@ -40,7 +28,7 @@ export function decimalAdd(a, b) {
 }
 
 export async function printBalance(printList = ["USDT", "ETH"]) {
-  const balances = await balanceQuery(userId);
+  const balances = await client.balanceQuery(userId);
   console.log("\nasset\tsum\tavaiable\tfrozen");
   for (const asset of printList) {
     const balance = balances[asset];
@@ -60,7 +48,7 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
 export async function depositAssets(assets, userId) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
-    await balanceUpdate(userId, asset, "deposit", depositId(), amount, {
+    await client.balanceUpdate(userId, asset, "deposit", depositId(), amount, {
       key: "value"
     });
   }
@@ -70,7 +58,7 @@ export async function putLimitOrder(userId, side, amount, price) {
   if (VERBOSE) {
     console.log("putLimitOrder", { userId, side, amount, price });
   }
-  return await orderPut(
+  return await client.orderPut(
     userId,
     market,
     side,
