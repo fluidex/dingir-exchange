@@ -20,7 +20,7 @@ impl UserManager {
     }
 
     pub async fn load_users_from_db(&mut self, conn: &mut ConnectionType) -> anyhow::Result<()> {
-        let users: Vec<AccountDesc> = sqlx::query_as!(AccountDesc, "SELECT * FROM account").fetch_all(conn).await?;
+        let users: Vec<AccountDesc> = sqlx::query_as::<_, AccountDesc>("SELECT * FROM account").fetch_all(conn).await?;
         // lock?
         for user in users {
             self.users.insert(
