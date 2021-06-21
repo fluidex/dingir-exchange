@@ -1,5 +1,5 @@
 import { ORDER_SIDE_BID, ORDER_SIDE_ASK, market, userId } from "./config";
-import { orderCancelAll, debugReset } from "./client";
+import { defaultClient as client } from "./client";
 import {
   sleep,
   putLimitOrder,
@@ -27,7 +27,7 @@ async function run() {
     try {
       await sleep(1000);
       if (cnt % 300 == 0) {
-        await orderCancelAll(userId, market);
+        await client.orderCancelAll(userId, market);
       }
       const data = await axios.get(url);
       const price = data.data.coins.find(item => item.symbol == "ETH").price;
@@ -52,7 +52,7 @@ async function run() {
   }
 }
 async function main() {
-  await debugReset();
+  await client.debugReset();
   await initAssets();
   await run();
 }

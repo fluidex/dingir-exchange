@@ -1,9 +1,9 @@
-import { debugReset } from "./client";
+import { defaultClient as client } from "./client";
 
 async function main() {
   //    Dotenv.config()
   try {
-    await debugReset();
+    await client.debugReset();
   } catch (error) {
     console.error("Catched error:", error);
   }

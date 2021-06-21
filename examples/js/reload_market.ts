@@ -1,9 +1,9 @@
-import { reloadMarkets } from "./client";
+import { defaultClient as client } from "./client";
 
 async function main() {
   //    Dotenv.config()
   try {
-    await reloadMarkets();
+    await client.reloadMarkets();
   } catch (error) {
     console.error("Catched error:", error);
   }

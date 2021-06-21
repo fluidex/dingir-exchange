@@ -1,19 +1,5 @@
 import { market, userId } from "./config"; // dotenv
-import {
-  balanceQuery,
-  balanceQueryByAsset,
-  orderPut,
-  balanceUpdate,
-  assetList,
-  marketList,
-  orderDetail,
-  marketSummary,
-  orderCancel,
-  orderCancelAll,
-  orderDepth,
-  debugReset,
-  debugReload
-} from "./client";
+import { defaultClient as client } from "./client";
 
 import {
   depositAssets,
@@ -25,12 +11,12 @@ import {
 } from "./util";
 
 async function stressTest({ parallel, interval, repeat }) {
-  const tradeCountBefore = (await marketSummary(market)).trade_count;
+  const tradeCountBefore = (await client.marketSummary(market)).trade_count;
   console.log("cancel", tradeCountBefore, "trades");
-  console.log(await orderCancelAll(userId, market));
+  console.log(await client.orderCancelAll(userId, market));
   await depositAssets({ USDT: "10000000", ETH: "10000" }, userId);
-  const USDTBefore = await balanceQueryByAsset(userId, "USDT");
-  const ETHBefore = await balanceQueryByAsset(userId, "ETH");
+  const USDTBefore = await client.balanceQueryByAsset(userId, "USDT");
+  const ETHBefore = await client.balanceQueryByAsset(userId, "ETH");
   await printBalance();
   const startTime = Date.now();
   function elapsedSecs() {
@@ -64,11 +50,11 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   const totalTime = elapsedSecs();
   await printBalance();
-  const USDTAfter = await balanceQueryByAsset(userId, "USDT");
-  const ETHAfter = await balanceQueryByAsset(userId, "ETH");
+  const USDTAfter = await client.balanceQueryByAsset(userId, "USDT");
+  const ETHAfter = await client.balanceQueryByAsset(userId, "ETH");
   decimalEqual(USDTAfter, USDTBefore);
   decimalEqual(ETHAfter, ETHBefore);
-  const tradeCountAfter = (await marketSummary(market)).trade_count;
+  const tradeCountAfter = (await client.marketSummary(market)).trade_count;
   console.log("avg orders/s:", (parallel * repeat) / totalTime);
   console.log(
     "avg trades/s:",

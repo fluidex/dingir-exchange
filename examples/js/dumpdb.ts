@@ -1,9 +1,9 @@
-import { debugDump } from "./client";
+import { defaultClient as client } from "./client";
 
 async function main() {
   //    Dotenv.config()
   try {
-    await debugDump();
+    await client.debugDump();
   } catch (error) {
     console.error("Catched error:", error);
   }
