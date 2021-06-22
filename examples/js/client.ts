@@ -1,5 +1,6 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
+import {Account, OrderInput} from "fluidex.js";
 
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
@@ -12,15 +13,25 @@ const load = {
 
 class Client {
   client: any;
-  markets: Map<string, any>;
+  markets: Map<string, any> = new Map();
+  assets: Map<string, any> = new Map();
+  accounts: Map<number, Account> = new Map();
   constructor(server = process.env.GRPC_SERVER || "localhost:50051") {
     console.log("using grpc", server);
     this.client = caller(`${server}`, { file, load }, "Matchengine");
   }
 
+  addAccount(account_id: number, acc: Account) {
+    this.accounts.set(account_id, acc);
+  }
+
   async connect() {
     this.markets = await this.marketList();
+    for(const elem of (await this.assetList())) {
+      this.assets.set(elem.symbol, elem);
+    }
     console.log("markets", this.markets);
+    console.log("assets", this.assets);
   }
 
   async balanceQuery(user_id): Promise<Map<string, any>> {
@@ -73,6 +84,9 @@ class Client {
     let marketInfo = this.markets.get(market);
     let amount_rounded = Number(amount).toFixed(marketInfo.amount_precision);
     let price_rounded = Number(price).toFixed(marketInfo.price_precision);
+
+    let order_input = new OrderInput();
+
     return {
       user_id,
       market,

@@ -162,6 +162,7 @@ impl Controller {
                     token_address: item.token_address.clone(),
                     precision: item.prec_show,
                     logo_uri: item.logo_uri.clone(),
+                    inner_id: item.rollup_token_id,
                 })
                 .collect(),
         };
