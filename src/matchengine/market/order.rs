@@ -176,3 +176,16 @@ impl OrderRc {
         *self.borrow()
     }
 }
+
+pub struct OrderInput {
+    pub user_id: u32,
+    pub side: OrderSide,
+    pub type_: OrderType,
+    pub amount: Decimal,
+    pub price: Decimal,
+    pub quote_limit: Decimal,
+    pub taker_fee: Decimal, // FIXME fee should be determined inside engine rather than take from input
+    pub maker_fee: Decimal,
+    pub market: String,
+    pub post_only: bool,
+}

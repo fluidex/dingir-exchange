@@ -157,7 +157,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
             };
-            market.insert_order(order);
+            market.insert_order_into_orderbook(order);
         }
         if let Some(last_order) = orders.last() {
             order_id = last_order.id;

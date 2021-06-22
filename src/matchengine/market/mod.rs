@@ -13,7 +13,7 @@ use std::iter::Iterator;
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use rust_decimal::prelude::Zero;
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
 pub use types::{OrderSide, OrderType};
@@ -114,10 +114,6 @@ impl Market {
         Ok(market)
     }
 
-    pub fn tag(&self) -> (String, String) {
-        (self.base.into(), self.quote.into())
-    }
-
     pub fn reset(&mut self) {
         log::debug!("market {} reset", self.name);
         self.bids.clear();
@@ -138,7 +134,373 @@ impl Market {
         let asset = if order.is_ask() { &self.base } else { &self.quote };
         balance_manager.balance_unfrozen(order.user, asset, &order.frozen);
     }
-    pub fn insert_order(&mut self, mut order: Order) -> Order {
+
+    pub fn put_order(
+        &mut self,
+        sequencer: &mut Sequencer,
+        mut balance_manager: BalanceManagerWrapper<'_>,
+        mut persistor: impl PersistExector,
+        order_input: OrderInput,
+    ) -> Result<Order> {
+        if order_input.amount.lt(&self.min_amount) {
+            bail!("invalid amount");
+        }
+        // fee_prec == 0 means no fee allowed
+        if self.fee_prec == 0 && (!order_input.taker_fee.is_zero() || !order_input.maker_fee.is_zero()) {
+            bail!("only 0 fee is supported now");
+        }
+        let amount = order_input
+            .amount
+            .round_dp_with_strategy(self.amount_prec, RoundingStrategy::RoundDown);
+        if amount != order_input.amount {
+            bail!("invalid amount precision");
+        }
+        let price = order_input.price.round_dp(self.price_prec);
+        if price != order_input.price {
+            bail!("invalid price precision");
+        }
+        if order_input.type_ == OrderType::MARKET {
+            if !order_input.price.is_zero() {
+                bail!("market order should not have a price");
+            }
+            if order_input.post_only {
+                bail!("market order cannot be post only");
+            }
+            if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
+                bail!("no counter orders");
+            }
+        } else if order_input.price.is_zero() {
+            bail!("invalid price for limit order");
+        }
+
+        if order_input.side == OrderSide::ASK {
+            if balance_manager
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
+                .lt(&order_input.amount)
+            {
+                bail!("balance not enough");
+            }
+        } else {
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+
+            if order_input.type_ == OrderType::LIMIT {
+                if balance.lt(&(order_input.amount * order_input.price)) {
+                    bail!(
+                        "balance not enough: balance({}) < amount({}) * price({})",
+                        &balance,
+                        &order_input.amount,
+                        &order_input.price
+                    );
+                }
+            } else {
+                // We have already checked that counter order book is not empty,
+                // so `unwrap` here is safe.
+                // Here we only make a minimum balance check against the top of the counter order book.
+                // After the check, balance may still be not enough, then the remain part of the order
+                // will be marked as `canceled(finished)`.
+
+                // update 2021.06.22: we now allow market order to partially fill a counter order
+                // so we don't need the check now
+                //let top_counter_order_price = self.asks.values().next().unwrap().borrow().price;
+                //if balance.lt(&(order_input.amount * top_counter_order_price)) {
+                //    bail!("balance not enough");
+                //}
+            }
+        }
+        let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+            if order_input.quote_limit.is_zero() {
+                // quote_limit == 0 means no extra limit
+                balance
+            } else {
+                std::cmp::min(
+                    balance,
+                    order_input
+                        .quote_limit
+                        .round_dp_with_strategy(balance_manager.asset_prec(self.quote), RoundingStrategy::RoundDown),
+                )
+            }
+        } else {
+            // not used
+            Decimal::zero()
+        };
+
+        let t = utils::current_timestamp();
+        let order = Order {
+            id: sequencer.next_order_id(),
+            type_: order_input.type_,
+            side: order_input.side,
+            create_time: t,
+            update_time: t,
+            market: self.name.into(),
+            base: self.base.into(),
+            quote: self.quote.into(),
+            user: order_input.user_id,
+            price: order_input.price,
+            amount: order_input.amount,
+            taker_fee: order_input.taker_fee,
+            maker_fee: order_input.maker_fee,
+            remain: order_input.amount,
+            frozen: Decimal::zero(),
+            finished_base: Decimal::zero(),
+            finished_quote: Decimal::zero(),
+            finished_fee: Decimal::zero(),
+            post_only: order_input.post_only,
+        };
+        let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
+        Ok(order)
+    }
+
+    // the last parameter `quote_limit`, is only used for market bid order,
+    // it indicates the `quote` balance of the user,
+    // so the sum of all the trades' quote amount cannot exceed this value
+    fn execute_order(
+        &mut self,
+        sequencer: &mut Sequencer,
+        balance_manager: &mut BalanceManagerWrapper<'_>,
+        persistor: &mut impl PersistExector,
+        mut taker: Order,
+        quote_limit: &Decimal,
+    ) -> Order {
+        log::debug!("execute_order {:?}", taker);
+
+        // the the older version, PUT means being inserted into orderbook
+        // so if an order is matched instantly, only 'FINISH' event will occur, no 'PUT' event
+        // now PUT means being created
+        // we can revisit this decision later
+        persistor.put_order(&taker, OrderEventType::PUT);
+
+        let taker_is_ask = taker.side == OrderSide::ASK;
+        let taker_is_bid = !taker_is_ask;
+        let maker_is_bid = taker_is_ask;
+        let maker_is_ask = !maker_is_bid;
+        let is_limit_order = taker.type_ == OrderType::LIMIT;
+        let is_market_order = !is_limit_order;
+        let is_post_only_order = taker.post_only;
+
+        let mut quote_sum = Decimal::zero();
+
+        let mut finished_orders = Vec::new();
+
+        let counter_orders: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
+            Box::new(self.bids.values_mut())
+        } else {
+            Box::new(self.asks.values_mut())
+        };
+
+        // TODO: find a more elegant way to handle this
+        let mut need_cancel = false;
+        for maker_ref in counter_orders {
+            // Step1: get ask and bid
+            let mut maker = maker_ref.borrow_mut();
+            if taker.remain.is_zero() {
+                break;
+            }
+            let (ask_fee_rate, bid_fee_rate) = if taker_is_ask {
+                (taker.taker_fee, maker.maker_fee)
+            } else {
+                (maker.maker_fee, taker.taker_fee)
+            };
+            // of course, price should be counter order price
+            let price = maker.price;
+            let (ask_order, bid_order) = if taker_is_ask {
+                (&mut taker, &mut *maker)
+            } else {
+                (&mut *maker, &mut taker)
+            };
+            //let ask_order_id: u64 = ask_order.id;
+            //let bid_order_id: u64 = bid_order.id;
+
+            // Step2: abort if needed
+            if is_limit_order && ask_order.price.gt(&bid_order.price) {
+                break;
+            }
+            // new trade will be generated
+            if is_post_only_order {
+                need_cancel = true;
+                break;
+            }
+            if ask_order.user == bid_order.user && self.disable_self_trade {
+                need_cancel = true;
+                break;
+            }
+
+            // Step3: get trade amount
+            let mut traded_base_amount = min(ask_order.remain, bid_order.remain);
+            if taker_is_bid && is_market_order {
+                if (quote_sum + price * traded_base_amount).gt(quote_limit) {
+                    // divide remain quote by price to get a base amount to be traded,
+                    // so quote_limit will be `almost` fulfilled
+                    let remain_quote_limit = quote_limit - quote_sum;
+                    traded_base_amount = (remain_quote_limit / price).round_dp_with_strategy(self.amount_prec, RoundingStrategy::RoundDown);
+                    if traded_base_amount.is_zero() {
+                        break;
+                    }
+                }
+            }
+            let traded_quote_amount = price * traded_base_amount;
+            debug_assert!(!traded_base_amount.is_zero());
+            debug_assert!(!traded_quote_amount.is_zero());
+            quote_sum += traded_quote_amount;
+            if taker_is_bid && is_market_order {
+                debug_assert!(quote_sum <= *quote_limit);
+            }
+
+            // Step4: create the trade
+            let ask_fee = traded_quote_amount * ask_fee_rate;
+            let bid_fee = traded_base_amount * bid_fee_rate;
+
+            let timestamp = utils::current_timestamp();
+            ask_order.update_time = timestamp;
+            bid_order.update_time = timestamp;
+
+            // emit the trade
+            let trade_id = sequencer.next_trade_id();
+            let trade = Trade {
+                id: trade_id,
+                timestamp: utils::current_timestamp(),
+                market: self.name.to_string(),
+                base: self.base.into(),
+                quote: self.quote.into(),
+                price,
+                amount: traded_base_amount,
+                quote_amount: traded_quote_amount,
+                ask_user_id: ask_order.user,
+                ask_order_id: ask_order.id,
+                ask_role: if taker_is_ask { MarketRole::TAKER } else { MarketRole::MAKER },
+                ask_fee,
+                bid_user_id: bid_order.user,
+                bid_order_id: bid_order.id,
+                bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
+                bid_fee,
+
+                ask_order: None,
+                bid_order: None,
+                #[cfg(feature = "emit_state_diff")]
+                state_before: Default::default(),
+                #[cfg(feature = "emit_state_diff")]
+                state_after: Default::default(),
+            };
+            #[cfg(feature = "emit_state_diff")]
+            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            self.trade_count += 1;
+            if self.disable_self_trade {
+                debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
+            }
+
+            // Step5: update orders
+            let ask_order_is_new = ask_order.finished_base.is_zero();
+            let ask_order_before = *ask_order;
+            let bid_order_is_new = bid_order.finished_base.is_zero();
+            let bid_order_before = *bid_order;
+            ask_order.remain -= traded_base_amount;
+            debug_assert!(ask_order.remain.is_sign_positive());
+            bid_order.remain -= traded_base_amount;
+            debug_assert!(bid_order.remain.is_sign_positive());
+            ask_order.finished_base += traded_base_amount;
+            bid_order.finished_base += traded_base_amount;
+            ask_order.finished_quote += traded_quote_amount;
+            bid_order.finished_quote += traded_quote_amount;
+            ask_order.finished_fee += ask_fee;
+            bid_order.finished_fee += bid_fee;
+
+            // Step6: update balances
+            // TODO: change balance should emit a balance update history/event
+            // handle maker balance
+            let _balance_type = if maker_is_bid {
+                BalanceType::FREEZE
+            } else {
+                BalanceType::AVAILABLE
+            };
+            // handle base
+            balance_manager.balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
+            balance_manager.balance_sub(
+                ask_order.user,
+                if maker_is_ask {
+                    BalanceType::FREEZE
+                } else {
+                    BalanceType::AVAILABLE
+                },
+                &self.base,
+                &traded_base_amount,
+            );
+            // handle quote
+            balance_manager.balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
+            balance_manager.balance_sub(
+                bid_order.user,
+                if maker_is_bid {
+                    BalanceType::FREEZE
+                } else {
+                    BalanceType::AVAILABLE
+                },
+                &self.quote,
+                &traded_quote_amount,
+            );
+
+            if ask_fee.is_sign_positive() {
+                balance_manager.balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
+            }
+            if bid_fee.is_sign_positive() {
+                balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
+            }
+            #[cfg(feature = "emit_state_diff")]
+            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+
+            // Step7: persist trade and order
+            //if true persistor.real_persist() {
+            //if true
+            let trade = Trade {
+                #[cfg(feature = "emit_state_diff")]
+                state_after,
+                #[cfg(feature = "emit_state_diff")]
+                state_before,
+                ask_order: if ask_order_is_new { Some(ask_order_before) } else { None },
+                bid_order: if bid_order_is_new { Some(bid_order_before) } else { None },
+                ..trade
+            };
+            persistor.put_trade(&trade);
+            //}
+            maker.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
+
+            let maker_finished = maker.remain.is_zero();
+            if maker_finished {
+                finished_orders.push(*maker);
+            } else {
+                // When maker_finished, `order_finish` will send message.
+                // So we don't need to send the finish message here.
+                persistor.put_order(&maker, OrderEventType::UPDATE);
+            }
+        }
+
+        for item in finished_orders.iter() {
+            self.order_finish(&mut *balance_manager, &mut *persistor, item);
+        }
+
+        if need_cancel {
+            // Now both self trade orders and immediately triggered post_only
+            // limit orders will be cancelled here.
+            // TODO: use CANCEL event here
+            persistor.put_order(&taker, OrderEventType::FINISH);
+        } else if taker.type_ == OrderType::MARKET {
+            // market order can either filled or not
+            // if it is filled, `FINISH` is ok
+            // if it is not filled, `CANCELED` may be a better choice?
+            persistor.put_order(&taker, OrderEventType::FINISH);
+        } else {
+            // now the order type is limit
+            if taker.remain.is_zero() {
+                persistor.put_order(&taker, OrderEventType::FINISH);
+            } else {
+                // `insert_order` will update the order info
+                taker = self.insert_order_into_orderbook(taker);
+                self.frozen_balance(balance_manager, &taker);
+            }
+        }
+
+        taker
+    }
+
+    pub fn insert_order_into_orderbook(&mut self, mut order: Order) -> Order {
         if order.side == OrderSide::ASK {
             order.frozen = order.remain;
         } else {
@@ -186,7 +548,7 @@ impl Market {
         persistor.put_order(order, OrderEventType::FINISH);
     }
 
-    // TODO: better naming
+    // for debugging
     fn get_trade_state(
         ask: &Order,
         bid: &Order,
@@ -220,345 +582,6 @@ impl Market {
                 ask_user_quote,
             },
         }
-    }
-
-    // the last parameter `quote_limit`, is only used for market bid order,
-    // it indicates the `quote` balance of the user,
-    // so the sum of all the trades' quote amount cannot exceed this value
-    fn execute_order(
-        &mut self,
-        sequencer: &mut Sequencer,
-        balance_manager: &mut BalanceManagerWrapper<'_>,
-        persistor: &mut impl PersistExector,
-        mut taker: Order,
-        quote_limit: &Decimal,
-    ) -> Order {
-        log::debug!("execute_order {:?}", taker);
-
-        // the the older version, PUT means being inserted into orderbook
-        // so if an order is matched instantly, only 'FINISH' event will occur, no 'PUT' event
-        // now PUT means being created
-        // we can revisit this decision later
-        persistor.put_order(&taker, OrderEventType::PUT);
-
-        let taker_is_ask = taker.side == OrderSide::ASK;
-        let taker_is_bid = !taker_is_ask;
-        let maker_is_bid = taker_is_ask;
-        let maker_is_ask = !maker_is_bid;
-        let is_limit_order = taker.type_ == OrderType::LIMIT;
-        let is_market_order = !is_limit_order;
-        let is_post_only_order = taker.post_only;
-
-        let mut quote_sum = Decimal::zero();
-
-        let mut finished_orders = Vec::new();
-
-        let counter_orders: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
-            Box::new(self.bids.values_mut())
-        } else {
-            Box::new(self.asks.values_mut())
-        };
-
-        // TODO: find a more elegant way to handle this
-        let mut need_cancel = false;
-        for maker_ref in counter_orders {
-            let mut maker = maker_ref.borrow_mut();
-            if taker.remain.is_zero() {
-                break;
-            }
-            let (ask_fee_rate, bid_fee_rate) = if taker_is_ask {
-                (taker.taker_fee, maker.maker_fee)
-            } else {
-                (maker.maker_fee, taker.taker_fee)
-            };
-            let price = maker.price;
-            let (ask_order, bid_order) = if taker_is_ask {
-                (&mut taker, &mut *maker)
-            } else {
-                (&mut *maker, &mut taker)
-            };
-            //let ask_order_id: u64 = ask_order.id;
-            //let bid_order_id: u64 = bid_order.id;
-
-            if is_limit_order && ask_order.price.gt(&bid_order.price) {
-                break;
-            }
-            // new trade will be generated
-            if is_post_only_order {
-                need_cancel = true;
-                break;
-            }
-            if ask_order.user == bid_order.user && self.disable_self_trade {
-                need_cancel = true;
-                break;
-            }
-
-            let traded_base_amount = min(ask_order.remain, bid_order.remain);
-            debug_assert!(!traded_base_amount.is_zero());
-            let traded_quote_amount = price * traded_base_amount;
-            debug_assert!(!traded_quote_amount.is_zero());
-
-            quote_sum += traded_quote_amount;
-            if taker_is_bid && is_market_order {
-                if quote_sum.gt(quote_limit) {
-                    // Now user has not enough balance, stop here.
-                    // Notice: another approach here is to divide remain quote by price to get a base amount
-                    // to be traded, then all `quote_limit` will be consumed.
-                    // But division is prone to bugs in financial decimal calculation,
-                    // so we will not adapt tis method.
-                    // TODO: maybe another method is to make:
-                    // trade_base_amount = round_down(quote_limit - old_quote_sum / price)
-                    // so quote_limit will be `almost` fulfilled
-                    break;
-                }
-            }
-
-            let ask_fee = traded_quote_amount * ask_fee_rate;
-            let bid_fee = traded_base_amount * bid_fee_rate;
-
-            let timestamp = utils::current_timestamp();
-            ask_order.update_time = timestamp;
-            bid_order.update_time = timestamp;
-
-            // emit the trade
-            let trade_id = sequencer.next_trade_id();
-            let trade = Trade {
-                id: trade_id,
-                timestamp: utils::current_timestamp(),
-                market: self.name.to_string(),
-                base: self.base.into(),
-                quote: self.quote.into(),
-                price,
-                amount: traded_base_amount,
-                quote_amount: traded_quote_amount,
-                ask_user_id: ask_order.user,
-                ask_order_id: ask_order.id,
-                ask_role: if taker_is_ask { MarketRole::TAKER } else { MarketRole::MAKER },
-                ask_fee,
-                bid_user_id: bid_order.user,
-                bid_order_id: bid_order.id,
-                bid_role: if taker_is_ask { MarketRole::MAKER } else { MarketRole::TAKER },
-                bid_fee,
-
-                ask_order: None,
-                bid_order: None,
-                #[cfg(feature = "emit_state_diff")]
-                state_before: Default::default(),
-                #[cfg(feature = "emit_state_diff")]
-                state_after: Default::default(),
-            };
-            #[cfg(feature = "emit_state_diff")]
-            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
-            self.trade_count += 1;
-            if self.disable_self_trade {
-                debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
-            }
-            let ask_order_is_new = ask_order.finished_base.is_zero();
-            let ask_order_before = *ask_order;
-            let bid_order_is_new = bid_order.finished_base.is_zero();
-            let bid_order_before = *bid_order;
-            ask_order.remain -= traded_base_amount;
-            bid_order.remain -= traded_base_amount;
-            ask_order.finished_base += traded_base_amount;
-            bid_order.finished_base += traded_base_amount;
-            ask_order.finished_quote += traded_quote_amount;
-            bid_order.finished_quote += traded_quote_amount;
-            ask_order.finished_fee += ask_fee;
-            bid_order.finished_fee += bid_fee;
-
-            // TODO: change balance should emit a balance update history/event
-            // handle maker balance
-            let _balance_type = if maker_is_bid {
-                BalanceType::FREEZE
-            } else {
-                BalanceType::AVAILABLE
-            };
-            // handle base
-            balance_manager.balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
-            balance_manager.balance_sub(
-                ask_order.user,
-                if maker_is_ask {
-                    BalanceType::FREEZE
-                } else {
-                    BalanceType::AVAILABLE
-                },
-                &self.base,
-                &traded_base_amount,
-            );
-            // handle quote
-            balance_manager.balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
-            balance_manager.balance_sub(
-                bid_order.user,
-                if maker_is_bid {
-                    BalanceType::FREEZE
-                } else {
-                    BalanceType::AVAILABLE
-                },
-                &self.quote,
-                &traded_quote_amount,
-            );
-
-            if ask_fee.is_sign_positive() {
-                balance_manager.balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
-            }
-            if bid_fee.is_sign_positive() {
-                balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
-            }
-            #[cfg(feature = "emit_state_diff")]
-            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
-
-            //if true persistor.real_persist() {
-            //if true
-            let trade = Trade {
-                #[cfg(feature = "emit_state_diff")]
-                state_after,
-                #[cfg(feature = "emit_state_diff")]
-                state_before,
-                ask_order: if ask_order_is_new { Some(ask_order_before) } else { None },
-                bid_order: if bid_order_is_new { Some(bid_order_before) } else { None },
-                ..trade
-            };
-            persistor.put_trade(&trade);
-            //}
-            maker.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
-
-            let maker_finished = maker.remain.is_zero();
-            if maker_finished {
-                finished_orders.push(*maker);
-            } else {
-                // When maker_finished, `order_finish` will send message.
-                // So we don't need to send the finish message here.
-                persistor.put_order(&maker, OrderEventType::UPDATE);
-            }
-        }
-
-        for item in finished_orders.iter() {
-            self.order_finish(&mut *balance_manager, &mut *persistor, item);
-        }
-
-        if need_cancel {
-            // Now both self trade orders and immediately triggered post_only
-            // limit orders will be cancelled here.
-            // TODO: use CANCEL event here
-            persistor.put_order(&taker, OrderEventType::FINISH);
-        } else if taker.type_ == OrderType::MARKET {
-            // market order can either filled or not
-            // if it is filled, `FINISH` is ok
-            // if it is not filled, `CANCELED` may be a better choice?
-            persistor.put_order(&taker, OrderEventType::FINISH);
-        } else {
-            // now the order type is limit
-            if taker.remain.is_zero() {
-                persistor.put_order(&taker, OrderEventType::FINISH);
-            } else {
-                // `insert_order` will update the order info
-                taker = self.insert_order(taker);
-                self.frozen_balance(balance_manager, &taker);
-            }
-        }
-
-        taker
-    }
-
-    pub fn put_order(
-        &mut self,
-        sequencer: &mut Sequencer,
-        mut balance_manager: BalanceManagerWrapper<'_>,
-        mut persistor: impl PersistExector,
-        order_input: OrderInput,
-    ) -> Result<Order> {
-        if order_input.amount.lt(&self.min_amount) {
-            bail!("invalid amount");
-        }
-        // fee_prec == 0 means no fee allowed
-        if self.fee_prec == 0 && (!order_input.taker_fee.is_zero() || !order_input.maker_fee.is_zero()) {
-            bail!("only 0 fee is supported now");
-        }
-        // TODO: refactor this
-        let amount = order_input.amount.round_dp(self.amount_prec);
-        if amount != order_input.amount {
-            bail!("invalid amount precision");
-        }
-        let price = order_input.price.round_dp(self.price_prec);
-        if price != order_input.price {
-            bail!("invalid price precision");
-        }
-        if order_input.type_ == OrderType::MARKET {
-            if !order_input.price.is_zero() {
-                bail!("market order should not have a price");
-            }
-            if order_input.post_only {
-                bail!("market order cannot be post only");
-            }
-            if order_input.side == OrderSide::ASK && self.bids.is_empty() || order_input.side == OrderSide::BID && self.asks.is_empty() {
-                bail!("no counter orders");
-            }
-        } else if order_input.price.is_zero() {
-            bail!("invalid price for limit order");
-        }
-
-        if order_input.side == OrderSide::ASK {
-            if balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
-                .lt(&order_input.amount)
-            {
-                bail!("balance not enough");
-            }
-        } else {
-            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
-
-            if order_input.type_ == OrderType::LIMIT {
-                if balance.lt(&(order_input.amount * order_input.price)) {
-                    bail!(
-                        "balance not enough: balance({}) < amount({}) * price({})",
-                        &balance,
-                        &order_input.amount,
-                        &order_input.price
-                    );
-                }
-            } else {
-                // We have already checked that counter order book is not empty,
-                // so `unwrap` here is safe.
-                // Here we only make a minimum balance check against the top of the counter order book.
-                // After the check, balance may still be not enough, then the remain part of the order
-                // will be marked as `canceled(finished)`.
-                let top_counter_order_price = self.asks.values().next().unwrap().borrow().price;
-                if balance.lt(&(order_input.amount * top_counter_order_price)) {
-                    bail!("balance not enough");
-                }
-            }
-        }
-        let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
-            balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote)
-        } else {
-            // not used
-            Decimal::zero()
-        };
-
-        let t = utils::current_timestamp();
-        let order = Order {
-            id: sequencer.next_order_id(),
-            type_: order_input.type_,
-            side: order_input.side,
-            create_time: t,
-            update_time: t,
-            market: self.name.into(),
-            base: self.base.into(),
-            quote: self.quote.into(),
-            user: order_input.user_id,
-            price: order_input.price,
-            amount: order_input.amount,
-            taker_fee: order_input.taker_fee,
-            maker_fee: order_input.maker_fee,
-            remain: order_input.amount,
-            frozen: Decimal::zero(),
-            finished_base: Decimal::zero(),
-            finished_quote: Decimal::zero(),
-            finished_fee: Decimal::zero(),
-            post_only: order_input.post_only,
-        };
-        let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
-        Ok(order)
     }
     pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {
         let order = self.orders.get(&order_id).unwrap();
@@ -662,18 +685,6 @@ pub struct MarketDepth {
     pub bids: Vec<PriceInfo>,
 }
 
-pub struct OrderInput {
-    pub user_id: u32,
-    pub side: OrderSide,
-    pub type_: OrderType,
-    pub amount: Decimal,
-    pub price: Decimal,
-    pub taker_fee: Decimal, // FIXME fee should be determined inside engine rather than take from input
-    pub maker_fee: Decimal,
-    pub market: String,
-    pub post_only: bool,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct BalanceHistoryFromTrade {
     pub market: String,
@@ -770,6 +781,7 @@ mod tests {
                 // but later we'd better truncate precision outside
                 amount,
                 price,
+                quote_limit: dec!(0),
                 taker_fee: dec!(0),
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
@@ -798,6 +810,7 @@ mod tests {
             type_: OrderType::LIMIT,
             amount: dec!(20.0),
             price: dec!(0.1),
+            quote_limit: dec!(0),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
@@ -816,6 +829,7 @@ mod tests {
             type_: OrderType::MARKET,
             amount: dec!(10.0),
             price: dec!(0),
+            quote_limit: dec!(0),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
@@ -896,6 +910,7 @@ mod tests {
             type_: OrderType::LIMIT,
             amount: dec!(20.0),
             price: dec!(0.1),
+            quote_limit: dec!(0),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
@@ -915,6 +930,7 @@ mod tests {
             type_: OrderType::LIMIT,
             amount: dec!(10.0),
             price: dec!(0.1),
+            quote_limit: dec!(0),
             taker_fee: dec!(0.001),
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
