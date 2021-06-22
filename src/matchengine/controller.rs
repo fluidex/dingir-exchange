@@ -422,6 +422,11 @@ impl Controller {
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
 
+        let msg = crate::utils::order_hash(&req);
+        if !self.user_manager.verify_signature(req.user_id, &msg, &req.signature) {
+            return Err(Status::invalid_argument("invalid signature"));
+        }
+
         let order = market
             .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
             .map_err(|e| Status::unknown(format!("{}", e)))?;

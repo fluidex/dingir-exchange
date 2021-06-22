@@ -188,4 +188,5 @@ pub struct OrderInput {
     pub maker_fee: Decimal,
     pub market: String,
     pub post_only: bool,
+    pub signature: String, // TODO: bytes
 }

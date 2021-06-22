@@ -68,5 +68,6 @@ pub fn order_input_from_proto(req: &OrderPutRequest) -> anyhow::Result<market::O
         maker_fee: str_to_decimal(&req.maker_fee, true).map_err(|_| anyhow!("invalid maker fee"))?,
         market: req.market.clone(),
         post_only: req.post_only,
+        signature: req.signature.clone(),
     })
 }
