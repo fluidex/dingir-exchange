@@ -27,7 +27,7 @@ async function run() {
     try {
       await sleep(1000);
       if (cnt % 300 == 0) {
-        await client.orderCancelAll(userId, market);
+        await client.orderCancelAll(randUser(), market);
       }
       const data = await axios.get(url);
       const price = data.data.coins.find(item => item.symbol == "ETH").price;

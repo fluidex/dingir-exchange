@@ -117,6 +117,7 @@ impl BalanceManager {
         let old_value = self.get_by_key(&key);
         debug_assert!(old_value.ge(&amount));
         let new_value = old_value - amount;
+        debug_assert!(new_value.is_sign_positive());
         // TODO don't remove it. Skip when sql insert
         /*
         if result.is_zero() {

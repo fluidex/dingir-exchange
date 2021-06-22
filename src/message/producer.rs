@@ -107,13 +107,13 @@ impl<T: MessageScheme> RdProducerContext<T> {
     fn run_loop(producer: &BaseProducer<Self>, message_scheme: &mut T, receiver: crossbeam_channel::Receiver<(&'static str, String)>) {
         let timeout_interval = Duration::from_millis(100);
         let delivery_report = &producer.context().delivery_record_get;
+        // last_poll == 0 means msg canot be sent out
         let mut last_poll: i32 = 0;
         let mut producer_queue_full = false;
 
         loop {
-            // never ever dead loop...
-            std::thread::sleep(Duration::from_millis(1));
-            //
+            let mut is_idle = true;
+
             //current implement in mod.rs lead to arbitrary dropping of messages
             //in the flush() method, I try to fix it here ...
             //basically, it should be enough to make use of the ability of
@@ -133,6 +133,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
                 };
                 match recv_ret {
                     Ok((topic, message)) => {
+                        is_idle &= false;
                         message_scheme.on_message(topic, message);
                     }
                     Err(TryRecvError::Empty) => {}
@@ -159,6 +160,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
                     }
                 };
                 message_scheme.commit(send_ret);
+                is_idle &= false;
             }
             //finally, always poll
             let poll_dur = if scheme_full && last_poll == 0 {
@@ -170,6 +172,11 @@ impl<T: MessageScheme> RdProducerContext<T> {
             producer_queue_full = producer_queue_full && last_poll == 0;
             while let Ok((result, opaque)) = delivery_report.try_recv() {
                 message_scheme.deliver_commit(result, opaque);
+            }
+
+            if is_idle {
+                // never ever dead loop...
+                std::thread::sleep(Duration::from_millis(1));
             }
         }
     }

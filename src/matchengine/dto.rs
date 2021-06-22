@@ -5,6 +5,7 @@ pub mod matchengine {
     tonic::include_proto!("matchengine");
 }
 
+use anyhow::{anyhow, Result};
 pub use matchengine::matchengine_server::*;
 pub use matchengine::*;
 use rust_decimal::prelude::Zero;
@@ -39,7 +40,15 @@ pub fn order_to_proto(o: &market::Order) -> OrderInfo {
     }
 }
 
-pub fn order_input_from_proto(req: &OrderPutRequest) -> Result<market::OrderInput, rust_decimal::Error> {
+pub fn str_to_decimal(s: &str, allow_empty: bool) -> Result<Decimal, rust_decimal::Error> {
+    if allow_empty && s.is_empty() {
+        Ok(Decimal::zero())
+    } else {
+        Ok(Decimal::from_str(s)?)
+    }
+}
+
+pub fn order_input_from_proto(req: &OrderPutRequest) -> anyhow::Result<market::OrderInput> {
     Ok(market::OrderInput {
         user_id: req.user_id,
         side: if req.order_side == OrderSide::Ask as i32 {
@@ -52,22 +61,11 @@ pub fn order_input_from_proto(req: &OrderPutRequest) -> Result<market::OrderInpu
         } else {
             market::OrderType::MARKET
         },
-        amount: Decimal::from_str(req.amount.as_str())?,
-        price: Decimal::from_str(if req.order_type == OrderType::Market as i32 && req.price.is_empty() {
-            "0"
-        } else {
-            req.price.as_str()
-        })?,
-        taker_fee: if req.taker_fee.is_empty() {
-            Decimal::zero()
-        } else {
-            Decimal::from_str(req.taker_fee.as_str())?
-        },
-        maker_fee: if req.maker_fee.is_empty() {
-            Decimal::zero()
-        } else {
-            Decimal::from_str(req.maker_fee.as_str())?
-        },
+        amount: str_to_decimal(&req.amount, false).map_err(|_| anyhow!("invalid amount"))?,
+        price: str_to_decimal(&req.price, req.order_type == OrderType::Market as i32).map_err(|_| anyhow!("invalid price"))?,
+        quote_limit: str_to_decimal(&req.quote_limit, true).map_err(|_| anyhow!("invalid quote limit"))?,
+        taker_fee: str_to_decimal(&req.taker_fee, true).map_err(|_| anyhow!("invalid taker fee"))?,
+        maker_fee: str_to_decimal(&req.maker_fee, true).map_err(|_| anyhow!("invalid maker fee"))?,
         market: req.market.clone(),
         post_only: req.post_only,
     })
