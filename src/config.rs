@@ -34,6 +34,7 @@ pub struct Market {
     pub fee_prec: u32,
     pub min_amount: Decimal,
     pub disable_self_trade: bool,
+    pub disable_market_order: bool,
 }
 
 impl Default for MarketUnit {
@@ -56,6 +57,7 @@ impl Default for Market {
             amount_prec: 0,
             price_prec: 0,
             disable_self_trade: true,
+            disable_market_order: false,
         }
     }
 }

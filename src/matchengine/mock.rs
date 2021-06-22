@@ -12,6 +12,7 @@ pub fn get_simple_market_config() -> config::Market {
         fee_prec: 2,
         min_amount: dec!(0.01),
         disable_self_trade: false,
+        disable_market_order: false,
     }
 }
 pub fn get_integer_prec_market_config() -> config::Market {
@@ -24,6 +25,7 @@ pub fn get_integer_prec_market_config() -> config::Market {
         fee_prec: 0,
         min_amount: dec!(0),
         disable_self_trade: true,
+        disable_market_order: false,
     }
 }
 

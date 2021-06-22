@@ -23,6 +23,7 @@ pub use order::*;
 mod trade;
 pub use trade::*;
 
+
 pub struct Market {
     pub name: &'static str,
     pub base: &'static str,
@@ -40,8 +41,8 @@ pub struct Market {
 
     pub trade_count: u64,
 
-    // other options
     pub disable_self_trade: bool,
+    pub disable_market_order: bool,
 }
 
 pub struct BalanceManagerWrapper<'a> {
@@ -110,6 +111,8 @@ impl Market {
             bids: BTreeMap::new(),
             trade_count: 0,
             disable_self_trade: market_conf.disable_self_trade,
+            disable_market_order: market_conf.disable_market_order,
+
         };
         Ok(market)
     }
@@ -142,6 +145,9 @@ impl Market {
         mut persistor: impl PersistExector,
         order_input: OrderInput,
     ) -> Result<Order> {
+        if order_input.type_ == OrderType::MARKET && self.disable_market_order {
+            bail!("market orders disabled");
+        }
         if order_input.amount.lt(&self.min_amount) {
             bail!("invalid amount");
         }

@@ -32,6 +32,7 @@ impl From<MarketDesc> for config::Market {
             min_amount: origin.min_amount,
             // TODO
             disable_self_trade: true,
+            disable_market_order: true,
         }
     }
 }
