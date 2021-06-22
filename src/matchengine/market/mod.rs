@@ -23,7 +23,6 @@ pub use order::*;
 mod trade;
 pub use trade::*;
 
-
 pub struct Market {
     pub name: &'static str,
     pub base: &'static str,
@@ -112,7 +111,6 @@ impl Market {
             trade_count: 0,
             disable_self_trade: market_conf.disable_self_trade,
             disable_market_order: market_conf.disable_market_order,
-
         };
         Ok(market)
     }
