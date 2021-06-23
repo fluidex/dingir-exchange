@@ -72,7 +72,7 @@ fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
             .unwrap(),
         ))));
     }
-    if persist_to_file {
+    if settings.brokers.is_empty() || persist_to_file {
         persistor.add_persistor(Box::new(FileBasedPersistor::new("persistor_output.txt")));
     }
     persistor
@@ -493,6 +493,7 @@ impl Controller {
         //self.log_handler.reset();
         self.update_controller.reset();
         self.balance_manager.reset();
+        self.user_manager.reset();
         //Ok(())
     }
 

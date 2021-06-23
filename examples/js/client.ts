@@ -1,7 +1,8 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
 import { Account, OrderInput } from "fluidex.js";
-import {ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT} from "./config";
+import {ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, 
+  VERBOSE} from "./config";
 
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
@@ -119,7 +120,6 @@ class Client {
       signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
 
     }
-
     return {
       user_id,
       market,
@@ -152,6 +152,10 @@ class Client {
       taker_fee,
       maker_fee
     );
+    if (VERBOSE) {
+      const { user_id, market, order_side: side, amount, price } = order;
+      console.log("putLimitOrder", { user_id, market, side, amount, price });
+    }
     return await this.client.OrderPut(order);
   }
 

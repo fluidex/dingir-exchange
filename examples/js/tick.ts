@@ -12,7 +12,7 @@ import {getTestAccount} from "./accounts";
 import {Account} from "fluidex.js";
 
 const verbose = true;
-const botsIds = [10, 11, 12, 13, 14];
+const botsIds = [1, 2, 3, 4, 5];
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
