@@ -135,6 +135,10 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             .await
             .unwrap();
         for order in &orders {
+            if order.post_only {
+                continue;
+            }
+
             let market = controller.markets.get_mut(&order.market).unwrap();
             let order = Order {
                 id: order.id as u64,
@@ -157,7 +161,6 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
             };
-            // TODO: deal with post_only?
             market.insert_order_into_orderbook(order);
         }
         if let Some(last_order) = orders.last() {
