@@ -8,8 +8,8 @@ import {
   depositAssets
 } from "./util";
 import axios from "axios";
-import {getTestAccount} from "./accounts";
-import {Account} from "fluidex.js";
+import { getTestAccount } from "./accounts";
+import { Account } from "fluidex.js";
 
 const verbose = true;
 const botsIds = [1, 2, 3, 4, 5];
@@ -22,11 +22,11 @@ async function initAccountsAndAssets() {
   for (const user_id of botsIds) {
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
     client.addAccount(user_id, acc);
-    client.client.RegisterUser({
+    await client.client.RegisterUser({
       user_id,
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey,
-    })
+      l2_pubkey: acc.bjjPubKey
+    });
     await depositAssets({ USDT: "500000.0" }, user_id);
     for (const [name, info] of client.markets) {
       const base = info.base;
@@ -77,16 +77,17 @@ async function run() {
       if (cnt % 60 == 0) {
         await updatePrices("coinstats");
       }
-
-      const market = getRandomElem(markets);
-      const price = getPrice(market.split("_")[0]);
-      await putLimitOrder(
-        randUser(),
-        market,
-        getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
-        getRandomFloatAround(3, 0.5),
-        getRandomFloatAround(price)
-      );
+      for (let i = 0; i < 5; i++) {
+        const market = getRandomElem(markets);
+        const price = getPrice(market.split("_")[0]);
+        await putLimitOrder(
+          randUser(),
+          market,
+          getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
+          getRandomFloatAround(3, 0.5),
+          getRandomFloatAround(price)
+        );
+      }
       cnt += 1;
     } catch (e) {
       console.log(e);

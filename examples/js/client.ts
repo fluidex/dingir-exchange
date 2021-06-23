@@ -1,8 +1,12 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
 import { Account, OrderInput } from "fluidex.js";
-import {ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, 
-  VERBOSE} from "./config";
+import {
+  ORDER_SIDE_BID,
+  ORDER_SIDE_ASK,
+  ORDER_TYPE_LIMIT,
+  VERBOSE
+} from "./config";
 
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
@@ -14,7 +18,7 @@ const load = {
 };
 
 function fullPrec(d, p): Decimal {
-  return (new Decimal(d)).mul((new Decimal(10)).pow(p));
+  return new Decimal(d).mul(new Decimal(10).pow(p));
 }
 
 class Client {
@@ -97,9 +101,9 @@ class Client {
       let tokenBuy, tokenSell, totalSell, totalBuy;
       let baseTokenInfo = this.assets.get(marketInfo.base);
       let quoteTokenInfo = this.assets.get(marketInfo.quote);
-    let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
-    let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
-    let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
+      let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
+      let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
+      let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
       if (order_side == ORDER_SIDE_BID) {
         tokenBuy = baseTokenInfo.inner_id;
         tokenSell = quoteTokenInfo.inner_id;
@@ -115,10 +119,9 @@ class Client {
         tokenSell,
         tokenBuy,
         totalSell,
-        totalBuy,
+        totalBuy
       });
       signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
-
     }
     return {
       user_id,

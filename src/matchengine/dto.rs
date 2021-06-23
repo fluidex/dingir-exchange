@@ -1,7 +1,7 @@
 use super::rpc::*;
 use crate::market;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, bail};
 use arrayref::array_ref;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -74,7 +74,11 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
             signature: if req.signature.is_empty() {
                 [0; 64]
             } else {
-                let v = req.signature.as_bytes().to_vec();
+                let sig = req.signature.trim_start_matches("0x");
+                let v: Vec<u8> = hex::decode(sig)?;
+                if v.len() != 64 {
+                    bail!("invalid signature length");
+                }
                 *array_ref!(v[..64], 0, 64)
             },
         })
