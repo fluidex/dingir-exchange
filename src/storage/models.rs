@@ -362,7 +362,7 @@ impl sqlxextend::TableSchemas for OrderSlice {
     fn table_name() -> &'static str {
         ORDERSLICE
     }
-    const ARGN: i32 = 17;
+    const ARGN: i32 = 18;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -385,6 +385,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
         arg.add(&self.finished_base);
         arg.add(&self.finished_quote);
         arg.add(&self.finished_fee);
+        arg.add(&self.post_only);
     }
 }
 
