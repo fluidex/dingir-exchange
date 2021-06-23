@@ -14,7 +14,7 @@ use sqlx::migrate::Migrator;
 use sqlx::Connection;
 
 use crate::market::Order;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::time::{Duration, Instant};
 
 use crate::types;
@@ -136,6 +136,8 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             .unwrap();
         for order in &orders {
             let market = controller.markets.get_mut(&order.market).unwrap();
+            let sig_vec: Vec<u8> = hex::decode(order.signature.clone()).unwrap_or_default();
+            let signature: &[u8; 32] = sig_vec[..].try_into().unwrap_or(&[0u8; 32]);
             let order = Order {
                 id: order.id as u64,
                 type_: order.order_type,
@@ -156,7 +158,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
-                signature: order.signature.clone(),
+                signature: *signature,
             };
             market.insert_order_into_orderbook(order);
         }
