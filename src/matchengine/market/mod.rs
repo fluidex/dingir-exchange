@@ -804,7 +804,7 @@ mod tests {
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
                 post_only: false,
-                signature: [0;64]
+                signature: [0; 64],
             };
             market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
         }
@@ -834,7 +834,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: false,
-            signature: [0;64]
+            signature: [0; 64],
         };
         let ask_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
@@ -854,7 +854,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: false,
-            signature: [0;64]
+            signature: [0; 64],
         };
         let bid_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
@@ -936,7 +936,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: true,
-            signature: [0;64]
+            signature: [0; 64],
         };
         let ask_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
@@ -957,7 +957,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: true,
-            signature: [0;64]
+            signature: [0; 64],
         };
         let bid_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
