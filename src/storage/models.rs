@@ -171,6 +171,7 @@ pub struct OrderSlice {
     pub finished_quote: DecimalDbType,
     pub finished_fee: DecimalDbType,
     pub post_only: bool,
+    pub signature: String, // TODO: bytes
 }
 
 // xx_id here means the last persisted entry id
@@ -360,7 +361,7 @@ impl sqlxextend::TableSchemas for OrderSlice {
     fn table_name() -> &'static str {
         ORDERSLICE
     }
-    const ARGN: i32 = 17;
+    const ARGN: i32 = 18;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
