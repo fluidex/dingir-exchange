@@ -500,7 +500,6 @@ impl Market {
         taker
     }
 
-    // TODO: deal with post_only?
     pub fn insert_order_into_orderbook(&mut self, mut order: Order) -> Order {
         if order.side == OrderSide::ASK {
             order.frozen = order.remain;
