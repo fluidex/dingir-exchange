@@ -135,10 +135,6 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             .await
             .unwrap();
         for order in &orders {
-            if order.post_only {
-                continue;
-            }
-
             let market = controller.markets.get_mut(&order.market).unwrap();
             let order = Order {
                 id: order.id as u64,
