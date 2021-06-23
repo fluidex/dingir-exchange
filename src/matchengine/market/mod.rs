@@ -263,6 +263,7 @@ impl Market {
             finished_quote: Decimal::zero(),
             finished_fee: Decimal::zero(),
             post_only: order_input.post_only,
+            signature: order_input.signature,
         };
         let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
         Ok(order)
@@ -803,6 +804,7 @@ mod tests {
                 maker_fee: dec!(0),
                 market: market.name.to_string(),
                 post_only: false,
+                signature: [0; 64],
             };
             market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
         }
@@ -832,6 +834,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: false,
+            signature: [0; 64],
         };
         let ask_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
@@ -851,6 +854,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: false,
+            signature: [0; 64],
         };
         let bid_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
@@ -932,6 +936,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: true,
+            signature: [0; 64],
         };
         let ask_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
@@ -952,6 +957,7 @@ mod tests {
             maker_fee: dec!(0.001),
             market: market.name.to_string(),
             post_only: true,
+            signature: [0; 64],
         };
         let bid_order = market
             .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)

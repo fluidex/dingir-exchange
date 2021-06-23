@@ -52,9 +52,6 @@ export async function depositAssets(assets: object, userId: number) {
 }
 
 export async function putLimitOrder(userId, market, side, amount, price) {
-  if (VERBOSE) {
-    console.log("putLimitOrder", { userId, market, side, amount, price });
-  }
   return await client.orderPut(
     userId,
     market,

@@ -1,6 +1,12 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
 import { Account, OrderInput } from "fluidex.js";
+import {
+  ORDER_SIDE_BID,
+  ORDER_SIDE_ASK,
+  ORDER_TYPE_LIMIT,
+  VERBOSE
+} from "./config";
 
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
@@ -10,6 +16,10 @@ const load = {
   defaults: true,
   oneofs: true
 };
+
+function fullPrec(d, p): Decimal {
+  return new Decimal(d).mul(new Decimal(10).pow(p));
+}
 
 class Client {
   client: any;
@@ -82,24 +92,47 @@ class Client {
     }
     // TODO: round down? decimal?
     let marketInfo = this.markets.get(market);
-    let amount_rounded = Number(amount).toFixed(marketInfo.amount_precision);
-    let price_rounded = Number(price).toFixed(marketInfo.price_precision);
+    let amountRounded = Number(amount).toFixed(marketInfo.amount_precision);
+    let priceRounded = Number(price).toFixed(marketInfo.price_precision);
 
-    let sig = "";
-    if (this.accounts.has(user_id)) {
+    let signature = "";
+    if (this.accounts.has(user_id) && order_type == ORDER_TYPE_LIMIT) {
       // add signature for this order
-      let order_input = new OrderInput();
+      let tokenBuy, tokenSell, totalSell, totalBuy;
+      let baseTokenInfo = this.assets.get(marketInfo.base);
+      let quoteTokenInfo = this.assets.get(marketInfo.quote);
+      let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
+      let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
+      let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
+      if (order_side == ORDER_SIDE_BID) {
+        tokenBuy = baseTokenInfo.inner_id;
+        tokenSell = quoteTokenInfo.inner_id;
+        totalBuy = amountFullPrec;
+        totalSell = quoteFullPrec;
+      } else {
+        tokenSell = baseTokenInfo.inner_id;
+        tokenBuy = quoteTokenInfo.inner_id;
+        totalSell = amountFullPrec;
+        totalBuy = quoteFullPrec;
+      }
+      let orderInput = new OrderInput({
+        tokenSell,
+        tokenBuy,
+        totalSell,
+        totalBuy
+      });
+      signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
     }
-
     return {
       user_id,
       market,
       order_side,
       order_type,
-      amount: amount_rounded,
-      price: price_rounded,
+      amount: amountRounded,
+      price: priceRounded,
       taker_fee,
-      maker_fee
+      maker_fee,
+      signature
     };
   }
   async orderPut(
@@ -122,6 +155,10 @@ class Client {
       taker_fee,
       maker_fee
     );
+    if (VERBOSE) {
+      const { user_id, market, order_side: side, amount, price } = order;
+      console.log("putLimitOrder", { user_id, market, side, amount, price });
+    }
     return await this.client.OrderPut(order);
   }
 
