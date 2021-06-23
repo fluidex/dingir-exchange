@@ -1,21 +1,20 @@
-use tonic::{self, Request, Response, Status};
-
-//use rust_decimal::Decimal;
-pub use crate::dto::*;
-
-//use crate::me_history::HistoryWriter;
+use crate::config::{OrderSignatrueCheck, Settings};
 use crate::controller::Controller;
+use crate::matchengine::rpc::*;
+
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
+
 use tokio::sync::{mpsc, oneshot, RwLock};
+use tonic::{self, Request, Response, Status};
 
 type StubType = Arc<RwLock<Controller>>;
-
 type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<Output = ()> + Send>> + Send>;
 
 pub struct GrpcHandler {
     stub: StubType,
+    settings: Settings,
     task_dispacther: mpsc::Sender<ControllerAction>,
     set_close: Option<oneshot::Sender<()>>,
 }
@@ -70,7 +69,7 @@ impl ServerLeave {
 }
 
 impl GrpcHandler {
-    pub fn new(stub: Controller) -> Self {
+    pub fn new(stub: Controller, settings: Settings) -> Self {
         let mut persist_interval = tokio::time::interval(std::time::Duration::from_secs(stub.settings.persist_interval as u64));
 
         let stub = Arc::new(RwLock::new(stub));
@@ -83,6 +82,7 @@ impl GrpcHandler {
         let ret = GrpcHandler {
             task_dispacther: tx,
             set_close: Some(tx_close),
+            settings,
             stub,
         };
 
@@ -129,7 +129,7 @@ impl GrpcHandler {
 }
 
 #[tonic::async_trait]
-impl Matchengine for GrpcHandler {
+impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
     async fn asset_list(&self, request: Request<AssetListRequest>) -> Result<Response<AssetListResponse>, Status> {
         let stub = self.stub.read().await;
         Ok(Response::new(stub.asset_list(request.into_inner())?))
@@ -185,8 +185,18 @@ impl Matchengine for GrpcHandler {
     }
 
     async fn order_put(&self, request: Request<OrderPutRequest>) -> Result<Response<OrderInfo>, Status> {
+        let req = request.into_inner();
+
+        if self.settings.check_eddsa_signatue == OrderSignatrueCheck::Needed
+            || self.settings.check_eddsa_signatue == OrderSignatrueCheck::Auto && !req.signature.is_empty()
+        {
+            // TODO:
+            // check order signature here
+            // order signature checking is not 'write' op, so it need not to be moved into the main thread
+            // it is better to finish it here
+        }
         let ControllerDispatch(act, rt) =
-            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_put(true, request.into_inner()) }));
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_put(true, req) }));
 
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)

@@ -1,9 +1,9 @@
+use super::rpc::*;
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
-use crate::dto::*;
 use crate::history::DatabaseHistoryWriter;
-use crate::market;
+use crate::market::{self, OrderInput};
 use crate::message::{FullOrderMessageManager, SimpleMessageManager};
 use crate::models::{self};
 use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileBasedPersistor, MessengerBasedPersistor, PersistExector};
@@ -23,6 +23,7 @@ use sqlx::Executor;
 use tonic::{self, Status};
 
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 pub trait OperationLogConsumer {
@@ -77,6 +78,8 @@ fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     persistor
 }
 
+// match engine is single-threaded. So `Controller` is used as the only entrance
+// for get and set the global state
 pub struct Controller {
     //<LogHandlerType> where LogHandlerType: OperationLogConsumer + Send {
     pub settings: config::Settings,
@@ -114,7 +117,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     let sequencer = Sequencer::default();
     let mut markets = HashMap::new();
     for entry in &settings.markets {
-        let market = market::Market::new(entry, &balance_manager).unwrap();
+        let market = market::Market::new(entry, &settings, &balance_manager).unwrap();
         markets.insert(entry.name.clone(), market);
     }
 
@@ -230,7 +233,7 @@ impl Controller {
                     .rev()
                     .skip(req.offset as usize)
                     .take(limit as usize)
-                    .map(|order_rc| order_to_proto(&order_rc.borrow()))
+                    .map(|order_rc| OrderInfo::from(order_rc.deep()))
                     .collect()
             })
             .unwrap_or_else(Vec::new);
@@ -278,7 +281,7 @@ impl Controller {
         let order = market
             .get(req.order_id)
             .ok_or_else(|| Status::invalid_argument("invalid order_id"))?;
-        Ok(order_to_proto(&order))
+        Ok(OrderInfo::from(order))
     }
 
     pub fn market_list(&self, _req: MarketListRequest) -> Result<MarketListResponse, Status> {
@@ -421,15 +424,14 @@ impl Controller {
         let balance_manager = &mut self.balance_manager;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let order_input = order_input_from_proto(&req).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
-
+        let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
         let order = market
             .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
             .map_err(|e| Status::unknown(format!("{}", e)))?;
         if real {
             self.append_operation_log(OPERATION_ORDER_PUT, &req);
         }
-        Ok(order_to_proto(&order))
+        Ok(OrderInfo::from(order))
     }
 
     pub fn order_cancel(&mut self, real: bool, req: OrderCancelRequest) -> Result<OrderInfo, tonic::Status> {
@@ -453,7 +455,7 @@ impl Controller {
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
         }
-        Ok(order_to_proto(&order))
+        Ok(OrderInfo::from(order))
     }
 
     pub fn order_cancel_all(&mut self, real: bool, req: OrderCancelAllRequest) -> Result<OrderCancelAllResponse, tonic::Status> {
@@ -517,7 +519,7 @@ impl Controller {
 
         for entry in new_markets.into_iter() {
             let handle_ret = if self.markets.get(&entry.name).is_none() {
-                market::Market::new(&entry, &self.balance_manager).map(|mk| {
+                market::Market::new(&entry, &self.settings, &self.balance_manager).map(|mk| {
                     self.markets.insert(entry.name, mk);
                 })
             } else {

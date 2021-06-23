@@ -30,9 +30,6 @@ impl From<MarketDesc> for config::Market {
             fee_prec: origin.precision_fee as u32,
             name: market_name,
             min_amount: origin.min_amount,
-            // TODO
-            disable_self_trade: true,
-            disable_market_order: true,
         }
     }
 }

@@ -1,4 +1,4 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK} from "./config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "./config";
 import { defaultClient as client } from "./client";
 import {
   sleep,
@@ -19,7 +19,7 @@ async function initAssets() {
   markets = Array.from(client.markets.keys());
   for (const u of botsIds) {
     await depositAssets({ USDT: "100000.0" }, u);
-    for(const [name, info] of client.markets) {
+    for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
       depositReq[base] = "10";
@@ -32,20 +32,21 @@ function randUser() {
 }
 async function updatePrices(backend) {
   try {
-  if (backend == "coinstats") {
-    const url =
-    "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
-    const data = await axios.get(url);
-    for(const elem of data.data.coins) {
-      prices.set(elem.symbol, elem.price);
+    if (backend == "coinstats") {
+      const url =
+        "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
+      const data = await axios.get(url);
+      for (const elem of data.data.coins) {
+        prices.set(elem.symbol, elem.price);
+      }
+    } else if (backend == "cryptocompare") {
+      const url =
+        "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
+      // TODO
     }
-  } else if (backend == "cryptocompare") {
-    const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD';
-    // TODO
-  } 
-}catch(e) {
-  console.log('update price err', e);
-}
+  } catch (e) {
+    console.log("update price err", e);
+  }
 }
 
 function getPrice(token: string): number {

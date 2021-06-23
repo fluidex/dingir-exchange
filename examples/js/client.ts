@@ -1,6 +1,6 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
-import {Account, OrderInput} from "fluidex.js";
+import { Account, OrderInput } from "fluidex.js";
 
 const file = "../../proto/exchange/matchengine.proto";
 const load = {
@@ -27,7 +27,7 @@ class Client {
 
   async connect() {
     this.markets = await this.marketList();
-    for(const elem of (await this.assetList())) {
+    for (const elem of await this.assetList()) {
       this.assets.set(elem.symbol, elem);
     }
     console.log("markets", this.markets);
@@ -85,7 +85,11 @@ class Client {
     let amount_rounded = Number(amount).toFixed(marketInfo.amount_precision);
     let price_rounded = Number(price).toFixed(marketInfo.price_precision);
 
-    let order_input = new OrderInput();
+    let sig = "";
+    if (this.accounts.has(user_id)) {
+      // add signature for this order
+      let order_input = new OrderInput();
+    }
 
     return {
       user_id,
