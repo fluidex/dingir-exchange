@@ -81,6 +81,7 @@ impl<'r> From<&'r market::Order> for models::OrderHistory {
             finished_base: order.finished_base,
             finished_quote: order.finished_quote,
             finished_fee: order.finished_fee,
+            post_only: order.post_only,
         }
     }
 }

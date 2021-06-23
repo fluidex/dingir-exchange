@@ -31,6 +31,7 @@ CREATE TABLE order_history (
     finished_quote DECIMAL(30, 16) NOT NULL,
     finished_fee DECIMAL(30, 16) NOT NULL,
     status order_status NOT NULL DEFAULT 'filled'
+    post_only bool NOT NULL DEFAULT 'false'
 );
 
 CREATE INDEX order_history_idx_user_market ON order_history (user_id, market);
