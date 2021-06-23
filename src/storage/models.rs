@@ -99,6 +99,7 @@ pub struct OrderHistory {
     pub finished_base: DecimalDbType,
     pub finished_quote: DecimalDbType,
     pub finished_fee: DecimalDbType,
+    pub post_only: bool,
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
@@ -309,7 +310,7 @@ impl sqlxextend::TableSchemas for OrderHistory {
     fn table_name() -> &'static str {
         ORDERHISTORY
     }
-    const ARGN: i32 = 15;
+    const ARGN: i32 = 16;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -330,6 +331,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
         arg.add(&self.finished_quote);
         arg.add(&self.finished_fee);
         arg.add(&self.status);
+        arg.add(&self.post_only);
     }
 }
 
@@ -360,7 +362,7 @@ impl sqlxextend::TableSchemas for OrderSlice {
     fn table_name() -> &'static str {
         ORDERSLICE
     }
-    const ARGN: i32 = 17;
+    const ARGN: i32 = 18;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -383,6 +385,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
         arg.add(&self.finished_base);
         arg.add(&self.finished_quote);
         arg.add(&self.finished_fee);
+        arg.add(&self.post_only);
     }
 }
 
