@@ -1,8 +1,5 @@
 import {
   userId,
-  base,
-  quote,
-  market,
   fee,
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
@@ -45,7 +42,7 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
   //console.log('\n');
 }
 
-export async function depositAssets(assets, userId) {
+export async function depositAssets(assets: object, userId: number) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
     await client.balanceUpdate(userId, asset, "deposit", depositId(), amount, {
@@ -54,9 +51,9 @@ export async function depositAssets(assets, userId) {
   }
 }
 
-export async function putLimitOrder(userId, side, amount, price) {
+export async function putLimitOrder(userId, market, side, amount, price) {
   if (VERBOSE) {
-    console.log("putLimitOrder", { userId, side, amount, price });
+    console.log("putLimitOrder", { userId, market, side, amount, price });
   }
   return await client.orderPut(
     userId,
@@ -83,15 +80,15 @@ export function getRandomInt(min, max) {
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min)) + min;
 }
-export function getRandomElem(arr) {
+export function getRandomElem<T>(arr: Array<T>): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-export async function putRandOrder(userId) {
+export async function putRandOrder(userId, market) {
   // TODO: market order?
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
   const price = getRandomFloat(1350, 1450);
   const amount = getRandomFloat(0.5, 1.5);
-  const order = await putLimitOrder(userId, side, amount, price);
+  const order = await putLimitOrder(userId, market, side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }
 

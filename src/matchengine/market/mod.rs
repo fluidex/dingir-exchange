@@ -1,6 +1,6 @@
 #![allow(clippy::if_same_then_else)]
 use crate::asset::{BalanceManager, BalanceType};
-use crate::config;
+use crate::config::{self, OrderSignatrueCheck};
 use crate::persist::PersistExector;
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType};
@@ -29,6 +29,8 @@ pub struct Market {
     pub quote: &'static str,
     pub amount_prec: u32,
     pub price_prec: u32,
+    pub base_prec: u32,
+    pub quote_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
 
@@ -40,8 +42,9 @@ pub struct Market {
 
     pub trade_count: u64,
 
-    // other options
     pub disable_self_trade: bool,
+    pub disable_market_order: bool,
+    pub check_eddsa_signatue: OrderSignatrueCheck,
 }
 
 pub struct BalanceManagerWrapper<'a> {
@@ -83,17 +86,24 @@ const MAP_INIT_CAPACITY: usize = 1024;
 // TODO: is it ok to match with oneself's order?
 // TODO: precision
 impl Market {
-    pub fn new(market_conf: &config::Market, balance_manager: &BalanceManager) -> Result<Market> {
+    pub fn new(market_conf: &config::Market, global_settings: &config::Settings, balance_manager: &BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
         let asset_prec = |asset: &str| -> u32 { balance_manager.asset_manager.asset_prec(asset) };
         if !asset_exist(&market_conf.quote) || !asset_exist(&market_conf.base) {
             bail!("invalid assert id {} {}", market_conf.quote, market_conf.base);
         }
-
-        if market_conf.amount_prec + market_conf.fee_prec > asset_prec(&market_conf.base)
-            || market_conf.amount_prec + market_conf.price_prec + market_conf.fee_prec > asset_prec(&market_conf.quote)
-        {
+        let base_prec = asset_prec(&market_conf.base);
+        let quote_prec = asset_prec(&market_conf.quote);
+        if market_conf.amount_prec > base_prec || market_conf.amount_prec + market_conf.price_prec > quote_prec {
             bail!("invalid precision");
+        }
+        let allow_rounding_fee = true;
+        if !allow_rounding_fee {
+            if market_conf.amount_prec + market_conf.fee_prec > base_prec
+                || market_conf.amount_prec + market_conf.price_prec + market_conf.fee_prec > quote_prec
+            {
+                bail!("invalid fee precision");
+            }
         }
         let leak_fn = |x: &str| -> &'static str { Box::leak(x.to_string().into_boxed_str()) };
         let market = Market {
@@ -102,6 +112,8 @@ impl Market {
             quote: leak_fn(&market_conf.quote),
             amount_prec: market_conf.amount_prec,
             price_prec: market_conf.price_prec,
+            base_prec,
+            quote_prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
             orders: BTreeMap::new(),
@@ -109,7 +121,9 @@ impl Market {
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
             trade_count: 0,
-            disable_self_trade: market_conf.disable_self_trade,
+            disable_self_trade: global_settings.disable_self_trade,
+            disable_market_order: global_settings.disable_market_order,
+            check_eddsa_signatue: global_settings.check_eddsa_signatue,
         };
         Ok(market)
     }
@@ -142,6 +156,9 @@ impl Market {
         mut persistor: impl PersistExector,
         order_input: OrderInput,
     ) -> Result<Order> {
+        if order_input.type_ == OrderType::MARKET && self.disable_market_order {
+            bail!("market orders disabled");
+        }
         if order_input.amount.lt(&self.min_amount) {
             bail!("invalid amount");
         }
@@ -347,8 +364,8 @@ impl Market {
             }
 
             // Step4: create the trade
-            let ask_fee = traded_quote_amount * ask_fee_rate;
-            let bid_fee = traded_base_amount * bid_fee_rate;
+            let bid_fee = (traded_base_amount * bid_fee_rate).round_dp_with_strategy(self.base_prec, RoundingStrategy::RoundDown);
+            let ask_fee = (traded_quote_amount * ask_fee_rate).round_dp_with_strategy(self.quote_prec, RoundingStrategy::RoundDown);
 
             let timestamp = utils::current_timestamp();
             ask_order.update_time = timestamp;
@@ -705,6 +722,7 @@ struct BalanceHistoryFromFee {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Settings;
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
     use mock::*;
@@ -752,13 +770,12 @@ mod tests {
         update_balance_fn(3, uid1, &MockAsset::ETH.id(), dec!(1_000_000));
 
         let sequencer = &mut Sequencer::default();
-        let mut market_conf = if only_int {
+        let market_conf = if only_int {
             mock::get_integer_prec_market_config()
         } else {
             mock::get_simple_market_config()
         };
-        market_conf.disable_self_trade = true;
-        let mut market = Market::new(&market_conf, balance_manager).unwrap();
+        let mut market = Market::new(&market_conf, &Settings::default(), balance_manager).unwrap();
         let mut rng = rand::thread_rng();
         for _ in 0..100 {
             let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
@@ -803,7 +820,7 @@ mod tests {
         let sequencer = &mut Sequencer::default();
         let mut persistor = crate::persist::DummyPersistor::default();
         let ask_user_id = 101;
-        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
+        let mut market = Market::new(&get_simple_market_config(), &Settings::default(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
             user_id: ask_user_id,
             side: OrderSide::ASK,
@@ -903,7 +920,7 @@ mod tests {
         let sequencer = &mut Sequencer::default();
         let mut persistor = crate::persist::MemBasedPersistor::default();
         let ask_user_id = 201;
-        let mut market = Market::new(&get_simple_market_config(), balance_manager).unwrap();
+        let mut market = Market::new(&get_simple_market_config(), &Settings::default(), balance_manager).unwrap();
         let ask_order_input = OrderInput {
             user_id: ask_user_id,
             side: OrderSide::ASK,

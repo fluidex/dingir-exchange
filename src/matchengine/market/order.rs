@@ -172,7 +172,7 @@ impl OrderRc {
         self.0.try_write().expect("Lock for parent entry ensure it")
     }
 
-    pub(super) fn deep(&self) -> Order {
+    pub fn deep(&self) -> Order {
         *self.borrow()
     }
 }
@@ -188,4 +188,5 @@ pub struct OrderInput {
     pub maker_fee: Decimal,
     pub market: String,
     pub post_only: bool,
+    //pub signature:
 }

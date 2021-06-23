@@ -1,4 +1,4 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, market, userId } from "./config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "./config";
 import { defaultClient as client } from "./client";
 import {
   sleep,
@@ -9,39 +9,72 @@ import {
 } from "./util";
 import axios from "axios";
 
+const verbose = true;
 const botsIds = [10, 11, 12, 13, 14];
+let markets: Array<string> = [];
+let prices = new Map<string, number>();
+
 async function initAssets() {
+  await client.connect();
+  markets = Array.from(client.markets.keys());
   for (const u of botsIds) {
-    await depositAssets({ USDT: "10000000.0", ETH: "50000.0" }, u);
+    await depositAssets({ USDT: "500000.0" }, u);
+    for (const [name, info] of client.markets) {
+      const base = info.base;
+      const depositReq = {};
+      depositReq[base] = "10";
+      await depositAssets(depositReq, u);
+    }
   }
 }
 function randUser() {
   return getRandomElem(botsIds);
 }
+async function updatePrices(backend) {
+  try {
+    if (backend == "coinstats") {
+      const url =
+        "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
+      const data = await axios.get(url);
+      for (const elem of data.data.coins) {
+        prices.set(elem.symbol, elem.price);
+      }
+    } else if (backend == "cryptocompare") {
+      const url =
+        "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
+      // TODO
+    }
+  } catch (e) {
+    console.log("update price err", e);
+  }
+}
+
+function getPrice(token: string): number {
+  const price = prices.get(token);
+  if (verbose) {
+    console.log("price", token, price);
+  }
+  return price;
+}
+
 async function run() {
-  const url =
-    "https://api.coinstats.app/public/v1/coins?skip=0&limit=5&currency=USD";
-  //  const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD';
   let cnt = 0;
   while (true) {
     try {
       await sleep(1000);
       if (cnt % 300 == 0) {
-        await client.orderCancelAll(randUser(), market);
+        await client.orderCancelAll(randUser(), getRandomElem(markets));
       }
-      const data = await axios.get(url);
-      const price = data.data.coins.find(item => item.symbol == "ETH").price;
-      console.log("price", price);
+      if (cnt % 60 == 0) {
+        await updatePrices("coinstats");
+      }
+
+      const market = getRandomElem(markets);
+      const price = getPrice(market.split("_")[0]);
       await putLimitOrder(
         randUser(),
-        ORDER_SIDE_BID,
-        getRandomFloatAround(3, 0.5),
-        getRandomFloatAround(price)
-      );
-      await sleep(1000);
-      await putLimitOrder(
-        randUser(),
-        ORDER_SIDE_ASK,
+        market,
+        getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
         getRandomFloatAround(3, 0.5),
         getRandomFloatAround(price)
       );

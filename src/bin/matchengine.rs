@@ -7,8 +7,9 @@
 
 use dingir_exchange::config;
 use dingir_exchange::controller::create_controller;
+use dingir_exchange::matchengine::rpc::matchengine_server::MatchengineServer;
 use dingir_exchange::persist;
-use dingir_exchange::server::{GrpcHandler, MatchengineServer};
+use dingir_exchange::server::GrpcHandler;
 //use dingir_exchange::sqlxextend;
 
 use dingir_exchange::types::ConnectionType;
@@ -51,11 +52,11 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
         persist::MarketConfigs::new()
     };
 
-    let mut grpc_stub = create_controller((settings, market_cfg));
+    let mut grpc_stub = create_controller((settings.clone(), market_cfg));
     grpc_stub.user_manager.load_users_from_db(&mut conn).await?;
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
 
-    let grpc = GrpcHandler::new(grpc_stub);
+    let grpc = GrpcHandler::new(grpc_stub, settings);
     Ok(grpc)
 }
 

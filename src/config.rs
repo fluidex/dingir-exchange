@@ -1,8 +1,9 @@
 use rust_decimal::Decimal;
+use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Asset {
     pub id: String,
@@ -23,7 +24,7 @@ pub struct MarketUnit {
     pub prec: u32,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Market {
     pub name: String,
@@ -33,7 +34,6 @@ pub struct Market {
     pub price_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
-    pub disable_self_trade: bool,
 }
 
 impl Default for MarketUnit {
@@ -55,7 +55,6 @@ impl Default for Market {
             quote: Default::default(),
             amount_prec: 0,
             price_prec: 0,
-            disable_self_trade: true,
         }
     }
 }
@@ -67,8 +66,6 @@ pub enum PersistPolicy {
     ToDB,
     ToMessage,
 }
-
-use serde::de;
 
 impl<'de> de::Deserialize<'de> for PersistPolicy {
     fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -84,7 +81,28 @@ impl<'de> de::Deserialize<'de> for PersistPolicy {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum OrderSignatrueCheck {
+    None,
+    // auto means check sig only if sig != ""
+    Auto,
+    Needed,
+}
+
+impl<'de> de::Deserialize<'de> for OrderSignatrueCheck {
+    fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+
+        match s.as_ref() {
+            "true" => Ok(OrderSignatrueCheck::Needed),
+            "false" => Ok(OrderSignatrueCheck::None),
+            "auto" => Ok(OrderSignatrueCheck::Auto),
+            _ => Err(serde::de::Error::custom("unexpected specification for order sig check policy")),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub debug: bool,
@@ -101,6 +119,9 @@ pub struct Settings {
     pub slice_keeptime: i32,
     pub history_thread: i32,
     pub cache_timeout: f64,
+    pub disable_self_trade: bool,
+    pub disable_market_order: bool,
+    pub check_eddsa_signatue: OrderSignatrueCheck,
 }
 
 impl Default for Settings {
@@ -120,6 +141,9 @@ impl Default for Settings {
             slice_keeptime: 86400 * 3,
             history_thread: 10,
             cache_timeout: 0.45,
+            disable_self_trade: true,
+            disable_market_order: false,
+            check_eddsa_signatue: OrderSignatrueCheck::None,
         }
     }
 }

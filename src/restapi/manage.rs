@@ -3,7 +3,7 @@ use actix_web::{http, web, Responder};
 use futures::future::OptionFuture;
 
 use super::{state, types};
-use crate::matchengine::server::matchengine::{self, matchengine_client::MatchengineClient};
+use crate::matchengine::rpc;
 use crate::storage;
 
 pub mod market {
@@ -11,12 +11,9 @@ pub mod market {
     use super::*;
 
     async fn do_reload(app_state: &state::AppState) -> (String, http::StatusCode) {
-        let mut rpc_cli = MatchengineClient::new(app_state.manage_channel.as_ref().unwrap().clone());
+        let mut rpc_cli = rpc::matchengine_client::MatchengineClient::new(app_state.manage_channel.as_ref().unwrap().clone());
 
-        if let Err(e) = rpc_cli
-            .reload_markets(matchengine::ReloadMarketsRequest { from_scratch: false })
-            .await
-        {
+        if let Err(e) = rpc_cli.reload_markets(rpc::ReloadMarketsRequest { from_scratch: false }).await {
             return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
         }
 
