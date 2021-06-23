@@ -103,7 +103,7 @@ impl<'de> serde::de::Deserialize<'de> for MarketString {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Order {
     pub id: u64,
     pub base: MarketString,
@@ -125,6 +125,7 @@ pub struct Order {
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
     pub post_only: bool,
+    pub signature: String, // TODO: bytes
 }
 
 /*
