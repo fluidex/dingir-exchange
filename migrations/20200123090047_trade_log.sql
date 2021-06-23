@@ -25,6 +25,7 @@ CREATE TABLE order_slice (
     finished_base DECIMAL(30, 8) NOT NULL,
     finished_quote DECIMAL(30, 16) NOT NULL,
     finished_fee DECIMAL(30, 12) NOT NULL,
+    signature VARCHAR(64) NOT NULL,
     PRIMARY KEY (slice_id, id)
 );
 
