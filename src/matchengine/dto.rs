@@ -1,7 +1,7 @@
 use super::rpc::*;
 use crate::market;
 
-use anyhow::{anyhow, Result, bail};
+use anyhow::{anyhow, bail, Result};
 use arrayref::array_ref;
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
