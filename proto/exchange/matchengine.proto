@@ -166,7 +166,7 @@ message OrderPutRequest {
   string taker_fee = 8;
   string maker_fee = 9;
   bool post_only = 10; // Ensures an Limit order is only subject to Maker Fees (ignored for Market orders).
-  string signature = 11; // TODO: use bytes?
+  string signature = 11; // without 0x prefix
 }
 
 message OrderInfo {
