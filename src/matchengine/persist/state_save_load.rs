@@ -156,6 +156,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
+                signature: order.signature,
             };
             market.insert_order_into_orderbook(order);
         }

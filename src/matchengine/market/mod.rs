@@ -246,6 +246,7 @@ impl Market {
             finished_quote: Decimal::zero(),
             finished_fee: Decimal::zero(),
             post_only: order_input.post_only,
+            signature: order_input.signature,
         };
         let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
         Ok(order)
