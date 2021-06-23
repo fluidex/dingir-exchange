@@ -125,10 +125,7 @@ pub struct Order {
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
     pub post_only: bool,
-    // if using poseidon
-    pub signature: poseidon_rs::Fr,
-    // if using rescue
-    // pub signature: franklin_crypto::bellman::bn256::Fr,
+    pub signature: [u8; 32]
 }
 
 /*
