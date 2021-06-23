@@ -74,7 +74,7 @@ class Client {
     taker_fee,
     maker_fee
   ) {
-    if (!this.markets) {
+    if (!this.markets || this.markets.size == 0) {
       await this.connect();
     }
     if (!this.markets.has(market)) {

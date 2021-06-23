@@ -18,7 +18,7 @@ async function initAssets() {
   await client.connect();
   markets = Array.from(client.markets.keys());
   for (const u of botsIds) {
-    await depositAssets({ USDT: "100000.0" }, u);
+    await depositAssets({ USDT: "500000.0" }, u);
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
