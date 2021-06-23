@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use serde_big_array::big_array;
+
+big_array! { BigArray; }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct MarketKeyAsk {
@@ -125,6 +128,8 @@ pub struct Order {
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
     pub post_only: bool,
+    #[serde(with = "BigArray")]
+    pub signature: [u8;64],
 }
 
 /*
@@ -188,5 +193,5 @@ pub struct OrderInput {
     pub maker_fee: Decimal,
     pub market: String,
     pub post_only: bool,
-    //pub signature:
+    pub signature: [u8;64],
 }

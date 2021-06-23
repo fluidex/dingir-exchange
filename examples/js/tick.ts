@@ -8,22 +8,31 @@ import {
   depositAssets
 } from "./util";
 import axios from "axios";
+import {getTestAccount} from "./accounts";
+import {Account} from "fluidex.js";
 
 const verbose = true;
 const botsIds = [10, 11, 12, 13, 14];
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
-async function initAssets() {
+async function initAccountsAndAssets() {
   await client.connect();
   markets = Array.from(client.markets.keys());
-  for (const u of botsIds) {
-    await depositAssets({ USDT: "500000.0" }, u);
+  for (const user_id of botsIds) {
+    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    client.addAccount(user_id, acc);
+    client.client.RegisterUser({
+      user_id,
+      l1_address: acc.ethAddr,
+      l2_pubkey: acc.bjjPubKey,
+    })
+    await depositAssets({ USDT: "500000.0" }, user_id);
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
       depositReq[base] = "10";
-      await depositAssets(depositReq, u);
+      await depositAssets(depositReq, user_id);
     }
   }
 }
@@ -86,7 +95,7 @@ async function run() {
 }
 async function main() {
   await client.debugReset();
-  await initAssets();
+  await initAccountsAndAssets();
   await run();
 }
 main().catch(console.log);

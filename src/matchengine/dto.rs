@@ -4,6 +4,7 @@ use crate::market;
 use anyhow::{anyhow, Result};
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
+use arrayref::array_ref;
 
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -70,6 +71,12 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
             maker_fee: str_to_decimal(&req.maker_fee, true).map_err(|_| anyhow!("invalid maker fee"))?,
             market: req.market.clone(),
             post_only: req.post_only,
+            signature: if req.signature.is_empty() {
+                [0;64]
+            } else {
+                let v = req.signature.as_bytes().to_vec();
+                *array_ref!(v[..64], 0, 64)
+            },
         })
     }
 }
