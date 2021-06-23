@@ -31,6 +31,7 @@ CREATE TABLE order_history (
     finished_quote DECIMAL(30, 16) NOT NULL,
     finished_fee DECIMAL(30, 16) NOT NULL,
     status order_status NOT NULL DEFAULT 'filled',
+    post_only BOOL NOT NULL DEFAULT 'false',
     signature VARCHAR(64) NOT NULL
 );
 
