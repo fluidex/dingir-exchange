@@ -611,6 +611,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
+ "hex",
  "humantime-serde",
  "hyper",
  "itertools 0.10.0",

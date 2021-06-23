@@ -336,7 +336,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
-                signature: order.signature.clone(),
+                signature: hex::encode(order.signature),
             }
         });
 
