@@ -378,6 +378,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
         arg.add(&self.amount);
         arg.add(&self.taker_fee);
         arg.add(&self.maker_fee);
+        arg.add(&self.signature);
         arg.add(&self.remain);
         arg.add(&self.frozen);
         arg.add(&self.finished_base);
