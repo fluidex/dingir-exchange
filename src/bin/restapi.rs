@@ -72,7 +72,7 @@ async fn main() -> std::io::Result<()> {
         App::new().app_data(user_map.clone()).app_data(AppCache::new()).service(
             web::scope("/restapi")
                 .route("/ping", web::get().to(ping))
-                .route("/user/{id_or_addr}", web::get().to(get_user))
+                .route("/user/{l1addr_or_l2pubkey}", web::get().to(get_user))
                 .route("/recenttrades/{market}", web::get().to(recent_trades))
                 .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
                 .route("/closedorders/{market}/{user_id}", web::get().to(my_orders))
