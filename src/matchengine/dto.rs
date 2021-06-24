@@ -72,7 +72,7 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
             market: req.market.clone(),
             post_only: req.post_only,
             signature: if req.signature.is_empty() {
-                log::debug!("empty signature. should only happen in tests");
+                log::error!("empty signature. should only happen in tests");
                 [0; 64]
             } else {
                 let sig = req.signature.trim_start_matches("0x");
