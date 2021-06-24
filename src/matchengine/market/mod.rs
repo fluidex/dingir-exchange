@@ -571,34 +571,53 @@ impl Market {
         ask: &Order,
         bid: &Order,
         balance_manager: &mut BalanceManagerWrapper<'_>,
-        base: &str,
-        quote: &str,
+        base: &'static str,
+        quote: &'static str,
     ) -> VerboseTradeState {
         let ask_order_state = VerboseOrderState {
-            price: ask.price,
-            amount: ask.amount,
+            user_id: ask.user,
+            order_id: ask.id,
+            order_side: ask.side,
             finished_base: ask.finished_base,
             finished_quote: ask.finished_quote,
+            finished_fee: ask.finished_fee,
         };
         let bid_order_state = VerboseOrderState {
-            price: bid.price,
-            amount: bid.amount,
+            user_id: bid.user,
+            order_id: bid.id,
+            order_side: bid.side,
             finished_base: bid.finished_base,
             finished_quote: bid.finished_quote,
+            finished_fee: bid.finished_fee,
         };
         let ask_user_base = balance_manager.balance_total(ask.user, base);
         let ask_user_quote = balance_manager.balance_total(ask.user, quote);
         let bid_user_base = balance_manager.balance_total(bid.user, base);
         let bid_user_quote = balance_manager.balance_total(bid.user, quote);
         VerboseTradeState {
-            ask_order_state,
-            bid_order_state,
-            balance: VerboseBalanceState {
-                bid_user_base,
-                bid_user_quote,
-                ask_user_base,
-                ask_user_quote,
-            },
+            order_states: vec![ask_order_state, bid_order_state],
+            balance_states: vec![
+                VerboseBalanceState {
+                    user_id: ask.user,
+                    asset: base.into(),
+                    balance: ask_user_base,
+                },
+                VerboseBalanceState {
+                    user_id: ask.user,
+                    asset: quote.into(),
+                    balance: ask_user_quote,
+                },
+                VerboseBalanceState {
+                    user_id: bid.user,
+                    asset: base.into(),
+                    balance: bid_user_base,
+                },
+                VerboseBalanceState {
+                    user_id: bid.user,
+                    asset: quote.into(),
+                    balance: bid_user_quote,
+                },
+            ],
         }
     }
     pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {

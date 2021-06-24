@@ -61,6 +61,6 @@ path = "src/bin/matchengine.rs"
 [features]
 windows_build = [ "rdkafka/dynamic_linking" ]
 emit_state_diff = [ ]
-default = [ ]
+default = ["emit_state_diff" ]
 #default = ["windows_build"]
 #default = ["windows_build", "emit_state_diff"]
