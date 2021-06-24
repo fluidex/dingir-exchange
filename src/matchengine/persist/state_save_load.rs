@@ -156,8 +156,10 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
-                // TODO
-                signature: [0; 64],
+                signature: match order.signature.len() == 64 {
+                    true => *array_ref!(order.signature[..64], 0, 64),
+                    false => bail!("invalid signature length"),
+                },
             };
             market.insert_order_into_orderbook(order);
         }
