@@ -2,22 +2,21 @@ use crate::asset;
 use crate::asset::BalanceManager;
 use crate::controller::Controller;
 use crate::database;
+use crate::market::Order;
 use crate::models;
+use crate::types;
 use crate::types::SimpleResult;
 use crate::utils;
 use crate::utils::FTimestamp;
 use crate::{config, storage};
+use arrayref::array_ref;
 use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
+use std::convert::TryFrom;
+use std::time::{Duration, Instant};
 
 use crate::sqlxextend::*;
 use sqlx::migrate::Migrator;
 use sqlx::Connection;
-
-use crate::market::Order;
-use std::convert::TryFrom;
-use std::time::{Duration, Instant};
-
-use crate::types;
 use types::{ConnectionType, DbType};
 
 //migration
@@ -156,8 +155,13 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
-                // TODO
-                signature: [0; 64],
+                signature: match order.signature.len() == 64 {
+                    true => *array_ref!(order.signature[..64], 0, 64),
+                    false => {
+                        log::error!("order_id: {:?} signature length error", order.id);
+                        [0; 64]
+                    }
+                },
             };
             market.insert_order_into_orderbook(order);
         }
@@ -337,6 +341,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 finished_quote: order.finished_quote,
                 finished_fee: order.finished_fee,
                 post_only: order.post_only,
+                signature: order.signature.to_vec(),
             }
         });
 
