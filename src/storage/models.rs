@@ -100,6 +100,7 @@ pub struct OrderHistory {
     pub finished_quote: DecimalDbType,
     pub finished_fee: DecimalDbType,
     pub post_only: bool,
+    pub signature: Vec<u8>,
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
@@ -172,6 +173,7 @@ pub struct OrderSlice {
     pub finished_quote: DecimalDbType,
     pub finished_fee: DecimalDbType,
     pub post_only: bool,
+    pub signature: Vec<u8>,
 }
 
 // xx_id here means the last persisted entry id
@@ -310,7 +312,7 @@ impl sqlxextend::TableSchemas for OrderHistory {
     fn table_name() -> &'static str {
         ORDERHISTORY
     }
-    const ARGN: i32 = 16;
+    const ARGN: i32 = 17;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -332,6 +334,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
         arg.add(&self.finished_fee);
         arg.add(&self.status);
         arg.add(&self.post_only);
+        arg.add(&self.signature);
     }
 }
 
@@ -362,7 +365,7 @@ impl sqlxextend::TableSchemas for OrderSlice {
     fn table_name() -> &'static str {
         ORDERSLICE
     }
-    const ARGN: i32 = 18;
+    const ARGN: i32 = 19;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -386,6 +389,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
         arg.add(&self.finished_quote);
         arg.add(&self.finished_fee);
         arg.add(&self.post_only);
+        arg.add(&self.signature);
     }
 }
 
