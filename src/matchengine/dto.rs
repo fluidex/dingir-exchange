@@ -71,9 +71,7 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
             maker_fee: str_to_decimal(&req.maker_fee, true).map_err(|_| anyhow!("invalid maker fee"))?,
             market: req.market.clone(),
             post_only: req.post_only,
-            signature: if req.signature.is_empty() {
-                [0; 64]
-            } else {
+            signature: {
                 let sig = req.signature.trim_start_matches("0x");
                 let v: Vec<u8> = hex::decode(sig)?;
                 if v.len() != 64 {
