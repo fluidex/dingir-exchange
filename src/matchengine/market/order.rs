@@ -1,5 +1,5 @@
 use crate::types::{OrderSide, OrderType};
-use crate::utils::intern_string;
+use crate::utils::InternedString;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;
@@ -77,59 +77,39 @@ impl PartialOrd for MarketKeyBid {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MarketString(&'static str);
-
-impl From<&'static str> for MarketString {
-    fn from(str: &'static str) -> Self {
-        MarketString(str)
-    }
-}
-
-impl std::ops::Deref for MarketString {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl serde::ser::Serialize for MarketString {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.0)
-    }
-}
-
-impl<'de> serde::de::Deserialize<'de> for MarketString {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Ok(intern_string(&s).into())
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Order {
+    // Order can be seen as two part:
+    // first, const part, these fields cannot be updated
+    // then, the updatable part, which changes whenever a trade occurs
     pub id: u64,
-    pub base: MarketString,
-    pub quote: MarketString,
-    pub market: MarketString,
+    pub base: InternedString,
+    pub quote: InternedString,
+    pub market: InternedString,
     #[serde(rename = "type")]
     pub type_: OrderType, // enum
     pub side: OrderSide,
     pub user: u32,
-    pub create_time: f64,
-    pub update_time: f64,
+    pub post_only: bool,
+    #[serde(with = "BigArray")]
+    pub signature: [u8; 64],
     pub price: Decimal,
     pub amount: Decimal,
-    pub taker_fee: Decimal,
+    // fee rate when the order be treated as a taker
     pub maker_fee: Decimal,
+    // fee rate when the order be treated as a taker, not useful when post_only
+    pub taker_fee: Decimal,
+    pub create_time: f64,
+
+    // below are the changable parts
+    // remain + finished_base == amount
     pub remain: Decimal,
+    // frozen = if ask { amount (base) } else { amount * price (quote) }
     pub frozen: Decimal,
     pub finished_base: Decimal,
     pub finished_quote: Decimal,
     pub finished_fee: Decimal,
-    pub post_only: bool,
-    #[serde(with = "BigArray")]
-    pub signature: [u8; 64],
+    pub update_time: f64,
 }
 
 /*

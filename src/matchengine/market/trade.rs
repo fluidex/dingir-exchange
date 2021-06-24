@@ -1,30 +1,38 @@
 use crate::market::Order;
 use crate::types::MarketRole;
+use crate::types::OrderSide;
+use crate::utils::InternedString;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerboseOrderState {
-    pub price: Decimal,
-    pub amount: Decimal,
+    pub user_id: u32,
+    pub order_id: u64,
+    pub order_side: OrderSide,
     pub finished_base: Decimal,
     pub finished_quote: Decimal,
+    pub finished_fee: Decimal,
+    //pub remain: Decimal,
+    //pub frozen: Decimal,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerboseBalanceState {
-    pub bid_user_base: Decimal,
-    pub bid_user_quote: Decimal,
-    pub ask_user_base: Decimal,
-    pub ask_user_quote: Decimal,
+    pub user_id: u32,
+    pub asset: InternedString,
+    // total = balance_available + balance_frozen
+    pub balance: Decimal,
+    //pub balance_available: Deimcal,
+    //pub balance_frozen: Deimcal,
 }
 
+// TODO: rename this?
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VerboseTradeState {
     // emit all the related state
-    pub ask_order_state: VerboseOrderState,
-    pub bid_order_state: VerboseOrderState,
-    pub balance: VerboseBalanceState,
+    pub order_states: Vec<VerboseOrderState>,
+    pub balance_states: Vec<VerboseBalanceState>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
