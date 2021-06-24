@@ -6,14 +6,13 @@ use actix_web::{
     HttpRequest, Responder,
 };
 
-// TODO: get_by_user_id still fails
 pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
     let mut is_debug: bool = false;
     if *req.match_info().get("debug").unwrap_or("false") == *"true" {
         is_debug = true;
     }
 
-    let user_id: &str = req.match_info().get("id_or_addr").unwrap();
+    let user_id: &str = req.match_info().get("l1addr_or_l2pubkey").unwrap();
 
     if is_debug {
         if user_id.starts_with("0x") {
@@ -32,7 +31,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
             let user_info = &*user_map.get(user_id).unwrap();
             Ok(Json(user_info.clone()))
         } else {
-            Err(RpcError::bad_request("invalid user id or address"))
+            Err(RpcError::bad_request("invalid user address"))
         }
     } else {
         let mut user_map = data.user_addr_map.lock().unwrap();
