@@ -15,6 +15,7 @@ struct OrderCommiment {
     total_buy: Fr,
 }
 
+// pub fn exchange_order_to_rollup_order
 impl From<&OrderPutRequest> for OrderCommiment {
     fn from(o: &OrderPutRequest) -> Self {
         unimplemented!()
@@ -28,7 +29,8 @@ pub fn order_hash(req: &OrderPutRequest) -> BigInt {
     // TxType::PlaceOrder
     let magic_head = u32_to_fr(4);
     let data = hash(&[
-        magic_head, // TODO: sign nonce or order_id
+        magic_head,
+        // TODO: sign nonce or order_id
         //u32_to_fr(order.order_id),
         order.token_sell,
         order.token_buy,
