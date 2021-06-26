@@ -6,6 +6,7 @@ use num_bigint::BigInt;
 use poseidon_rs::Fr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 pub fn order_hash(_req: &OrderPutRequest) -> BigInt {
     BigInt::default()
@@ -60,10 +61,14 @@ impl Default for UserManager {
     }
 }
 
-fn str_to_pubkey(ori: &str) -> Point {
-    unimplemented!()
+// TODO: error handling
+fn str_to_pubkey(pubkey: &str) -> Point {
+    let pubkey_packed = hex::decode(pubkey).unwrap();
+    babyjubjub_rs::decompress_point(pubkey_packed.try_into().unwrap()).unwrap()
 }
 
-fn str_to_signature(ori: &str) -> Signature {
-    unimplemented!()
+// TODO: error handling
+fn str_to_signature(signature: &str) -> Signature {
+    let sig_packed_vec = hex::decode(signature).unwrap();
+    babyjubjub_rs::decompress_signature(&sig_packed_vec.try_into().unwrap()).unwrap()
 }
