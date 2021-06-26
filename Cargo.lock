@@ -666,6 +666,7 @@ dependencies = [
  "config",
  "crossbeam-channel",
  "dotenv",
+ "ff_ce",
  "futures",
  "futures-channel",
  "futures-core",

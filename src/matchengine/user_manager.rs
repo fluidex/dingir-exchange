@@ -1,16 +1,31 @@
 use crate::matchengine::rpc::*;
 use crate::models::AccountDesc;
+use crate::primitives::*;
 use crate::types::ConnectionType;
-use babyjubjub_rs::{Point, Signature};
-use num_bigint::BigInt;
-use poseidon_rs::Fr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
 pub fn order_hash(_req: &OrderPutRequest) -> BigInt {
-    BigInt::default()
-    // BigInt::parse_bytes(to_hex(elem).as_bytes(), 16).unwrap()
+    // consistent with https://github.com/Fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
+    // TxType::PlaceOrder
+    let magic_head = u32_to_fr(4);
+    let data = hash(&[
+        magic_head,
+        // TODO: sign nonce or order_id
+        //u32_to_fr(self.order_id),
+
+        // self.token_sell,
+        // self.token_buy,
+        // self.total_sell,
+        // self.total_buy,
+    ]);
+    //data = hash([data, accountID, nonce]);
+    // nonce and orderID seems redundant?
+
+    // account_id is not needed if the hash is signed later?
+    //data = hash(&[data, u32_to_fr(self.account_id)]);
+    fr_to_bigint(&data)
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
