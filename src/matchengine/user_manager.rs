@@ -2,6 +2,7 @@ use crate::matchengine::rpc::*;
 use crate::models::AccountDesc;
 use crate::primitives::*;
 use crate::types::ConnectionType;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -65,7 +66,11 @@ impl UserManager {
     pub fn verify_signature(&self, user_id: u32, msg: BigInt, signature: &str) -> bool {
         match self.users.get(&user_id) {
             None => false,
-            Some(user) => babyjubjub_rs::verify(str_to_pubkey(&user.l2_pubkey), str_to_signature(signature), msg),
+            Some(user) => {
+                let pubkey = str_to_pubkey(&user.l2_pubkey).map_err(|_| false).unwrap();
+                let signature = str_to_signature(signature).map_err(|_| false).unwrap();
+                babyjubjub_rs::verify(pubkey, signature, msg)
+            }
         }
     }
 }
@@ -76,14 +81,12 @@ impl Default for UserManager {
     }
 }
 
-// TODO: error handling
-fn str_to_pubkey(pubkey: &str) -> Point {
-    let pubkey_packed = hex::decode(pubkey).unwrap();
-    babyjubjub_rs::decompress_point(pubkey_packed.try_into().unwrap()).unwrap()
+fn str_to_pubkey(pubkey: &str) -> Result<Point> {
+    let pubkey_packed = hex::decode(pubkey)?;
+    babyjubjub_rs::decompress_point(pubkey_packed.try_into().unwrap()).map_err(|e| anyhow!(e))
 }
 
-// TODO: error handling
-fn str_to_signature(signature: &str) -> Signature {
-    let sig_packed_vec = hex::decode(signature).unwrap();
-    babyjubjub_rs::decompress_signature(&sig_packed_vec.try_into().unwrap()).unwrap()
+fn str_to_signature(signature: &str) -> Result<Signature> {
+    let sig_packed_vec = hex::decode(signature)?;
+    babyjubjub_rs::decompress_signature(&sig_packed_vec.try_into().unwrap()).map_err(|e| anyhow!(e))
 }
