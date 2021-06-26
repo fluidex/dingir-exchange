@@ -36,6 +36,14 @@ impl UserManager {
         }
         Ok(())
     }
+
+    // TODO: use proper types?
+    pub fn verify_signature(&self, user_id: u32, msg: &str, signature: &str) -> bool {
+        match self.users.get(&user_id) {
+            None => false,
+            Some(user) => crate::utils::auth::eddsa_verify(&user.l2_pubkey, msg, signature),
+        }
+    }
 }
 
 impl Default for UserManager {
