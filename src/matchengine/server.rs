@@ -195,7 +195,7 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
             // it is better to finish it here
             let msg = super::order_hash(&req);
             let stub = self.stub.read().await;
-            if !stub.user_manager.verify_signature(req.user_id, &msg, &req.signature) {
+            if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
         }

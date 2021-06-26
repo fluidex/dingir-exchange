@@ -2,12 +2,14 @@ use crate::matchengine::rpc::*;
 use crate::models::AccountDesc;
 use crate::types::ConnectionType;
 use babyjubjub_rs::{Point, Signature};
+use num_bigint::BigInt;
 use poseidon_rs::Fr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub fn order_hash(_req: &OrderPutRequest) -> Fr {
-    Fr::default()
+pub fn order_hash(_req: &OrderPutRequest) -> BigInt {
+    BigInt::default()
+    // BigInt::parse_bytes(to_hex(elem).as_bytes(), 16).unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
@@ -44,7 +46,7 @@ impl UserManager {
         Ok(())
     }
 
-    pub fn verify_signature(&self, user_id: u32, msg: &Fr, signature: &str) -> bool {
+    pub fn verify_signature(&self, user_id: u32, msg: BigInt, signature: &str) -> bool {
         match self.users.get(&user_id) {
             None => false,
             Some(user) => babyjubjub_rs::verify(str_to_pubkey(&user.l2_pubkey), str_to_signature(signature), msg),

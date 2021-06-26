@@ -677,6 +677,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nix",
+ "num-bigint 0.2.6",
  "num_enum",
  "poseidon-rs",
  "prost",

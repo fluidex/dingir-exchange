@@ -26,6 +26,7 @@ itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
 nix = "0.20.0"
+num-bigint = { version = "0.2.2", features = [ "rand" ] }
 num_enum = "0.5.1"
 poseidon-rs = { version = "0.0.8" }
 prost = "0.7.0"
