@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
+use std::convert::TryInto;
 use std::str::FromStr;
 
 pub use babyjubjub_rs::{Point, Signature};

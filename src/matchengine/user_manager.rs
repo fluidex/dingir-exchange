@@ -2,10 +2,8 @@ use crate::matchengine::rpc::*;
 use crate::models::AccountDesc;
 use crate::primitives::*;
 use crate::types::ConnectionType;
-use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 pub fn order_hash(_req: &OrderPutRequest) -> BigInt {
     // consistent with https://github.com/Fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
