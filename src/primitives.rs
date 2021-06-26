@@ -101,3 +101,13 @@ pub fn fr_to_bool(f: &Fr) -> Result<bool> {
         Err(anyhow!("invalid fr"))
     }
 }
+
+pub fn str_to_pubkey(pubkey: &str) -> Result<Point> {
+    let pubkey_packed = hex::decode(pubkey)?;
+    babyjubjub_rs::decompress_point(pubkey_packed.try_into().unwrap()).map_err(|e| anyhow!(e))
+}
+
+pub fn str_to_signature(signature: &str) -> Result<Signature> {
+    let sig_packed_vec = hex::decode(signature)?;
+    babyjubjub_rs::decompress_signature(&sig_packed_vec.try_into().unwrap()).map_err(|e| anyhow!(e))
+}
