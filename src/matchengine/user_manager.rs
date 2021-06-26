@@ -1,11 +1,13 @@
-pub use crate::models::AccountDesc;
 use crate::matchengine::rpc::*;
+use crate::models::AccountDesc;
 use crate::types::ConnectionType;
+use babyjubjub_rs::{Point, Signature};
+use poseidon_rs::Fr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub fn order_hash(_req: &OrderPutRequest) -> String {
-    String::default()
+pub fn order_hash(_req: &OrderPutRequest) -> Fr {
+    Fr::default()
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
@@ -42,13 +44,10 @@ impl UserManager {
         Ok(())
     }
 
-    // TODO: use proper types?
-    pub fn verify_signature(&self, user_id: u32, msg: &str, signature: &str) -> bool {
+    pub fn verify_signature(&self, user_id: u32, msg: &Fr, signature: &str) -> bool {
         match self.users.get(&user_id) {
             None => false,
-            Some(user) => {                
-                babyjubjub_rs::verify(user.l2_pubkey.into(), signature.clone().into(), msg.clone().into())
-            },
+            Some(user) => babyjubjub_rs::verify(str_to_pubkey(&user.l2_pubkey), str_to_signature(signature), msg),
         }
     }
 }
@@ -59,20 +58,10 @@ impl Default for UserManager {
     }
 }
 
-impl From<String> for Point {
-   fn from(s: String) -> Self {
-        unimplemented!()
-   }
+fn str_to_pubkey(ori: &str) -> Point {
+    unimplemented!()
 }
 
-impl From<String> for SignatureBJJ {
-   fn from(s: String) -> Self {
-        unimplemented!()
-   }
-}
-
-impl From<String> for Fr {
-   fn from(s: String) -> Self {
-        unimplemented!()
-   }
+fn str_to_signature(ori: &str) -> Signature {
+    unimplemented!()
 }
