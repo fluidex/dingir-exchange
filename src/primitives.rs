@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use std::str::FromStr;
 
@@ -89,4 +90,14 @@ pub fn fr_to_vec(f: &Fr) -> Vec<u8> {
     let mut buf: Vec<u8> = Vec::with_capacity(required_length);
     repr.write_be(&mut buf).unwrap();
     buf
+}
+
+pub fn fr_to_bool(f: &Fr) -> Result<bool> {
+    if f.is_zero() {
+        Ok(false)
+    } else if f == &Fr::one() {
+        Ok(true)
+    } else {
+        Err(anyhow!("invalid fr"))
+    }
 }
