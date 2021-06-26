@@ -10,3 +10,5 @@ pub mod server;
 pub mod user_manager;
 
 mod mock;
+
+pub use user_manager::order_hash;
