@@ -5,19 +5,35 @@ use crate::types::ConnectionType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub fn order_hash(_req: &OrderPutRequest) -> BigInt {
+struct OrderCommiment {
+    // order_id
+    // account_id
+    // nonce
+    token_sell: Fr,
+    token_buy: Fr,
+    total_sell: Fr,
+    total_buy: Fr,
+}
+
+impl From<&OrderPutRequest> for OrderCommiment {
+    fn from(o: &OrderPutRequest) -> Self {
+        unimplemented!()
+    }
+}
+
+pub fn order_hash(req: &OrderPutRequest) -> BigInt {
+    let order: OrderCommiment = req.into();
+
     // consistent with https://github.com/Fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
     // TxType::PlaceOrder
     let magic_head = u32_to_fr(4);
     let data = hash(&[
-        magic_head,
-        // TODO: sign nonce or order_id
-        //u32_to_fr(self.order_id),
-
-        // self.token_sell,
-        // self.token_buy,
-        // self.total_sell,
-        // self.total_buy,
+        magic_head, // TODO: sign nonce or order_id
+        //u32_to_fr(order.order_id),
+        order.token_sell,
+        order.token_buy,
+        order.total_sell,
+        order.total_buy,
     ]);
     //data = hash([data, accountID, nonce]);
     // nonce and orderID seems redundant?
