@@ -5,6 +5,7 @@ use crate::primitives::*;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct AssetInfo {
@@ -90,11 +91,19 @@ impl AssetManager {
         }
         let base_token = match self.asset_get(assets[0]) {
             Some(token) => token,
-            None => return Err(anyhow!("market error")),
+            None => return Err(anyhow!("market base_token error")),
         };
         let quote_token = match self.asset_get(assets[1]) {
             Some(token) => token,
-            None => return Err(anyhow!("market error")),
+            None => return Err(anyhow!("market quote_token error")),
+        };
+        let amount = match rust_decimal::Decimal::from_str(&o.amount) {
+            Ok(d) => d,
+            _ => return Err(anyhow!("amount error")),
+        };
+        let price = match rust_decimal::Decimal::from_str(&o.price) {
+            Ok(d) => d,
+            _ => return Err(anyhow!("price error")),
         };
 
         match OrderSide::from_i32(o.order_side) {
@@ -103,16 +112,16 @@ impl AssetManager {
                 Ok(OrderCommitment {
                     token_buy: u32_to_fr(quote_token.inner_id),
                     token_sell: u32_to_fr(base_token.inner_id),
-                    // total_buy
-                    // total_sell
+                    total_buy: decimal_to_fr(&(amount * price), quote_token.prec_save),
+                    total_sell: decimal_to_fr(&amount, base_token.prec_save),
                 })
             }
             Some(OrderSide::Bid) => {
                 Ok(OrderCommitment {
                     token_buy: u32_to_fr(base_token.inner_id),
                     token_sell: u32_to_fr(quote_token.inner_id),
-                    // total_buy
-                    // total_sell
+                    total_buy: decimal_to_fr(&amount, base_token.prec_save),
+                    total_sell: decimal_to_fr(&(amount * price), quote_token.prec_save),
                 })
             }
         }

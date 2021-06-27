@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
+use rust_decimal::prelude::ToPrimitive;
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -111,4 +112,16 @@ pub fn str_to_pubkey(pubkey: &str) -> Result<Point> {
 pub fn str_to_signature(signature: &str) -> Result<Signature> {
     let sig_packed_vec = hex::decode(signature)?;
     babyjubjub_rs::decompress_signature(&sig_packed_vec.try_into().unwrap()).map_err(|e| anyhow!(e))
+}
+
+pub fn decimal_to_u64(num: &Decimal, prec: u32) -> u64 {
+    let prec_mul = Decimal::new(10, 0).powi(prec as u64);
+    let adjusted = num * prec_mul;
+    adjusted.floor().to_u64().unwrap()
+}
+
+pub fn decimal_to_fr(num: &Decimal, prec: u32) -> Fr {
+    // TODO: is u64 enough?
+    u64_to_fr(decimal_to_u64(num, prec))
+    // Float864::from_decimal(num, prec).unwrap().to_fr()
 }
