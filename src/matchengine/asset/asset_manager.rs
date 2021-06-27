@@ -107,7 +107,7 @@ impl AssetManager {
         };
 
         match OrderSide::from_i32(o.order_side) {
-            None => return Err(anyhow!("market error")),
+            None => Err(anyhow!("market error")),
             Some(OrderSide::Ask) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(quote_token.inner_id),
                 token_sell: u32_to_fr(base_token.inner_id),
