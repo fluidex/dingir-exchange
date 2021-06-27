@@ -84,6 +84,14 @@ impl AssetManager {
         if assets.len() != 2 {
             return Err(anyhow!("market error"));
         }
+        let base_token = match self.asset_get(assets[0]){
+            Some(token) => token,
+            None => return Err(anyhow!("market error")),
+        };
+        let quote_token = match self.asset_get(assets[1]){
+            Some(token) => token,
+            None => return Err(anyhow!("market error")),
+        };
 
         match OrderSide::from_i32(o.order_side) {
             None => return Err(anyhow!("market error")),
