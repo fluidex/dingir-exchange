@@ -85,6 +85,24 @@ impl AssetManager {
             return Err(anyhow!("market error"));
         }
 
-        unimplemented!()
+        match OrderSide::from_i32(o.order_side) {
+            None => return Err(anyhow!("market error")),
+            Some(OrderSide::Ask) => {
+                Ok(OrderCommitment {
+                // token_buy
+                // token_sell
+                // total_buy
+                // total_sell
+                })
+            }
+            Some(OrderSide::Bid) => {
+                Ok(OrderCommitment {
+                // token_buy
+                // token_sell
+                // total_buy
+                // total_sell
+                })
+            }
+        }
     }
 }

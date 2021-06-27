@@ -181,10 +181,10 @@ pub struct OrderCommitment {
     // order_id
     // account_id
     // nonce
-    token_sell: Fr,
-    token_buy: Fr,
-    total_sell: Fr,
-    total_buy: Fr,
+    pub token_sell: Fr,
+    pub token_buy: Fr,
+    pub total_sell: Fr,
+    pub total_buy: Fr,
 }
 
 impl OrderCommitment {
