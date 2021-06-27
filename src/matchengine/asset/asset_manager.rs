@@ -1,4 +1,6 @@
 use crate::config;
+use crate::market::OrderCommitment;
+use crate::matchengine::rpc::*;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,5 +61,9 @@ impl AssetManager {
     }
     pub fn asset_prec_show(&self, id: &str) -> u32 {
         self.asset_get(id).unwrap().prec_show
+    }
+
+    pub fn commit_order(&self, o: &OrderPutRequest) -> OrderCommitment {
+        unimplemented!()
     }
 }
