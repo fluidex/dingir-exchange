@@ -2,7 +2,7 @@ use crate::config;
 use crate::market::OrderCommitment;
 use crate::matchengine::rpc::*;
 use crate::primitives::*;
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -71,23 +71,23 @@ impl AssetManager {
     pub fn commit_order(&self, o: &OrderPutRequest) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
-            return Err(anyhow!("market error"));
+            bail!("market error");
         }
         let base_token = match self.asset_get(assets[0]) {
             Some(token) => token,
-            None => return Err(anyhow!("market base_token error")),
+            None => bail!("market base_token error"),
         };
         let quote_token = match self.asset_get(assets[1]) {
             Some(token) => token,
-            None => return Err(anyhow!("market quote_token error")),
+            None => bail!("market quote_token error"),
         };
         let amount = match rust_decimal::Decimal::from_str(&o.amount) {
             Ok(d) => d,
-            _ => return Err(anyhow!("amount error")),
+            _ => bail!("amount error"),
         };
         let price = match rust_decimal::Decimal::from_str(&o.price) {
             Ok(d) => d,
-            _ => return Err(anyhow!("price error")),
+            _ => bail!("price error"),
         };
 
         match OrderSide::from_i32(o.order_side) {
@@ -103,7 +103,7 @@ impl AssetManager {
                 total_buy: decimal_to_fr(&amount, base_token.prec_save),
                 total_sell: decimal_to_fr(&(amount * price), quote_token.prec_save),
             }),
-            None => Err(anyhow!("market error")),
+            None => bail!("market error"),
         }
     }
 }

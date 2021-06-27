@@ -13,7 +13,7 @@ use crate::types::{ConnectionType, DbType, SimpleResult};
 use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -725,7 +725,7 @@ impl Controller {
             OPERATION_REGISTER_USER => {
                 self.register_user(false, serde_json::from_str(params)?)?;
             }
-            _ => return Err(anyhow!("invalid operation {}", method)),
+            _ => bail!("invalid operation {}", method),
         }
         Ok(())
     }
