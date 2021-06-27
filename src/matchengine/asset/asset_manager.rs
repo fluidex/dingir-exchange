@@ -63,7 +63,8 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-    pub fn commit_order(&self, o: &OrderPutRequest) -> OrderCommitment {
+    // pub fn exchange_order_to_rollup_order
+    pub fn commit_order(&self, o: &OrderPutRequest) -> Result<OrderCommitment> {
         unimplemented!()
     }
 }

@@ -194,7 +194,12 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
             // order signature checking is not 'write' op, so it need not to be moved into the main thread
             // it is better to finish it here
             let stub = self.stub.read().await;
-            let msg = stub.balance_manager.asset_manager.commit_order(&req).hash();
+            let order = stub
+                .balance_manager
+                .asset_manager
+                .commit_order(&req)
+                .map_err(|_| Status::invalid_argument("invalid order params"))?;
+            let msg = order.hash();
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
