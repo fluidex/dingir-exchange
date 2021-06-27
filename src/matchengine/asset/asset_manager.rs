@@ -1,6 +1,7 @@
 use crate::config;
 use crate::market::OrderCommitment;
 use crate::matchengine::rpc::*;
+use crate::primitives::*;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,6 +10,7 @@ use std::collections::HashMap;
 pub struct AssetInfo {
     pub prec_save: u32,
     pub prec_show: u32,
+    pub inner_id: u32,
 }
 
 #[derive(Clone)]
@@ -26,6 +28,7 @@ impl AssetManager {
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
+                    inner_id: item.rollup_token_id as u32,
                 },
             );
         }
@@ -40,6 +43,7 @@ impl AssetManager {
                 AssetInfo {
                     prec_save: item.prec_save,
                     prec_show: item.prec_show,
+                    inner_id: item.rollup_token_id as u32,
                 },
             );
             if ret.is_some() {
@@ -84,11 +88,11 @@ impl AssetManager {
         if assets.len() != 2 {
             return Err(anyhow!("market error"));
         }
-        let base_token = match self.asset_get(assets[0]){
+        let base_token = match self.asset_get(assets[0]) {
             Some(token) => token,
             None => return Err(anyhow!("market error")),
         };
-        let quote_token = match self.asset_get(assets[1]){
+        let quote_token = match self.asset_get(assets[1]) {
             Some(token) => token,
             None => return Err(anyhow!("market error")),
         };
@@ -97,18 +101,18 @@ impl AssetManager {
             None => return Err(anyhow!("market error")),
             Some(OrderSide::Ask) => {
                 Ok(OrderCommitment {
-                // token_buy
-                // token_sell
-                // total_buy
-                // total_sell
+                    token_buy: u32_to_fr(quote_token.inner_id),
+                    token_sell: u32_to_fr(base_token.inner_id),
+                    // total_buy
+                    // total_sell
                 })
             }
             Some(OrderSide::Bid) => {
                 Ok(OrderCommitment {
-                // token_buy
-                // token_sell
-                // total_buy
-                // total_sell
+                    token_buy: u32_to_fr(base_token.inner_id),
+                    token_sell: u32_to_fr(quote_token.inner_id),
+                    // total_buy
+                    // total_sell
                 })
             }
         }
