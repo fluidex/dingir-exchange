@@ -68,22 +68,6 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-    // message OrderPutRequest {
-    //   uint32 user_id = 1;
-    //   string market = 2;
-    //   OrderSide order_side = 3;
-    //   OrderType order_type = 4;
-    //   string amount = 5; // always amount for base, even for market bid
-    //   string price = 6;  // should be empty or zero for market order
-    //   string quote_limit = 7; // onyl valid for market bid order
-    //   string taker_fee = 8;
-    //   string maker_fee = 9;
-    //   bool post_only = 10; // Ensures an Limit order is only subject to Maker Fees (ignored for Market orders).
-    //   string signature = 11; // bjj signature used in Fluidex
-    // }
-
-    // impl TryFrom<OrderPutRequest> for market::OrderInput {
-    // pub fn exchange_order_to_rollup_order
     pub fn commit_order(&self, o: &OrderPutRequest) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
@@ -107,7 +91,6 @@ impl AssetManager {
         };
 
         match OrderSide::from_i32(o.order_side) {
-            None => Err(anyhow!("market error")),
             Some(OrderSide::Ask) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(quote_token.inner_id),
                 token_sell: u32_to_fr(base_token.inner_id),
@@ -120,6 +103,7 @@ impl AssetManager {
                 total_buy: decimal_to_fr(&amount, base_token.prec_save),
                 total_sell: decimal_to_fr(&(amount * price), quote_token.prec_save),
             }),
+            None => Err(anyhow!("market error")),
         }
     }
 }
