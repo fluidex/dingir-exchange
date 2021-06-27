@@ -1,4 +1,5 @@
-pub use crate::models::AccountDesc;
+use crate::models::AccountDesc;
+use crate::primitives::*;
 use crate::types::ConnectionType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -35,6 +36,17 @@ impl UserManager {
             );
         }
         Ok(())
+    }
+
+    pub fn verify_signature(&self, user_id: u32, msg: BigInt, signature: &str) -> bool {
+        match self.users.get(&user_id) {
+            None => false,
+            Some(user) => {
+                let pubkey = str_to_pubkey(&user.l2_pubkey).map_err(|_| false).unwrap();
+                let signature = str_to_signature(signature).map_err(|_| false).unwrap();
+                babyjubjub_rs::verify(pubkey, signature, msg)
+            }
+        }
     }
 }
 

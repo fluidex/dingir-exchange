@@ -10,6 +10,7 @@ pub mod storage;
 pub use storage::{database, models, sqlxextend};
 pub mod config;
 pub mod message;
+pub mod primitives;
 pub mod restapi;
 pub mod types;
 pub mod utils;
