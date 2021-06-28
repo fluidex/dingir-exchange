@@ -6,3 +6,6 @@
 
 # unifymessenger output
 output.txt
+*.log
+persistor_output.txt
+unify_msgs_output.txt
