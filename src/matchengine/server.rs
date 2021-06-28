@@ -200,6 +200,7 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
                 .commit_order(&req)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
+            log::debug!("{:?}", msg.to_string());
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
