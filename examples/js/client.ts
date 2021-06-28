@@ -115,6 +115,10 @@ class Client {
         totalSell = amountFullPrec;
         totalBuy = quoteFullPrec;
       }
+      console.log(tokenSell);
+      console.log(tokenBuy);
+      console.log(totalSell);
+      console.log(totalBuy);
       let orderInput = new OrderInput({
         tokenSell,
         tokenBuy,
