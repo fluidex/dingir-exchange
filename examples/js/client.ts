@@ -121,11 +121,9 @@ class Client {
         totalSell,
         totalBuy
       });
+      console.log("orderInput.hash: ", orderInput.hash())
       signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
     }
-
-    console.log("order_type:", order_type);
-    console.log("signature:", signature);
     return {
       user_id,
       market,
