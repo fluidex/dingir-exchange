@@ -1,6 +1,7 @@
 use crate::config::{OrderSignatrueCheck, Settings};
 use crate::controller::Controller;
 use crate::matchengine::rpc::*;
+use crate::primitives::*;
 
 use std::fmt::Debug;
 use std::pin::Pin;
