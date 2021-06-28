@@ -68,20 +68,16 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-// let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
-// let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
-// let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
-// if (order_side == ORDER_SIDE_BID) {
-//   tokenBuy = baseTokenInfo.inner_id;
-//   tokenSell = quoteTokenInfo.inner_id;
-//   totalBuy = amountFullPrec;
-//   totalSell = quoteFullPrec;
-// } else {
-//   tokenSell = baseTokenInfo.inner_id;
-//   tokenBuy = quoteTokenInfo.inner_id;
-//   totalSell = amountFullPrec;
-//   totalBuy = quoteFullPrec;
-// }
+    // let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
+    // let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
+    // let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
+    // if (order_side == ORDER_SIDE_BID) {
+    //   totalBuy = amountFullPrec;
+    //   totalSell = quoteFullPrec;
+    // } else {
+    //   totalSell = amountFullPrec;
+    //   totalBuy = quoteFullPrec;
+    // }
 
     pub fn commit_order(&self, o: &OrderPutRequest, market: &Market) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
@@ -109,14 +105,14 @@ impl AssetManager {
             Some(OrderSide::Ask) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(quote_token.inner_id),
                 token_sell: u32_to_fr(base_token.inner_id),
-                total_buy: decimal_to_fr(&(amount * price), quote_token.prec_save),
-                total_sell: decimal_to_fr(&amount, base_token.prec_save),
+                total_buy: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
+                total_sell: decimal_to_fr(&amount, market.amount_prec),
             }),
             Some(OrderSide::Bid) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(base_token.inner_id),
                 token_sell: u32_to_fr(quote_token.inner_id),
-                total_buy: decimal_to_fr(&amount, base_token.prec_save),
-                total_sell: decimal_to_fr(&(amount * price), quote_token.prec_save),
+                total_buy: decimal_to_fr(&amount, market.amount_prec),
+                total_sell: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
             }),
             None => bail!("market error"),
         }
