@@ -1,5 +1,5 @@
 use crate::config;
-use crate::market::OrderCommitment;
+use crate::market::{Market, OrderCommitment};
 use crate::matchengine::rpc::*;
 use crate::primitives::*;
 use anyhow::{bail, Result};
@@ -68,7 +68,7 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-    pub fn commit_order(&self, o: &OrderPutRequest) -> Result<OrderCommitment> {
+    pub fn commit_order(&self, o: &OrderPutRequest, market: &Market) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
             bail!("market error");
@@ -94,14 +94,14 @@ impl AssetManager {
             Some(OrderSide::Ask) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(quote_token.inner_id),
                 token_sell: u32_to_fr(base_token.inner_id),
-                total_buy: decimal_to_fr(&(amount * price), quote_token.prec_save),
-                total_sell: decimal_to_fr(&amount, base_token.prec_save),
+                total_buy: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
+                total_sell: decimal_to_fr(&amount, market.amount_prec),
             }),
             Some(OrderSide::Bid) => Ok(OrderCommitment {
                 token_buy: u32_to_fr(base_token.inner_id),
                 token_sell: u32_to_fr(quote_token.inner_id),
-                total_buy: decimal_to_fr(&amount, base_token.prec_save),
-                total_sell: decimal_to_fr(&(amount * price), quote_token.prec_save),
+                total_buy: decimal_to_fr(&amount, market.amount_prec),
+                total_sell: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
             }),
             None => bail!("market error"),
         }
