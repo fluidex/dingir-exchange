@@ -115,17 +115,12 @@ class Client {
         totalSell = amountFullPrec;
         totalBuy = quoteFullPrec;
       }
-      console.log(tokenSell);
-      console.log(tokenBuy);
-      console.log(totalSell);
-      console.log(totalBuy);
       let orderInput = new OrderInput({
         tokenSell,
         tokenBuy,
         totalSell,
         totalBuy
       });
-      console.log("orderInput.hash: ", orderInput.hash())
       signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
     }
     return {

@@ -42,8 +42,6 @@ impl UserManager {
         match self.users.get(&user_id) {
             None => false,
             Some(user) => {
-                log::error!("pubkey: {:?}", &user.l2_pubkey);
-                log::error!("signature: {:?}", signature);
                 let pubkey = str_to_pubkey(&user.l2_pubkey).map_err(|_| false).unwrap();
                 let signature = str_to_signature(signature).map_err(|_| false).unwrap();
                 babyjubjub_rs::verify(pubkey, signature, msg)

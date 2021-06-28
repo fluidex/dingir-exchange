@@ -68,17 +68,6 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-    // let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
-    // let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
-    // let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
-    // if (order_side == ORDER_SIDE_BID) {
-    //   totalBuy = amountFullPrec;
-    //   totalSell = quoteFullPrec;
-    // } else {
-    //   totalSell = amountFullPrec;
-    //   totalBuy = quoteFullPrec;
-    // }
-
     pub fn commit_order(&self, o: &OrderPutRequest, market: &Market) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
