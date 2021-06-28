@@ -26,6 +26,7 @@ impl SimpleMessageHandler for &MessageWriter {
             "orders" => "OrderMessage",
             "trades" => "TradeMessage",
             "balances" => "BalanceMessage",
+            "registeruser" => "UserMessage",
             _ => unreachable!(),
         };
 
@@ -65,8 +66,7 @@ fn main() {
             .set("group.id", "unify_msg_dumper")
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "6000")
-            .set("enable.auto.commit", "true")
-            //.set("enable.auto.commit", "false")
+            .set("enable.auto.commit", "false")
             .set("auto.offset.reset", "earliest")
             .create()
             .unwrap();
