@@ -9,10 +9,12 @@ import {
   ORDER_TYPE_MARKET,
   ORDER_TYPE_LIMIT
 } from "./config"; // dotenv
+import { getTestAccount } from "./accounts";
 import { defaultClient as client } from "./client";
 import { depositAssets, printBalance, sleep, decimalEqual } from "./util";
 import { KafkaConsumer } from "./kafka_client";
 
+import { Account } from "fluidex.js";
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
@@ -24,6 +26,19 @@ async function infoList() {
   console.log(await client.assetList());
   console.log(await client.marketList());
   console.log(await client.marketSummary(market));
+}
+
+async function initAccounts() {
+  await client.connect();
+  for (let user_id = 1; user_id <= bidUser; user_id++) {
+    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    client.addAccount(user_id, acc);
+    await client.client.RegisterUser({
+      user_id,
+      l1_address: acc.ethAddr,
+      l2_pubkey: acc.bjjPubKey
+    });
+  }
 }
 
 async function setupAsset() {
@@ -163,6 +178,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
 }
 
 async function simpleTest() {
+  await initAccounts();
   await setupAsset();
   await orderTest();
   return await tradeTest();
