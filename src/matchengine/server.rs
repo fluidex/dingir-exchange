@@ -194,6 +194,7 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
             // check order signature here
             // order signature checking is not 'write' op, so it need not to be moved into the main thread
             // it is better to finish it here
+            // TODO: refactor
             let stub = self.stub.read().await;
             if !stub.markets.contains_key(&req.market) {
                 return Err(Status::invalid_argument("invalid market"));
