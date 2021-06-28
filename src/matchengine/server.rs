@@ -195,10 +195,14 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
             // order signature checking is not 'write' op, so it need not to be moved into the main thread
             // it is better to finish it here
             let stub = self.stub.read().await;
+            if !stub.markets.contains_key(&req.market) {
+                return Err(Status::invalid_argument("invalid market"));
+            }
+            let market = stub.markets.get(&req.market).unwrap();
             let order = stub
                 .balance_manager
                 .asset_manager
-                .commit_order(&req)
+                .commit_order(&req, &market)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
 
             log::error!("{:?}", order.token_sell);

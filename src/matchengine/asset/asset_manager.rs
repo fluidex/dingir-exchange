@@ -1,5 +1,5 @@
 use crate::config;
-use crate::market::OrderCommitment;
+use crate::market::{Market, OrderCommitment};
 use crate::matchengine::rpc::*;
 use crate::primitives::*;
 use anyhow::{bail, Result};
@@ -68,7 +68,22 @@ impl AssetManager {
         self.asset_get(id).unwrap().prec_show
     }
 
-    pub fn commit_order(&self, o: &OrderPutRequest) -> Result<OrderCommitment> {
+// let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
+// let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
+// let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
+// if (order_side == ORDER_SIDE_BID) {
+//   tokenBuy = baseTokenInfo.inner_id;
+//   tokenSell = quoteTokenInfo.inner_id;
+//   totalBuy = amountFullPrec;
+//   totalSell = quoteFullPrec;
+// } else {
+//   tokenSell = baseTokenInfo.inner_id;
+//   tokenBuy = quoteTokenInfo.inner_id;
+//   totalSell = amountFullPrec;
+//   totalBuy = quoteFullPrec;
+// }
+
+    pub fn commit_order(&self, o: &OrderPutRequest, market: &Market) -> Result<OrderCommitment> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
             bail!("market error");
