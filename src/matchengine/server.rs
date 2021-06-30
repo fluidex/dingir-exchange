@@ -205,6 +205,11 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
                 .commit_order(&req, &market)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
+            log::warn!("order.token_buy {:?}", order.token_buy);
+            log::warn!("order.token_sell {:?}", order.token_sell);
+            log::warn!("order.total_buy {:?}", order.total_buy);
+            log::warn!("order.total_sell {:?}", order.total_sell);
+            log::warn!("order.hash() {:?}", order.hash());
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
