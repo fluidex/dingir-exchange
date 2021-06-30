@@ -1,6 +1,7 @@
 use crate::config::{OrderSignatrueCheck, Settings};
 use crate::controller::Controller;
 use crate::matchengine::rpc::*;
+use crate::primitives::*;
 
 use std::fmt::Debug;
 use std::pin::Pin;
@@ -206,11 +207,11 @@ impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
-                log::warn!("order.token_buy {:?}", order.token_buy);
-                log::warn!("order.token_sell {:?}", order.token_sell);
-                log::warn!("order.total_buy {:?}", order.total_buy);
-                log::warn!("order.total_sell {:?}", order.total_sell);
-                log::warn!("order.hash() {:?}", order.hash());
+                log::warn!("order.token_buy {:?}", fr_to_string(&order.token_buy));
+                log::warn!("order.token_sell {:?}", fr_to_string(&order.token_sell));
+                log::warn!("order.total_buy {:?}", fr_to_string(&order.total_buy));
+                log::warn!("order.total_sell {:?}", fr_to_string(&order.total_sell));
+                log::warn!("order.hash() {:?}", order.hash().to_string());
                 return Err(Status::invalid_argument("invalid signature"));
             }
         }
