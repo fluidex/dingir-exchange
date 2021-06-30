@@ -1,0 +1,5 @@
+insert into account (id, l1_address, l2_pubkey) values 
+	(1, '0xAF4f546158F96A7316541cd10e0C56329Ed2d1d4', '0x6246b10193393ee329e44e847f94e70b0c091d5973405e47f52f00e38ac484a5'), -- Ray
+	(2, '0xdbDC9Cea0E0e11b097cf53c54E3adbF7EF205E95', '0x1ef0207cbedc8811a6f5cdee94e4daf0fa94a1fb1afe266d5fc5a781fb8eeea6'), -- HY1
+	(3, '0xFFd6d35996A1049ECAe88B62a92E0e2a36685990', '0x02581751f68e010faff96de3f1de3101ef1ecf4aef91a46e72f39585d56dc78c') -- HY2
+	;
