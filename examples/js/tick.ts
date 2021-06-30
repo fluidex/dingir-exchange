@@ -20,7 +20,7 @@ async function initAccountsAndAssets() {
   await client.connect();
   markets = Array.from(client.markets.keys());
   for (const user_id of botsIds) {
-    if user_id > 3 {
+    if (user_id > 3) {
       let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
       client.addAccount(user_id, acc);
       await client.client.RegisterUser({

@@ -31,7 +31,7 @@ async function infoList() {
 async function initAccounts() {
   await client.connect();
   for (let user_id = 1; user_id <= bidUser; user_id++) {
-    if user_id <=3 {
+    if (user_id <= 3) {
       continue;
     };
 
