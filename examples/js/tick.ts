@@ -97,7 +97,7 @@ async function run() {
   }
 }
 async function main() {
-  await client.debugReset();
+  // await client.debugReset();
   await initAccountsAndAssets();
   await run();
 }
