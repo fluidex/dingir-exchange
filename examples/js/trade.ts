@@ -31,6 +31,10 @@ async function infoList() {
 async function initAccounts() {
   await client.connect();
   for (let user_id = 1; user_id <= bidUser; user_id++) {
+    if user_id <=3 {
+      continue;
+    };
+
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
     client.addAccount(user_id, acc);
     await client.client.RegisterUser({
