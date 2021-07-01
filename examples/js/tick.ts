@@ -12,23 +12,33 @@ import { getTestAccount } from "./accounts";
 import { Account } from "fluidex.js";
 
 const verbose = true;
-const botsIds = [1, 2, 3, 4, 5];
+const botsIds = [4, 5, 6, 7, 8]; // 1,2,3 already registered
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
-async function initAccountsAndAssets() {
+async function initClient() {
   await client.connect();
   markets = Array.from(client.markets.keys());
+}
+async function loadAccounts() {
   for (const user_id of botsIds) {
-    if (user_id > 3) {
-      let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-      client.addAccount(user_id, acc);
-      await client.client.RegisterUser({
-        user_id,
-        l1_address: acc.ethAddr,
-        l2_pubkey: acc.bjjPubKey
-      });
-    };
+    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    client.addAccount(user_id, acc);
+  }
+}
+async function registerAccounts() {
+  for (const user_id of botsIds) {
+    // TODO: clean codes here
+    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    await client.client.RegisterUser({
+      user_id,
+      l1_address: acc.ethAddr,
+      l2_pubkey: acc.bjjPubKey
+    });
+  }
+}
+async function initAssets() {
+  for (const user_id of botsIds) {
     await depositAssets({ USDT: "500000.0" }, user_id);
     for (const [name, info] of client.markets) {
       const base = info.base;
@@ -68,12 +78,20 @@ function getPrice(token: string): number {
   return price;
 }
 
+async function cancelAll() {
+  for (const user_id of botsIds) {
+    for (const [market, _] of client.markets) {
+      await client.orderCancelAll(user_id, market);
+    }
+    console.log("balance of", user_id, await client.balanceQuery(user_id));
+  }
+}
 async function run() {
   let cnt = 0;
   while (true) {
     try {
       await sleep(1000);
-      if (cnt % 300 == 0) {
+      if (cnt % 30 == 0) {
         await client.orderCancelAll(randUser(), getRandomElem(markets));
       }
       if (cnt % 60 == 0) {
@@ -86,7 +104,7 @@ async function run() {
           randUser(),
           market,
           getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
-          getRandomFloatAround(3, 0.5),
+          getRandomFloatAround(0.3, 0.05),
           getRandomFloatAround(price)
         );
       }
@@ -97,8 +115,15 @@ async function run() {
   }
 }
 async function main() {
-  // await client.debugReset();
-  await initAccountsAndAssets();
+  const reset = true;
+  await initClient();
+  await loadAccounts();
+  //await cancelAll();
+  if (reset) {
+    // await client.debugReset();
+    await registerAccounts();
+    await initAssets();
+  }
   await run();
 }
 main().catch(console.log);
