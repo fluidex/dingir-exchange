@@ -88,10 +88,10 @@ async function run() {
           getRandomFloatAround(price)
         );
       }
-      cnt += 1;
     } catch (e) {
       console.log(e);
     }
+    cnt += 1;
   }
 }
 async function main() {
