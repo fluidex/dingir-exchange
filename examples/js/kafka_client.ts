@@ -18,6 +18,7 @@ export class KafkaConsumer {
     this.consumer = consumer;
     await consumer.connect();
     const fromBeginning = false;
+    this.messages = new Map();
     for (const topic of topics) {
       this.messages.set(topic, []);
       await consumer.subscribe({ topic, fromBeginning });

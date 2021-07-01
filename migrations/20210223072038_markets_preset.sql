@@ -14,6 +14,5 @@ insert into market (base_asset, quote_asset, precision_amount, precision_price, 
 	('ETH', 'USDT', 4, 2, 0, 0.001),
 	('UNI', 'USDT', 4, 2, 0, 0.001),
 	('LINK', 'USDT', 4, 2, 0, 0.001),
-	('YFI', 'USDT', 4, 2, 0, 0.001),
 	('MATIC', 'USDT', 4, 2, 0, 0.001)
 	;

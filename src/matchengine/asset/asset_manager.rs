@@ -3,6 +3,7 @@ use crate::market::{Market, OrderCommitment};
 use crate::matchengine::rpc::*;
 use crate::primitives::*;
 use anyhow::{bail, Result};
+use rust_decimal::RoundingStrategy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -82,11 +83,11 @@ impl AssetManager {
             None => bail!("market quote_token error"),
         };
         let amount = match rust_decimal::Decimal::from_str(&o.amount) {
-            Ok(d) => d,
+            Ok(d) => d.round_dp_with_strategy(market.amount_prec, RoundingStrategy::RoundDown),
             _ => bail!("amount error"),
         };
         let price = match rust_decimal::Decimal::from_str(&o.price) {
-            Ok(d) => d,
+            Ok(d) => d.round_dp(market.price_prec),
             _ => bail!("price error"),
         };
 
