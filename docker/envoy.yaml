@@ -20,13 +20,13 @@ static_resources:
             - name: local_service
               domains: ["*"]
               routes:
-              - match: {prefix: "/api"}
-                route:
-                  cluster: grpc
-                  timeout: 60s
               - match: {prefix: "/restapi"}
                 route:
                   cluster: rust_http
+                  timeout: 60s
+              - match: {prefix: "/matchengine.Matchengine"}
+                route:
+                  cluster: grpc
                   timeout: 60s
           http_filters:
           - name: envoy.filters.http.grpc_json_transcoder
