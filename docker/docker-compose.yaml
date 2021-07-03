@@ -1,26 +1,15 @@
 version: '3.4'
 services:
-  nginx:
-    image: nginx:latest
-    container_name: nginx
+  envoy:
+    image: envoyproxy/envoy-dev:f2906f5ce372814b8e6f688a0e1766703d8b56f2
+    container_name: exchange_envoy
     restart: always
-    volumes: 
-      - ./configs/proxy.conf:/etc/nginx/conf.d/proxy.conf
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "8765:8765"
-  grpcgateway:
-    image: lispczz/grpc-dynamic-gateway:latest
-    container_name: grpc_dynamic_gateway
-    restart: always
+    command: -c /etc/envoy/envoy.yaml --log-level debug
     volumes:
-      - ../proto/exchange/matchengine.proto:/api.proto
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "50052:50052"
-    command: api.proto -I ../../.. -p 50052 -g host.docker.internal:50051 -m /api    
+      - ./envoy.yaml:/etc/envoy/envoy.yaml   
+      - ../proto/matchengine.pb:/tmp/envoy/proto.pb
   db:
     image: timescale/timescaledb:2.1.0-pg13
     container_name: exchange_pq
