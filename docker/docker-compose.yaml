@@ -10,6 +10,8 @@ services:
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml   
       - ../proto/matchengine.pb:/tmp/envoy/proto.pb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   db:
     image: timescale/timescaledb:2.1.0-pg13
     container_name: exchange_pq
