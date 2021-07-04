@@ -78,12 +78,20 @@ function getPrice(token: string): number {
   return price;
 }
 
+async function cancelAllForUser(user_id) {
+  for (const [market, _] of client.markets) {
+    await client.orderCancelAll(user_id, market);
+  }
+  console.log(
+    "after cancel all, balance",
+    user_id,
+    await client.balanceQuery(user_id)
+  );
+}
+
 async function cancelAll() {
   for (const user_id of botsIds) {
-    for (const [market, _] of client.markets) {
-      await client.orderCancelAll(user_id, market);
-    }
-    console.log("balance of", user_id, await client.balanceQuery(user_id));
+    await cancelAllForUser(user_id);
   }
 }
 async function run() {
@@ -91,22 +99,27 @@ async function run() {
   while (true) {
     try {
       await sleep(1000);
-      if (cnt % 30 == 0) {
-        await client.orderCancelAll(randUser(), getRandomElem(markets));
-      }
       if (cnt % 60 == 0) {
+        // update prices every 1 minutes
         await updatePrices("coinstats");
       }
-      for (let i = 0; i < 5; i++) {
-        const market = getRandomElem(markets);
-        const price = getPrice(market.split("_")[0]);
-        await putLimitOrder(
-          randUser(),
-          market,
-          getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
-          getRandomFloatAround(0.3, 0.05),
-          getRandomFloatAround(price)
-        );
+      async function tickForUser(user) {
+        if (cnt % 180 == 0) {
+          // reset orders every 3 minutes
+          await cancelAllForUser(user);
+        }
+        for (let market of markets) {
+          const price = getPrice(market.split("_")[0]);
+          await putLimitOrder(
+            user,
+            market,
+            getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
+            getRandomFloatAround(0.3, 0.05),
+            getRandomFloatAround(price)
+          );
+        }
+        const userId = botsIds[cnt % botsIds.length];
+        await tickForUser(userId);
       }
     } catch (e) {
       console.log(e);
