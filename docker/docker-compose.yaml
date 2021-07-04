@@ -33,7 +33,7 @@ services:
       - ./data/volumes/log_zookeeper:/var/log/zookeeper
 
   kafka:
-    image: wurstmeister/kafka:latest
+    image: wurstmeister/kafka:2.13-2.7.0
     container_name: exchange_kafka
     restart: always
     logging:
