@@ -96,7 +96,7 @@ async function cancelAll() {
 }
 async function run() {
   let cnt = 0;
-  while (true) {
+  for(let cnt = 0; ; cnt++) {
     try {
       await sleep(1000);
       if (cnt % 60 == 0) {
@@ -104,8 +104,7 @@ async function run() {
         await updatePrices("coinstats");
       }
       async function tickForUser(user) {
-        if (cnt % 180 == 0) {
-          // reset orders every 3 minutes
+        if ((cnt / botsIds.length) % 200 == 0) {
           await cancelAllForUser(user);
         }
         for (let market of markets) {
@@ -118,13 +117,12 @@ async function run() {
             getRandomFloatAround(price)
           );
         }
-        const userId = botsIds[cnt % botsIds.length];
-        await tickForUser(userId);
       }
+      const userId = botsIds[cnt % botsIds.length];
+      await tickForUser(userId);
     } catch (e) {
       console.log(e);
     }
-    cnt += 1;
   }
 }
 async function main() {

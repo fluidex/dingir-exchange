@@ -515,6 +515,7 @@ impl Market {
             }
         }
 
+        log::debug!("execute_order done {:?}", taker);
         taker
     }
 
