@@ -46,3 +46,6 @@ cleardb:
 	# https://stackoverflow.com/a/13823560/2078461
 	psql $(DB) -X -a -f $(DB_RESET_DIR)/down.sql
 	psql $(DB) -X -a -f $(DB_RESET_DIR)/up.sql
+
+genpb:
+	cd proto && protoc -Ithird_party/googleapis -I. --include_imports --include_source_info --descriptor_set_out=matchengine.pb exchange/matchengine.proto
