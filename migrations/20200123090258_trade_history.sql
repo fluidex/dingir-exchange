@@ -6,6 +6,8 @@ CREATE TABLE balance_history (
     business VARCHAR(30) NOT NULL,
     change DECIMAL(30, 8) NOT NULL,
     balance DECIMAL(30, 16) NOT NULL,
+    balance_available DECIMAL(30, 16) NOT NULL,
+    balance_frozen DECIMAL(30, 16) NOT NULL,
     detail TEXT NOT NULL
 );
 

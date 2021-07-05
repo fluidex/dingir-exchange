@@ -611,6 +611,8 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
             business: origin.business.clone(),
             change: DecimalDbType::from_str(&origin.change).unwrap_or_else(decimal_warning),
             balance: DecimalDbType::from_str(&origin.balance).unwrap_or_else(decimal_warning),
+            balance_available: DecimalDbType::from_str(&origin.balance_available).unwrap_or_else(decimal_warning),
+            balance_frozen: DecimalDbType::from_str(&origin.balance_frozen).unwrap_or_else(decimal_warning),
             detail: origin.detail.clone(),
         }
     }

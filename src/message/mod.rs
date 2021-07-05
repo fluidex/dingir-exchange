@@ -37,6 +37,8 @@ pub struct BalanceMessage {
     pub business: String,
     pub change: String,
     pub balance: String,
+    pub balance_available: String,
+    pub balance_frozen: String,
     pub detail: String,
 }
 
@@ -49,6 +51,8 @@ impl From<BalanceHistory> for BalanceMessage {
             business: balance.business.clone(),
             change: balance.change.to_string(),
             balance: balance.balance.to_string(),
+            balance_available: balance.balance_available.to_string(),
+            balance_frozen: balance.balance_frozen.to_string(),
             detail: balance.detail,
         }
     }
