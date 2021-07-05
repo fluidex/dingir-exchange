@@ -51,8 +51,13 @@ async function initAssets() {
 function randUser() {
   return getRandomElem(botsIds);
 }
+let priceUpdatedTime = 0;
 async function updatePrices(backend) {
   try {
+    // limit query rate
+    if (Date.now() <= priceUpdatedTime + 60 * 1000) {
+      return;
+    }
     if (backend == "coinstats") {
       const url =
         "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
@@ -65,6 +70,7 @@ async function updatePrices(backend) {
         "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
       // TODO
     }
+    priceUpdatedTime = Date.now();
   } catch (e) {
     console.log("update price err", e);
   }
@@ -78,40 +84,53 @@ function getPrice(token: string): number {
   return price;
 }
 
+async function cancelAllForUser(user_id) {
+  for (const [market, _] of client.markets) {
+    console.log(
+      "cancel all",
+      user_id,
+      market,
+      await client.orderCancelAll(user_id, market)
+    );
+  }
+  console.log(
+    "after cancel all, balance",
+    user_id,
+    await client.balanceQuery(user_id)
+  );
+}
+
 async function cancelAll() {
   for (const user_id of botsIds) {
-    for (const [market, _] of client.markets) {
-      await client.orderCancelAll(user_id, market);
-    }
-    console.log("balance of", user_id, await client.balanceQuery(user_id));
+    await cancelAllForUser(user_id);
   }
 }
 async function run() {
   let cnt = 0;
-  while (true) {
+  for (let cnt = 0; ; cnt++) {
     try {
       await sleep(1000);
-      if (cnt % 30 == 0) {
-        await client.orderCancelAll(randUser(), getRandomElem(markets));
+      await updatePrices("coinstats");
+      async function tickForUser(user) {
+        if (Math.floor(cnt / botsIds.length) % 200 == 0) {
+          await cancelAllForUser(user);
+        }
+        for (let market of markets) {
+          const price = getPrice(market.split("_")[0]);
+          await putLimitOrder(
+            user,
+            market,
+            getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
+            getRandomFloatAround(0.3, 0.05),
+            getRandomFloatAround(price)
+          );
+        }
       }
-      if (cnt % 60 == 0) {
-        await updatePrices("coinstats");
-      }
-      for (let i = 0; i < 5; i++) {
-        const market = getRandomElem(markets);
-        const price = getPrice(market.split("_")[0]);
-        await putLimitOrder(
-          randUser(),
-          market,
-          getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
-          getRandomFloatAround(0.3, 0.05),
-          getRandomFloatAround(price)
-        );
-      }
+      const userId = botsIds[cnt % botsIds.length];
+      await tickForUser(userId);
     } catch (e) {
       console.log(e);
     }
-    cnt += 1;
   }
 }
 async function main() {
