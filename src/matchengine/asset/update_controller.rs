@@ -85,13 +85,16 @@ impl BalanceUpdateController {
 
         if persistor.real_persist() {
             detail["id"] = serde_json::Value::from(business_id);
+            let balance_frozen = balance_manager.get(user_id, BalanceType::FREEZE, &asset);
             persistor.put_balance(BalanceHistory {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
                 business,
                 change,
-                balance: new_balance,
+                balance: new_balance + balance_frozen,
+                balance_available: new_balance,
+                balance_frozen,
                 detail: detail.to_string(),
             });
         }

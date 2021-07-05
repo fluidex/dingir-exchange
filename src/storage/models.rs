@@ -69,6 +69,8 @@ pub struct BalanceHistory {
     pub business: String,
     pub change: DecimalDbType,
     pub balance: DecimalDbType,
+    pub balance_available: DecimalDbType,
+    pub balance_frozen: DecimalDbType,
     // TODO: change it to jsonb
     pub detail: String,
 }
@@ -256,7 +258,7 @@ impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
         BALANCEHISTORY
     }
-    const ARGN: i32 = 7;
+    const ARGN: i32 = 9;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
