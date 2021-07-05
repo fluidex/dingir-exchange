@@ -420,6 +420,15 @@ impl Controller {
         if !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
+        let total_order_num: usize = self
+            .markets
+            .iter()
+            .map(|(_, market)| market.get_order_num_of_user(req.user_id))
+            .sum();
+        debug_assert!(total_order_num <= self.settings.user_order_num_limit);
+        if total_order_num == self.settings.user_order_num_limit {
+            return Err(Status::unavailable("too many active orders for user"));
+        }
         let market = self.markets.get_mut(&req.market).unwrap();
         let balance_manager = &mut self.balance_manager;
         //let persistor = self.get_persistor(real);

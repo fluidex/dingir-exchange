@@ -122,6 +122,7 @@ pub struct Settings {
     pub disable_self_trade: bool,
     pub disable_market_order: bool,
     pub check_eddsa_signatue: OrderSignatrueCheck,
+    pub user_order_num_limit: usize,
 }
 
 impl Default for Settings {
@@ -144,6 +145,7 @@ impl Default for Settings {
             disable_self_trade: true,
             disable_market_order: false,
             check_eddsa_signatue: OrderSignatrueCheck::None,
+            user_order_num_limit: 1000,
         }
     }
 }

@@ -51,8 +51,13 @@ async function initAssets() {
 function randUser() {
   return getRandomElem(botsIds);
 }
+let priceUpdatedTime = 0;
 async function updatePrices(backend) {
   try {
+    // limit query rate
+    if (Date.now() <= priceUpdatedTime + 60 * 1000) {
+      return;
+    }
     if (backend == "coinstats") {
       const url =
         "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
@@ -65,6 +70,7 @@ async function updatePrices(backend) {
         "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
       // TODO
     }
+    priceUpdatedTime = Date.now();
   } catch (e) {
     console.log("update price err", e);
   }
@@ -80,7 +86,12 @@ function getPrice(token: string): number {
 
 async function cancelAllForUser(user_id) {
   for (const [market, _] of client.markets) {
-    await client.orderCancelAll(user_id, market);
+    console.log(
+      "cancel all",
+      user_id,
+      market,
+      await client.orderCancelAll(user_id, market)
+    );
   }
   console.log(
     "after cancel all, balance",
@@ -96,15 +107,12 @@ async function cancelAll() {
 }
 async function run() {
   let cnt = 0;
-  for(let cnt = 0; ; cnt++) {
+  for (let cnt = 0; ; cnt++) {
     try {
       await sleep(1000);
-      if (cnt % 60 == 0) {
-        // update prices every 1 minutes
-        await updatePrices("coinstats");
-      }
+      await updatePrices("coinstats");
       async function tickForUser(user) {
-        if ((cnt / botsIds.length) % 200 == 0) {
+        if (Math.floor(cnt / botsIds.length) % 200 == 0) {
           await cancelAllForUser(user);
         }
         for (let market of markets) {

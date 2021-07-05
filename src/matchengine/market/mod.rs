@@ -646,6 +646,9 @@ impl Market {
     pub fn get(&self, order_id: u64) -> Option<Order> {
         self.orders.get(&order_id).map(OrderRc::deep)
     }
+    pub fn get_order_num_of_user(&self, user_id: u32) -> usize {
+        self.users.get(&user_id).map(|m| m.len()).unwrap_or(0)
+    }
     pub fn get_order_of_user(&self, user_id: u32) -> Vec<Order> {
         self.users
             .get(&user_id)
