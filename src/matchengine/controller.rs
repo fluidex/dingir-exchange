@@ -337,15 +337,17 @@ impl Controller {
         self.persistor.service_available()
     }
 
-    pub fn register_user(&mut self, real: bool, req: UserInfo) -> std::result::Result<UserInfo, Status> {
+    pub fn register_user(&mut self, real: bool, mut req: UserInfo) -> std::result::Result<UserInfo, Status> {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
 
         let last_user_id = self.user_manager.users.len() as u32;
-        if last_user_id + 1 != req.user_id {
-            return Err(Status::invalid_argument("inconsist user_id"));
-        }
+        req.user_id = last_user_id + 1;
+        // TODO: check user_id
+        // if last_user_id + 1 != req.user_id {
+        //     return Err(Status::invalid_argument("inconsist user_id"));
+        // }
 
         self.user_manager.users.insert(
             req.user_id,
