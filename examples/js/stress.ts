@@ -28,7 +28,7 @@ async function stressTest({ parallel, interval, repeat }) {
   while (true) {
     let promises = [];
     for (let i = 0; i < parallel; i++) {
-      promises.push(putRandOrder(userId));
+      promises.push(putRandOrder(userId, market));
     }
     await Promise.all(promises);
     if (interval > 0) {
