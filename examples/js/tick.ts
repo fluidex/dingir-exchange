@@ -38,7 +38,7 @@ async function registerAccounts() {
   }
 }
 async function initAssets() {
-  for (const user_id of botsIds) {
+  for (let user_id = 1; user_id<=Math.max(...botsIds); user_id++) {
     await depositAssets({ USDT: "500000.0" }, user_id);
     for (const [name, info] of client.markets) {
       const base = info.base;
