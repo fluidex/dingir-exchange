@@ -83,7 +83,7 @@ impl AssetManager {
             None => bail!("market quote_token error"),
         };
         let amount = match rust_decimal::Decimal::from_str(&o.amount) {
-            Ok(d) => d.round_dp_with_strategy(market.amount_prec, RoundingStrategy::RoundDown),
+            Ok(d) => d.round_dp_with_strategy(market.amount_prec, RoundingStrategy::ToZero),
             _ => bail!("amount error"),
         };
         let price = match rust_decimal::Decimal::from_str(&o.price) {

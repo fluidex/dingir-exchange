@@ -410,7 +410,6 @@ pub async fn ticker(
     );
 
     let from_ts = now_ts
-        .clone()
         .checked_sub_signed(ticker_inv)
         .ok_or_else(|| RpcError::unknown("Internal clock error"))?;
     log::debug!("query ticker from {} to {}", from_ts, now_ts);

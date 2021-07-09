@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use rust_decimal::prelude::ToPrimitive;
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -8,6 +7,8 @@ pub use babyjubjub_rs::{Point, Signature};
 pub use ff::{from_hex, to_hex};
 pub use ff::{Field, PrimeField, PrimeFieldRepr};
 pub use num_bigint::BigInt;
+use num_traits::pow::Pow;
+use num_traits::ToPrimitive;
 pub use poseidon_rs::Fr;
 pub use rust_decimal::Decimal;
 
@@ -117,7 +118,7 @@ pub fn str_to_signature(signature: &str) -> Result<Signature> {
 }
 
 pub fn decimal_to_u64(num: &Decimal, prec: u32) -> u64 {
-    let prec_mul = Decimal::new(10, 0).powi(prec as u64);
+    let prec_mul = Decimal::new(10, 0).pow(prec as u64);
     let adjusted = num * prec_mul;
     adjusted.floor().to_u64().unwrap()
 }

@@ -5,7 +5,6 @@ use market::Trade;
 
 use crate::utils::FTimestamp;
 use anyhow::Result;
-use rust_decimal::prelude::Zero;
 
 type BalanceWriter = DatabaseWriter<models::BalanceHistory>;
 type TransferWriter = DatabaseWriter<models::InternalTx>;

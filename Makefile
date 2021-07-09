@@ -49,3 +49,8 @@ cleardb:
 
 genpb:
 	cd proto && protoc -Ithird_party/googleapis -I. --include_imports --include_source_info --descriptor_set_out=matchengine.pb exchange/matchengine.proto
+
+
+lint:
+	cargo fmt --all -- --check
+	cargo clippy -- -D warnings

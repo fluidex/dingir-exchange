@@ -28,15 +28,16 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 nix = "0.20.0"
 num-bigint = { version = "0.2.2", features = [ "rand" ] }
+num-traits = "0.2.14"
 num_enum = "0.5.1"
 poseidon-rs = { version = "0.0.8" }
-prost = "0.7.0"
-prost-types = "0.7.0"
+prost = "0.8.0"
+prost-types = "0.8.0"
 qstring = "0.7.2"
 rand = "0.8.3"
 rdkafka = { version = "0.25.0", features = [ "cmake-build" ] }
-rust_decimal = { version = "1.10.3", features = [ "postgres", "bytes", "byteorder" ] }
-rust_decimal_macros = "1.10.3"
+rust_decimal = { version = "1.14.3", features = [ "postgres", "bytes", "byteorder", "maths" ] }
+rust_decimal_macros = "1.14.3"
 serde = { version = "1.0.124", features = [ "derive" ] }
 serde-big-array = "0.3.2"
 serde_json = "1.0.64"
@@ -44,15 +45,15 @@ sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "ch
 thiserror = "1.0.24"
 thread-id = "3.3.0"
 tokio = { version = "1.6.0", features = [ "full" ] }
-tonic = "0.4.0"
+tonic = "0.5.0"
 tracing = "0.1"
 tracing-appender = "0.1"
 tracing-subscriber = "0.2"
 ttl_cache = "0.5.1"
 
 [build-dependencies]
-prost = "0.7.0"
-tonic-build = "0.4.0"
+prost = "0.8.0"
+tonic-build = "0.5.0"
 
 [[bin]]
 name = "restapi"
