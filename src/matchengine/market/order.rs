@@ -92,7 +92,7 @@ pub struct Order {
     pub side: OrderSide,
     pub user: u32,
     pub post_only: bool,
-    #[serde(with = "BigArray")]
+    #[serde(with = "crate::utils::serde::HexArray")]
     pub signature: [u8; 64],
     pub price: Decimal,
     pub amount: Decimal,
