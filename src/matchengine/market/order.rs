@@ -3,12 +3,9 @@ use crate::types::{OrderSide, OrderType};
 use crate::utils::InternedString;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_big_array::big_array;
 use std::cmp::Ordering;
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-big_array! { BigArray; }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct MarketKeyAsk {
@@ -92,7 +89,7 @@ pub struct Order {
     pub side: OrderSide,
     pub user: u32,
     pub post_only: bool,
-    #[serde(with = "BigArray")]
+    #[serde(with = "crate::utils::serde::HexArray")]
     pub signature: [u8; 64],
     pub price: Decimal,
     pub amount: Decimal,

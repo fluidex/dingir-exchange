@@ -42,10 +42,9 @@ impl ProgTracingStack {
     }
 
     fn push_top(&mut self, n: u64) {
-        if n >= self.last().unwrap_or(&(n, None)).0 {
-            self.push((n, None));
-        } else {
-            self.push((n, None));
+        let last_n = self.last().unwrap_or(&(n, None)).0;
+        self.push((n, None));
+        if n < last_n {
             self.sort_by(|a, b| a.0.cmp(&b.0));
         }
     }
