@@ -3,12 +3,9 @@ use crate::types::{OrderSide, OrderType};
 use crate::utils::InternedString;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_big_array::big_array;
 use std::cmp::Ordering;
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-big_array! { BigArray; }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct MarketKeyAsk {
