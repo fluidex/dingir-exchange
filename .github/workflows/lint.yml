@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.50.0
+          - 1.53.0
 
     steps:
       - name: Checkout sources
@@ -42,11 +42,11 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install 1.50.0 toolchain
+      - name: Install 1.53.0 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.50.0
+          toolchain: 1.53.0
           override: true
           components: rustfmt, clippy
       
