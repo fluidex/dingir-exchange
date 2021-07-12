@@ -80,10 +80,15 @@ impl<T: MessageScheme> RdProducerContext<T> {
     }
 
     pub fn run(producer: BaseProducer<Self>, mut message_scheme: T, receiver: crossbeam_channel::Receiver<(&'static str, String)>) {
+        log::debug!("gupeng - kafka producer - before run_loop");
+
         Self::run_loop(&producer, &mut message_scheme, receiver);
+
+        log::debug!("gupeng - kafka producer - after run_loop");
 
         //flush producer before exit
         while let Some(msg) = message_scheme.pop_up() {
+            log::debug!("gupeng - producer pop_msg in run");
             let send_ret = match producer.send(msg) {
                 Ok(_) => None,
                 Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), rec)) => {
@@ -145,6 +150,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
             }
             //then try send out some messages...
             let pop_msg = if !producer_queue_full { message_scheme.pop_up() } else { None };
+            log::debug!("gupeng - producer pop_msg in run_loop");
             if let Some(msg) = pop_msg {
                 let send_ret = match producer.send(msg) {
                     Ok(_) => None,
@@ -314,6 +320,7 @@ impl MessageScheme for FullOrderMessageScheme {
             return None;
         }
         let (title_tip, message) = self.ordered_list.front().unwrap();
+        log::debug!("gupeng - pop_up UNIFY_TOPIC");
         Some(
             BaseRecord::with_opaque_to(UNIFY_TOPIC, Box::new(self.deliver_cnt))
                 .key(*title_tip)

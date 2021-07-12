@@ -11,7 +11,7 @@ export class KafkaConsumer {
     this.verbose = verbose;
     const brokers = process.env.KAFKA_BROKERS;
     const kafka = new Kafka.Kafka({
-      brokers: (brokers || "127.0.0.1:9092").split(","),
+      brokers: (brokers || "exchange-kafka.dingir-exchange:9092").split(","),
       logLevel: Kafka.logLevel.WARN
     });
     const consumer = kafka.consumer({ groupId: "test-group" });

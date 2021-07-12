@@ -180,6 +180,7 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
         self.push_message_and_topic(message, ORDERS_TOPIC)
     }
     fn push_trade_message(&mut self, trade: &Trade) {
+        log::debug!("gupeng - send trade message");
         let message = serde_json::to_string(&trade).unwrap();
         self.push_message_and_topic(message, TRADES_TOPIC)
     }

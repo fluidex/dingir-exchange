@@ -1,7 +1,7 @@
 debug: true
-db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
-db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
-brokers: '127.0.0.1:9092'
+db_log: postgres://exchange:exchange_AA9944@exchange-pq/exchange
+db_history: postgres://exchange:exchange_AA9944@exchange-pq/exchange
+brokers: exchange-kafka.dingir-exchange:9092
 slice_interval: 3600
 slice_keeptime: 259200
 disable_self_trade: true

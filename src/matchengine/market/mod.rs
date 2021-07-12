@@ -476,6 +476,7 @@ impl Market {
                 bid_order: if bid_order_is_new { Some(bid_order_before) } else { None },
                 ..trade
             };
+            log::debug!("gupeng - put_trade");
             persistor.put_trade(&trade);
             //}
             maker.frozen -= if maker_is_bid { traded_quote_amount } else { traded_base_amount };
