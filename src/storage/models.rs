@@ -272,6 +272,8 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
         arg.add(&self.business);
         arg.add(&self.change);
         arg.add(&self.balance);
+        arg.add(&self.balance_available);
+        arg.add(&self.balance_frozen);
         arg.add(&self.detail);
     }
 }
