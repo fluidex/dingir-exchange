@@ -1,0 +1,6 @@
+slice_interval: 3600
+slice_keeptime: 259200
+disable_self_trade: true
+disable_market_order: true
+check_eddsa_signatue: auto
+user_order_num_limit: 1000

@@ -1,3 +1,4 @@
+use config_rs::{Config, File};
 use rust_decimal::Decimal;
 use serde::de;
 use serde::{Deserialize, Serialize};
@@ -147,5 +148,20 @@ impl Default for Settings {
             check_eddsa_signatue: OrderSignatrueCheck::None,
             user_order_num_limit: 1000,
         }
+    }
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        // Initializes with `config/default.yaml`.
+        let mut conf = Config::default();
+        conf.merge(File::with_name("config/default")).unwrap();
+
+        // Merges with `config/RUN_MODE.yaml` (development as default).
+        let run_mode = dotenv::var("RUN_MODE").unwrap_or_else(|_| "development".into());
+        conf.merge(File::with_name(&format!("config/{}", run_mode)).required(false))
+            .unwrap();
+
+        conf.try_into().unwrap()
     }
 }

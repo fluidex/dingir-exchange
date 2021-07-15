@@ -22,10 +22,7 @@ fn main() {
         .with_writer(non_blocking)
         .init();
 
-    let mut conf = config_rs::Config::new();
-    let config_file = dotenv::var("CONFIG_FILE").unwrap();
-    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
-    let settings: config::Settings = conf.try_into().unwrap();
+    let settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
 
     let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
