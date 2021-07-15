@@ -1,0 +1,4 @@
+debug: true
+db_log: postgres://exchange:exchange_AA9944@exchange-pq/exchange 
+db_history: postgres://exchange:exchange_AA9944@exchange-pq/exchange 
+brokers: 'exchange-kafka:9092'

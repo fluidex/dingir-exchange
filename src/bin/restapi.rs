@@ -34,16 +34,11 @@ async fn main() -> std::io::Result<()> {
         .with_writer(non_blocking)
         .init();
 
-    let mut conf = config_rs::Config::new();
-    let config_file = dotenv::var("CONFIG_FILE").unwrap();
-    conf.merge(config_rs::File::with_name(&config_file)).unwrap();
-
-    let restapi_cfg: Option<config_rs::Value> = conf.get("restapi").ok();
-
-    let dburl = conf.get_str("db_history").unwrap();
+    // TODO: Should add another `config/restapi.yaml` for this target?
+    let dburl = dingir_exchange::config::Settings::new().db_history;
     log::debug!("Prepared db connection: {}", &dburl);
 
-    let config: restapi::config::Settings = restapi_cfg.and_then(|v| v.try_into().ok()).unwrap_or_else(Default::default);
+    let config = restapi::config::Settings::default();
 
     let manage_channel = if let Some(ep_str) = &config.manage_endpoint {
         log::info!("Connect to manage channel {}", ep_str);

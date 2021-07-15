@@ -2,9 +2,3 @@ debug: true
 db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
 db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
 brokers: '127.0.0.1:9092'
-slice_interval: 3600
-slice_keeptime: 259200
-disable_self_trade: true
-disable_market_order: true
-check_eddsa_signatue: auto
-user_order_num_limit: 1000
