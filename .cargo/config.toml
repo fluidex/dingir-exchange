@@ -1,0 +1,5 @@
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=-static",
+    "-C", "target-feature=+crt-static"
+]
