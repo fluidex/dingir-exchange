@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 
 COPY config /config
-COPY target/aarch64-unknown-linux-gnu/debug/matchengine /usr/bin/
+COPY target/x86_64-unknown-linux-gnu/release/matchengine /usr/bin/
 
 CMD 'matchengine'

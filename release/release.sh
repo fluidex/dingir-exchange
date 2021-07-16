@@ -23,8 +23,8 @@ function install_cross() {
 }
 
 function build_release() {
-    echo 'build a release for target aarch64-unknown-linux-gnu'
-    cross build --bin matchengine --target aarch64-unknown-linux-gnu --release
+    echo 'build a release for target x86_64-unknown-linux-gnu'
+    cross build --bin matchengine --target x86_64-unknown-linux-gnu --release
 }
 
 function docker_build() {
