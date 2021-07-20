@@ -18,7 +18,7 @@ pub trait MsgDataTransformer<T: Clone + Send>: Send {
     fn into(msg: &Self::MsgType) -> Option<T>;
 }
 
-use rdkafka::{message::BorrowedMessage, Message};
+use fluidex_common::rdkafka::{self, message::BorrowedMessage, Message};
 
 impl<'c, C, T, UM> TypedMessageHandler<'c, C> for MsgDataPersistor<T, UM>
 where
@@ -468,8 +468,8 @@ where
     }
 }
 
-use rdkafka::consumer::Consumer;
-use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
+use fluidex_common::rdkafka::consumer::Consumer;
+use fluidex_common::rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 
 pub struct AutoCommitRet(tokio::task::JoinHandle<TaskNotifyFlag>, String, tokio::sync::oneshot::Sender<()>);
 

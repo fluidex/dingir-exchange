@@ -9,7 +9,7 @@ use dingir_exchange::{config, database, message, models, types};
 use std::pin::Pin;
 use types::DbType;
 
-use rdkafka::consumer::StreamConsumer;
+use fluidex_common::rdkafka::consumer::StreamConsumer;
 
 use message::persist::{self, TopicConfig, MIGRATOR};
 
@@ -31,7 +31,7 @@ fn main() {
         .expect("build runtime");
 
     rt.block_on(async move {
-        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
+        let consumer: StreamConsumer = fluidex_common::rdkafka::config::ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
             .set("group.id", &settings.consumer_group)
             .set("enable.partition.eof", "false")

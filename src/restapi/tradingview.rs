@@ -337,8 +337,8 @@ pub async fn search_symbols(
 }
 
 use chrono::{self, DurationRound};
+use fluidex_common::rust_decimal::{prelude::*, Decimal};
 use futures::TryStreamExt;
-use rust_decimal::{prelude::*, Decimal};
 use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(sqlx::FromRow, Debug, Clone)]

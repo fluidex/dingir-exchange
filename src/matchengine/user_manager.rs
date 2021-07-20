@@ -1,6 +1,7 @@
 use crate::models::AccountDesc;
-use crate::primitives::*;
 use crate::types::ConnectionType;
+use fluidex_common::babyjubjub_rs;
+use fluidex_common::types::{BigInt, PubkeyExt, SignatureExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -42,14 +43,14 @@ impl UserManager {
         match self.users.get(&user_id) {
             None => false,
             Some(user) => {
-                let pubkey = match str_to_pubkey(&user.l2_pubkey) {
+                let pubkey = match PubkeyExt::from_str(&user.l2_pubkey) {
                     Ok(pubkey) => pubkey,
                     Err(_) => {
                         log::error!("invalid pubkey {:?}", user.l2_pubkey);
                         return false;
                     }
                 };
-                let signature = match str_to_signature(signature) {
+                let signature = match SignatureExt::from_str(signature) {
                     Ok(signature) => signature,
                     Err(_) => {
                         log::error!("invalid signature {:?}", signature);

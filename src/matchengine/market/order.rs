@@ -1,7 +1,6 @@
-use crate::primitives::*;
 use crate::types::{OrderSide, OrderType};
 use crate::utils::InternedString;
-use rust_decimal::Decimal;
+use fluidex_common::types::{BigInt, Decimal, Fr, FrExt};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::sync::Arc;
@@ -33,8 +32,8 @@ impl Ord for MarketKeyBid {
 #[cfg(test)]
 #[test]
 fn test_order_sort() {
-    use rust_decimal::prelude::One;
-    use rust_decimal::prelude::Zero;
+    use fluidex_common::rust_decimal::prelude::One;
+    use fluidex_common::rust_decimal::prelude::Zero;
     {
         let o1 = MarketKeyBid {
             order_price: Decimal::zero(),
@@ -188,8 +187,8 @@ impl OrderCommitment {
     pub fn hash(&self) -> BigInt {
         // consistent with https://github.com/Fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
         // TxType::PlaceOrder
-        let magic_head = u32_to_fr(4);
-        let data = hash(&[
+        let magic_head = Fr::from_u32(4);
+        let data = Fr::hash(&[
             magic_head,
             // TODO: sign nonce or order_id
             //u32_to_fr(self.order_id),
@@ -203,6 +202,6 @@ impl OrderCommitment {
 
         // account_id is not needed if the hash is signed later?
         //data = hash(&[data, u32_to_fr(self.account_id)]);
-        fr_to_bigint(&data)
+        data.to_bigint()
     }
 }

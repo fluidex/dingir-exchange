@@ -9,13 +9,12 @@ actix-rt = "2.1.0"
 actix-web = "4.0.0-beta.4"
 anyhow = "1.0.38"
 arrayref = "0.3.6"
-babyjubjub-rs = { git = "https://github.com/lispc/babyjubjub-rs", features = [ "aarch64" ], default-features = false }
 bytes = "1.0.1"
 chrono = { version = "0.4.19", features = [ "serde" ] }
 config_rs = { package = "config", version = "0.10.1" }
 crossbeam-channel = "0.5.0"
 dotenv = "0.15.0"
-ff = { package = "ff_ce", version = "0.11", features = [ "derive" ] }
+fluidex-common = { git = "https://github.com/Fluidex/common-rs", branch = "dev", features = [ "kafka", "rust-decimal-dingir-exchange" ] }
 futures = "0.3.13"
 futures-channel = "0.3.13"
 futures-core = { version = "0.3.13", default-features = false }
@@ -27,19 +26,14 @@ itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
 nix = "0.20.0"
-num-bigint = { version = "0.2.2", features = [ "rand" ] }
 num_enum = "0.5.1"
-poseidon-rs = { version = "0.0.8" }
 prost = "0.7.0"
 prost-types = "0.7.0"
 qstring = "0.7.2"
 rand = "0.8.3"
-rdkafka = { version = "0.26.0", features = [ "cmake-build" ] }
-rust_decimal = { version = "1.10.3", features = [ "postgres", "bytes", "byteorder" ] }
-rust_decimal_macros = "1.10.3"
 serde = { version = "1.0.124", features = [ "derive" ] }
 serde_json = "1.0.64"
-sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "json", "migrate" ] }
+sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "migrate" ] }
 thiserror = "1.0.24"
 tokio = { version = "1.6.0", features = [ "full" ] }
 tonic = "0.4.0"
@@ -61,7 +55,7 @@ name = "matchengine"
 path = "src/bin/matchengine.rs"
 
 [features]
-windows_build = [ "rdkafka/dynamic_linking" ]
+windows_build = [  ]
 emit_state_diff = [ ]
 default = [ "emit_state_diff" ]
 #default = ["windows_build"]

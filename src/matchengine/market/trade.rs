@@ -2,7 +2,7 @@ use crate::market::Order;
 use crate::types::MarketRole;
 use crate::types::OrderSide;
 use crate::utils::InternedString;
-use rust_decimal::Decimal;
+use fluidex_common::rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

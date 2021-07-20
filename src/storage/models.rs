@@ -2,7 +2,7 @@ use crate::types::OrderSide;
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-pub type DecimalDbType = rust_decimal::Decimal;
+pub type DecimalDbType = fluidex_common::rust_decimal::Decimal;
 // https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
 // pub type TimestampDbType = DateTime<Utc>;
 pub type TimestampDbType = NaiveDateTime;

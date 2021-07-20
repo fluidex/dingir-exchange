@@ -11,8 +11,8 @@ use std::sync::Mutex;
 use dingir_exchange::{config, message};
 use message::consumer::{Simple, SimpleConsumer, SimpleMessageHandler};
 
-use rdkafka::consumer::StreamConsumer;
-use rdkafka::message::{BorrowedMessage, Message};
+use fluidex_common::rdkafka::consumer::StreamConsumer;
+use fluidex_common::rdkafka::message::{BorrowedMessage, Message};
 
 struct MessageWriter {
     out_file: Mutex<File>,
@@ -58,7 +58,7 @@ fn main() {
     };
 
     rt.block_on(async move {
-        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
+        let consumer: StreamConsumer = fluidex_common::rdkafka::config::ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
             .set("group.id", "unify_msg_dumper")
             .set("enable.partition.eof", "false")
