@@ -1,5 +1,5 @@
 use config_rs::{Config, File};
-use rust_decimal::Decimal;
+use fluidex_common::rust_decimal::Decimal;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

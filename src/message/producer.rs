@@ -1,10 +1,10 @@
 use anyhow::Result;
 use crossbeam_channel::{RecvTimeoutError, TryRecvError};
-use rdkafka::client::ClientContext;
-use rdkafka::config::ClientConfig;
-use rdkafka::error::{KafkaError, RDKafkaErrorCode};
-use rdkafka::producer::{BaseProducer, BaseRecord, DeliveryResult, Producer, ProducerContext};
-use rdkafka::util::{IntoOpaque, Timeout};
+use fluidex_common::rdkafka::client::ClientContext;
+use fluidex_common::rdkafka::config::ClientConfig;
+use fluidex_common::rdkafka::error::{KafkaError, RDKafkaErrorCode};
+use fluidex_common::rdkafka::producer::{BaseProducer, BaseRecord, DeliveryResult, Producer, ProducerContext};
+use fluidex_common::rdkafka::util::{IntoOpaque, Timeout};
 use std::time::Duration;
 
 pub type SimpleDeliverResult = Result<(), KafkaError>;

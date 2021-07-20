@@ -14,8 +14,8 @@ use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
 use anyhow::{anyhow, bail};
-use rust_decimal::prelude::Zero;
-use rust_decimal::Decimal;
+use fluidex_common::rust_decimal::prelude::Zero;
+use fluidex_common::rust_decimal::Decimal;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Connection;

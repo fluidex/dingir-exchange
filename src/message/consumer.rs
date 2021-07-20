@@ -3,10 +3,11 @@ use futures::StreamExt;
 use std::time::Duration;
 // use std::sync::Arc;
 
-use rdkafka::consumer::*;
-use rdkafka::error::KafkaError;
-use rdkafka::message::BorrowedMessage;
-use rdkafka::Message;
+use fluidex_common::rdkafka;
+use fluidex_common::rdkafka::consumer::*;
+use fluidex_common::rdkafka::error::KafkaError;
+use fluidex_common::rdkafka::message::BorrowedMessage;
+use fluidex_common::rdkafka::Message;
 
 // use crate::config;
 use std::collections::HashMap;

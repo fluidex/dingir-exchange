@@ -1,9 +1,10 @@
 use crate::config;
 use crate::market::{Market, OrderCommitment};
 use crate::matchengine::rpc::*;
-use crate::primitives::*;
 use anyhow::{bail, Result};
-use rust_decimal::RoundingStrategy;
+use fluidex_common::rust_decimal::{self, RoundingStrategy};
+use fluidex_common::types::{DecimalExt, FrExt};
+use fluidex_common::Fr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -83,7 +84,7 @@ impl AssetManager {
             None => bail!("market quote_token error"),
         };
         let amount = match rust_decimal::Decimal::from_str(&o.amount) {
-            Ok(d) => d.round_dp_with_strategy(market.amount_prec, RoundingStrategy::RoundDown),
+            Ok(d) => d.round_dp_with_strategy(market.amount_prec, RoundingStrategy::ToZero),
             _ => bail!("amount error"),
         };
         let price = match rust_decimal::Decimal::from_str(&o.price) {
@@ -93,16 +94,16 @@ impl AssetManager {
 
         match OrderSide::from_i32(o.order_side) {
             Some(OrderSide::Ask) => Ok(OrderCommitment {
-                token_buy: u32_to_fr(quote_token.inner_id),
-                token_sell: u32_to_fr(base_token.inner_id),
-                total_buy: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
-                total_sell: decimal_to_fr(&amount, market.amount_prec),
+                token_buy: Fr::from_u32(quote_token.inner_id),
+                token_sell: Fr::from_u32(base_token.inner_id),
+                total_buy: (amount * price).to_fr(market.amount_prec + market.price_prec),
+                total_sell: amount.to_fr(market.amount_prec),
             }),
             Some(OrderSide::Bid) => Ok(OrderCommitment {
-                token_buy: u32_to_fr(base_token.inner_id),
-                token_sell: u32_to_fr(quote_token.inner_id),
-                total_buy: decimal_to_fr(&amount, market.amount_prec),
-                total_sell: decimal_to_fr(&(amount * price), market.amount_prec + market.price_prec),
+                token_buy: Fr::from_u32(base_token.inner_id),
+                token_sell: Fr::from_u32(quote_token.inner_id),
+                total_buy: amount.to_fr(market.amount_prec),
+                total_sell: (amount * price).to_fr(market.amount_prec + market.price_prec),
             }),
             None => bail!("market error"),
         }

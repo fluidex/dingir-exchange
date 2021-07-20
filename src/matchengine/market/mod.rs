@@ -11,9 +11,9 @@ use std::collections::BTreeMap;
 use std::iter::Iterator;
 
 use anyhow::{bail, Result};
+use fluidex_common::rust_decimal::prelude::Zero;
+use fluidex_common::rust_decimal::{Decimal, RoundingStrategy};
 use itertools::Itertools;
-use rust_decimal::prelude::Zero;
-use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
 pub use types::{OrderSide, OrderType};
@@ -168,7 +168,7 @@ impl Market {
         }
         let amount = order_input
             .amount
-            .round_dp_with_strategy(self.amount_prec, RoundingStrategy::RoundDown);
+            .round_dp_with_strategy(self.amount_prec, RoundingStrategy::ToZero);
         if amount != order_input.amount {
             bail!("invalid amount precision");
         }
@@ -234,7 +234,7 @@ impl Market {
                     balance,
                     order_input
                         .quote_limit
-                        .round_dp_with_strategy(balance_manager.asset_prec(self.quote), RoundingStrategy::RoundDown),
+                        .round_dp_with_strategy(balance_manager.asset_prec(self.quote), RoundingStrategy::ToZero),
                 )
             }
         } else {
@@ -350,7 +350,7 @@ impl Market {
                     // divide remain quote by price to get a base amount to be traded,
                     // so quote_limit will be `almost` fulfilled
                     let remain_quote_limit = quote_limit - quote_sum;
-                    traded_base_amount = (remain_quote_limit / price).round_dp_with_strategy(self.amount_prec, RoundingStrategy::RoundDown);
+                    traded_base_amount = (remain_quote_limit / price).round_dp_with_strategy(self.amount_prec, RoundingStrategy::ToZero);
                     if traded_base_amount.is_zero() {
                         break;
                     }
@@ -365,8 +365,8 @@ impl Market {
             }
 
             // Step4: create the trade
-            let bid_fee = (traded_base_amount * bid_fee_rate).round_dp_with_strategy(self.base_prec, RoundingStrategy::RoundDown);
-            let ask_fee = (traded_quote_amount * ask_fee_rate).round_dp_with_strategy(self.quote_prec, RoundingStrategy::RoundDown);
+            let bid_fee = (traded_base_amount * bid_fee_rate).round_dp_with_strategy(self.base_prec, RoundingStrategy::ToZero);
+            let ask_fee = (traded_quote_amount * ask_fee_rate).round_dp_with_strategy(self.quote_prec, RoundingStrategy::ToZero);
 
             let timestamp = utils::current_timestamp();
             ask_order.update_time = timestamp;
@@ -749,8 +749,8 @@ mod tests {
     use crate::config::Settings;
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
+    use fluidex_common::rust_decimal_macros::*;
     use mock::*;
-    use rust_decimal_macros::*;
 
     //#[cfg(feature = "emit_state_diff")]
     #[test]
@@ -758,8 +758,8 @@ mod tests {
         use crate::asset::BalanceUpdateController;
         use crate::matchengine::market::{Market, OrderInput};
         use crate::types::{OrderSide, OrderType};
+        use fluidex_common::rust_decimal::prelude::FromPrimitive;
         use rand::Rng;
-        use rust_decimal::prelude::FromPrimitive;
 
         let only_int = true;
         let broker = std::env::var("KAFKA_BROKER");

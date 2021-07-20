@@ -3,8 +3,7 @@ use crate::market;
 
 use anyhow::{anyhow, bail, Result};
 use arrayref::array_ref;
-use rust_decimal::prelude::Zero;
-use rust_decimal::Decimal;
+use fluidex_common::rust_decimal::{self, prelude::Zero, Decimal};
 
 use std::convert::TryFrom;
 use std::str::FromStr;

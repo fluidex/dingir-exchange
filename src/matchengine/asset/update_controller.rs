@@ -6,7 +6,7 @@ use crate::utils::FTimestamp;
 pub use models::BalanceHistory;
 
 use anyhow::{bail, Result};
-use rust_decimal::Decimal;
+use fluidex_common::rust_decimal::Decimal;
 use ttl_cache::TtlCache;
 
 use std::time::Duration;
