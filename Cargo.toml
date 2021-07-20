@@ -44,7 +44,7 @@ ttl_cache = "0.5.1"
 
 [build-dependencies]
 prost = "0.7.0"
-tonic-build = "0.4.0"
+tonic-build = "=0.4.0"
 
 [[bin]]
 name = "restapi"
