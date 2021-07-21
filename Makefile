@@ -7,6 +7,10 @@ PROCESSES="restapi|persistor|matchengine|tokio-runtime-w"
 
 CURRENTDATE=`date +"%Y-%m-%d"`
 
+lint:
+	cargo fmt --all -- --check
+	cargo clippy -- -D warnings
+
 fmtproto:
 	clang-format -i proto/exchange/matchengine.proto
 
