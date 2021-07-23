@@ -5,6 +5,7 @@ import {defaultClient as client} from "./client";
 import {getTestAccount} from "./accounts";
 import {fee, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT} from "./config";
 import {depositAssets} from "./util";
+import {strict as assert} from "assert";
 
 const userId = 1;
 const isCI = !!process.env.GITHUB_ACTIONS;
@@ -45,11 +46,17 @@ async function orderTest() {
 
     const openOrders = (await axios.get(`http://${server}/api/orders/all/1`)).data;
     console.log(openOrders);
+    if (isCI) {
+        assert.equal(openOrders.orders.length, 4);
+    }
 
     await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
 
     const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/all/1`)).data;
     console.log(closedOrders);
+    if (isCI) {
+        assert.equal(closedOrders.orders.length, 4);
+    }
 }
 
 async function main() {
