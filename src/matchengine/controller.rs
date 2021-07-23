@@ -233,15 +233,11 @@ impl Controller {
             .map(|m| {
                 m.users
                     .get(&req.user_id)
-                    .map(|order_map| {
-                        Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item = Order>>
-                    })
+                    .map(|order_map| Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item = Order>>)
                     .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
             .collect();
-        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Asc, |a, b| {
-            a.id.cmp(&b.id)
-        })
+        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Asc, |a, b| a.id.cmp(&b.id))
             .skip(req.offset as usize)
             .take(limit as usize)
             .map(OrderInfo::from)
