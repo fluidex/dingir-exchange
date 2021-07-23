@@ -14,7 +14,7 @@ chrono = { version = "0.4.19", features = [ "serde" ] }
 config_rs = { package = "config", version = "0.10.1" }
 crossbeam-channel = "0.5.0"
 dotenv = "0.15.0"
-fluidex-common = { git = "https://github.com/Fluidex/common-rs", branch = "dev", features = [ "kafka", "rust-decimal-dingir-exchange" ] }
+fluidex-common = { git = "https://github.com/Fluidex/common-rs", branch = "master", features = [ "kafka", "rust-decimal-dingir-exchange" ] }
 futures = "0.3.13"
 futures-channel = "0.3.13"
 futures-core = { version = "0.3.13", default-features = false }
