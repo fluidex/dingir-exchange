@@ -241,10 +241,10 @@ impl Controller {
             // create_time should never be NaN
             a.create_time.partial_cmp(&b.create_time).unwrap()
         })
-            .skip(req.offset as usize)
-            .take(limit as usize)
-            .map(OrderInfo::from)
-            .collect();
+        .skip(req.offset as usize)
+        .take(limit as usize)
+        .map(OrderInfo::from)
+        .collect();
         let result = OrderQueryResponse {
             offset: req.offset,
             limit,
