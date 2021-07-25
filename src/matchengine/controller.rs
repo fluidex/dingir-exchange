@@ -237,7 +237,10 @@ impl Controller {
                     .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
             .collect();
-        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Asc, |a, b| a.id.cmp(&b.id))
+        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Asc, |a, b| {
+            // create_time should never be NaN
+            a.create_time.partial_cmp(&b.create_time).unwrap()
+        })
             .skip(req.offset as usize)
             .take(limit as usize)
             .map(OrderInfo::from)
