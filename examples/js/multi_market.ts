@@ -43,11 +43,12 @@ async function orderTest() {
             ).then(o => [market, o.id])
         ));
     console.log(orders);
+    assert.equal(orders.length, 4);
 
     const openOrders = (await axios.get(`http://${server}/api/orders/all/1`)).data;
     console.log(openOrders);
     if (isCI) {
-        assert.equal(openOrders.orders.length, 4);
+        assert.equal(openOrders.orders.length, orders.length);
     }
 
     await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
@@ -55,7 +56,7 @@ async function orderTest() {
     const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/all/1`)).data;
     console.log(closedOrders);
     if (isCI) {
-        assert.equal(closedOrders.orders.length, 4);
+        assert.equal(closedOrders.orders.length, orders.length);
     }
 }
 
