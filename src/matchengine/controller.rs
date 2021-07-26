@@ -3,7 +3,7 @@ use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::history::DatabaseHistoryWriter;
-use crate::market::{self, OrderInput};
+use crate::market::{self, Order, OrderInput};
 use crate::message::{FullOrderMessageManager, SimpleMessageManager};
 use crate::models::{self};
 use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileBasedPersistor, MessengerBasedPersistor, PersistExector};
@@ -14,6 +14,7 @@ use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
 use anyhow::{anyhow, bail};
+use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
 use fluidex_common::rust_decimal::prelude::Zero;
 use fluidex_common::rust_decimal::Decimal;
 use serde::Serialize;
@@ -203,7 +204,7 @@ impl Controller {
         Ok(BalanceQueryResponse { balances })
     }
     pub fn order_query(&self, req: OrderQueryRequest) -> Result<OrderQueryResponse, Status> {
-        if !self.markets.contains_key(&req.market) {
+        if req.market != "all" && !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
         if req.user_id == 0 {
@@ -219,24 +220,29 @@ impl Controller {
         } else {
             req.limit
         };
-        let market = self
+        let markets = self
             .markets
-            .get(&req.market)
-            .ok_or_else(|| Status::invalid_argument("invalid market"))?;
-        let total_order_count = market.users.get(&req.user_id).map(|order_map| order_map.len()).unwrap_or(0);
-        let orders = market
-            .users
-            .get(&req.user_id)
-            .map(|order_map| {
-                order_map
-                    .values()
-                    .rev()
-                    .skip(req.offset as usize)
-                    .take(limit as usize)
-                    .map(|order_rc| OrderInfo::from(order_rc.deep()))
-                    .collect()
+            .iter()
+            .filter(|(key, _market)| req.market == "all" || req.market == **key)
+            .map(|(_key, market)| market);
+        let total_order_count: usize = markets
+            .clone()
+            .map(|m| m.users.get(&req.user_id).map(|order_map| order_map.len()).unwrap_or(0))
+            .sum();
+        let orders_by_market: Vec<Box<dyn Iterator<Item = Order>>> = markets
+            .map(|m| {
+                m.users
+                    .get(&req.user_id)
+                    .map(|order_map| Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item = Order>>)
+                    .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
-            .unwrap_or_else(Vec::new);
+            .collect();
+        // TODO: support ASC in the API
+        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Desc, |a, b| a.id.cmp(&b.id))
+            .skip(req.offset as usize)
+            .take(limit as usize)
+            .map(OrderInfo::from)
+            .collect();
         let result = OrderQueryResponse {
             offset: req.offset,
             limit,

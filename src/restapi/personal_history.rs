@@ -29,17 +29,29 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
     let offset = qstring.get("offset").unwrap_or_default().parse::<usize>().unwrap_or(0);
 
     let table = ORDERHISTORY;
-    let condition = "market = $1 and user_id = $2".to_string();
+    let condition = if market == "all" {
+        "user_id = $1".to_string()
+    } else {
+        "market = $1 and user_id = $2".to_string()
+    };
     let order_query = format!(
         "select * from {} where {} order by id desc limit {} offset {}",
         table, condition, limit, offset
     );
-    let orders: Vec<OrderHistory> = sqlx::query_as(&order_query).bind(market).bind(user_id).fetch_all(&data.db).await?;
+    let orders: Vec<OrderHistory> = if market == "all" {
+        sqlx::query_as(&order_query).bind(user_id)
+    } else {
+        sqlx::query_as(&order_query).bind(market).bind(user_id)
+    }
+    .fetch_all(&data.db)
+    .await?;
     let count_query = format!("select count(*) from {} where {}", table, condition);
-    let total: i64 = sqlx::query_scalar(&count_query)
-        .bind(market)
-        .bind(user_id)
-        .fetch_one(&data.db)
-        .await?;
+    let total: i64 = if market == "all" {
+        sqlx::query_scalar(&count_query).bind(user_id)
+    } else {
+        sqlx::query_scalar(&count_query).bind(market).bind(user_id)
+    }
+    .fetch_one(&data.db)
+    .await?;
     Ok(Json(OrderResponse { total, orders }))
 }

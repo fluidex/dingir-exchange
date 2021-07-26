@@ -759,7 +759,7 @@ dependencies = [
 [[package]]
 name = "fluidex-common"
 version = "0.1.0"
-source = "git+https://github.com/Fluidex/common-rs?branch=master#f653d4ad11a9e35c6a6abce6915e9fe655e6485b"
+source = "git+https://github.com/Fluidex/common-rs?branch=master#4c227cf9d4b38098cfeb7505bdca70a3d258ec31"
 dependencies = [
  "babyjubjub-rs",
  "ff_ce",
