@@ -237,7 +237,8 @@ impl Controller {
                     .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
             .collect();
-        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Asc, |a, b| a.id.cmp(&b.id))
+        // TODO: support ASC in the API
+        let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Desc, |a, b| a.id.cmp(&b.id))
             .skip(req.offset as usize)
             .take(limit as usize)
             .map(OrderInfo::from)
