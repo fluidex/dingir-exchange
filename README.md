@@ -13,7 +13,7 @@ The core matching engine is a fully async, single threaded, memory based matchin
 * Storage: SQL Databases
 * Persistence: (a)Append operation log and (b)Redis-like fork-and-save persistence
 
-The archtecture is heavily inspired by Redis and [Viabtc Exchange](https://github.com/viabtc/viabtc_exchange_server)
+The architecture is heavily inspired by Redis and [Viabtc Exchange](https://github.com/viabtc/viabtc_exchange_server)
 
 ## Prerequisite
 
