@@ -5,7 +5,10 @@ use actix_web::{
 use core::cmp::min;
 use serde::Serialize;
 
-use crate::models::{tablenames::ORDERHISTORY, OrderHistory};
+use crate::models::{
+    tablenames::{INTERNALTX, ORDERHISTORY},
+    DecimalDbType, InternalTx, OrderHistory, TimestampDbType,
+};
 
 use super::{errors::RpcError, state::AppState};
 
@@ -54,4 +57,45 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
     .fetch_one(&data.db)
     .await?;
     Ok(Json(OrderResponse { total, orders }))
+}
+
+#[derive(Serialize)]
+pub struct InternalTxResponse {
+    time: TimestampDbType,
+    user_from: String,
+    user_to: String,
+    asset: String,
+    amount: DecimalDbType,
+}
+
+// TODO:
+// 1. filter from/to user
+// 2. use user's l2_pubkey
+// 3. limit & offset
+// 4. filter time interval
+// 5. update transfer.ts test
+// 6. desc/asc
+pub async fn my_internal_txs(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
+    let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
+    let user_id = match user_id {
+        Err(_) => {
+            return Err(RpcError::bad_request("invalid user_id"));
+        }
+        _ => user_id.unwrap(),
+    };
+
+    let txs_query = format!("select * from {} where user_from=$1 or user_to=$2", INTERNALTX);
+    let txs: Vec<InternalTx> = sqlx::query_as(&txs_query).bind(user_id).bind(user_id).fetch_all(&data.db).await?;
+    let resp: Vec<InternalTxResponse> = txs
+        .iter()
+        .map(|tx| InternalTxResponse {
+            time: tx.time,
+            user_from: tx.user_from.to_string(),
+            user_to: tx.user_to.to_string(),
+            asset: tx.asset.clone(),
+            amount: tx.amount,
+        })
+        .collect();
+
+    Ok(Json(resp))
 }
