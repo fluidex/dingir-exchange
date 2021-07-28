@@ -74,6 +74,7 @@ pub struct InternalTxResponse {
 // 3. limit & offset
 // 4. filter time interval
 // 5. update transfer.ts test
+// 6. desc/asc
 pub async fn my_internal_txs(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
     let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
     let user_id = match user_id {
