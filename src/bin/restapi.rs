@@ -14,7 +14,7 @@ use std::sync::Mutex;
 use dingir_exchange::restapi;
 
 use restapi::manage::market;
-use restapi::personal_history::my_orders;
+use restapi::personal_history::{my_internal_txs, my_orders};
 use restapi::public_history::{order_trades, recent_trades};
 use restapi::state::{AppCache, AppState};
 use restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
@@ -71,6 +71,7 @@ async fn main() -> std::io::Result<()> {
                 .route("/recenttrades/{market}", web::get().to(recent_trades))
                 .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
                 .route("/closedorders/{market}/{user_id}", web::get().to(my_orders))
+                .route("/internal_txs/{user_id}", web::get().to(my_internal_txs))
                 .route("/ticker_{ticker_inv}/{market}", web::get().to(ticker))
                 .service(
                     web::scope("/tradingview")
