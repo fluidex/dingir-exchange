@@ -106,7 +106,6 @@ async function cancelAll() {
   }
 }
 async function run() {
-  let cnt = 0;
   for (let cnt = 0; ; cnt++) {
     try {
       await sleep(1000);
