@@ -35,7 +35,7 @@ serde = { version = "1.0.124", features = [ "derive" ] }
 serde_json = "1.0.64"
 sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "migrate" ] }
 thiserror = "1.0.24"
-tokio = { version = "1.6.0", features = [ "full" ] }
+tokio = { version = "1.8.0", features = [ "full" ] }
 tonic = "0.4.0"
 tracing = "0.1"
 tracing-appender = "0.1"
@@ -55,7 +55,7 @@ name = "matchengine"
 path = "src/bin/matchengine.rs"
 
 [features]
-windows_build = [  ]
+windows_build = [ "fluidex-common/rdkafka-dynamic" ]
 emit_state_diff = [ ]
 default = [ "emit_state_diff" ]
 #default = ["windows_build"]
