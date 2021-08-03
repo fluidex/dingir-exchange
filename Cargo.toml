@@ -28,7 +28,7 @@ log = "0.4.14"
 nix = "0.20.0"
 num_enum = "0.5.1"
 prost = "0.7.0"
-prost-types = "0.7.0"
+prost-types = "0.8.0"
 qstring = "0.7.2"
 rand = "0.8.3"
 serde = { version = "1.0.124", features = [ "derive" ] }
