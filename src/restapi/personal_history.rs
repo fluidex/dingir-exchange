@@ -3,7 +3,7 @@ use actix_web::{
     HttpRequest,
 };
 use core::cmp::min;
-use serde::{Serialize, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::models::{
     tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY},
@@ -77,7 +77,9 @@ pub enum Order {
 }
 
 impl Default for Order {
-    fn default() -> Self { Self::Desc }
+    fn default() -> Self {
+        Self::Desc
+    }
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -91,7 +93,9 @@ pub enum Side {
 }
 
 impl Default for Side {
-    fn default() -> Self { Self::Both }
+    fn default() -> Self {
+        Self::Both
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,20 +117,25 @@ pub struct InternalTxQuery {
 }
 
 fn u64_timestamp_deserializer<'de, D>(deserializer: D) -> Result<Option<TimestampDbType>, D::Error>
-    where D: Deserializer<'de>
+where
+    D: Deserializer<'de>,
 {
     let timestamp = Option::<u64>::deserialize(deserializer)?;
     Ok(timestamp.map(|ts| TimestampDbType::from_timestamp(ts as i64, 0)))
 }
 
-const fn default_limit() -> usize { 20 }
-const fn default_zero() -> usize { 0 }
+const fn default_limit() -> usize {
+    20
+}
+const fn default_zero() -> usize {
+    0
+}
 
 /// `/internal_txs/{user_id}`
 pub async fn my_internal_txs(
     user_id: web::Path<i32>,
     query: web::Query<InternalTxQuery>,
-    data: web::Data<AppState>
+    data: web::Data<AppState>,
 ) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
     let user_id = user_id.into_inner();
     let limit = min(query.limit, 100);
@@ -161,11 +170,11 @@ where "#,
 
     let condition = match time_condition {
         Some(time_condition) => format!("({}) and {}", user_condition, time_condition),
-        None => user_condition.to_string()
+        None => user_condition.to_string(),
     };
 
     let constraint = format!("limit {} offset {}", limit, query.offset);
-    let sql_query = format!("{}{}{}",base_query, condition, constraint);
+    let sql_query = format!("{}{}{}", base_query, condition, constraint);
 
     let query_as = sqlx::query_as(sql_query.as_str());
 
