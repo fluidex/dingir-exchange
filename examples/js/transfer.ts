@@ -1,5 +1,6 @@
 import { userId } from "./config"; // dotenv
 import { defaultClient as client } from "./client";
+import { defaultRESTClient as rest_client } from "./RESTClient";
 import { depositAssets, decimalEqual } from "./util";
 
 import { strict as assert } from "assert";
@@ -74,12 +75,18 @@ async function successTransferTest() {
   console.log("successTransferTest passed");
 }
 
+async function listTxs() {
+  const res = await rest_client.internal_txs(userId, {limit: 100})
+  console.log(res);
+}
+
 async function simpleTest() {
   await setupAsset();
   await registerUsers();
   await failureWithZeroDeltaTest();
   await failureWithInsufficientFromBalanceTest();
   await successTransferTest();
+  await listTxs();
 }
 
 async function mainTest() {
