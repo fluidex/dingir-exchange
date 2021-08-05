@@ -3,11 +3,11 @@ use actix_web::{
     HttpRequest,
 };
 use core::cmp::min;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::models::{
-    tablenames::{INTERNALTX, ORDERHISTORY},
-    DecimalDbType, InternalTx, OrderHistory, TimestampDbType,
+    tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY},
+    DecimalDbType, OrderHistory, TimestampDbType,
 };
 
 use super::{errors::RpcError, state::AppState};
@@ -59,7 +59,7 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
     Ok(Json(OrderResponse { total, orders }))
 }
 
-#[derive(Serialize)]
+#[derive(sqlx::FromRow, Serialize)]
 pub struct InternalTxResponse {
     time: TimestampDbType,
     user_from: String,
@@ -68,34 +68,129 @@ pub struct InternalTxResponse {
     amount: DecimalDbType,
 }
 
-// TODO:
-// 1. filter from/to user
-// 2. use user's l2_pubkey
-// 3. limit & offset
-// 4. filter time interval
-// 5. update transfer.ts test
-// 6. desc/asc
-pub async fn my_internal_txs(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
-    let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
-    let user_id = match user_id {
-        Err(_) => {
-            return Err(RpcError::bad_request("invalid user_id"));
-        }
-        _ => user_id.unwrap(),
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub enum Order {
+    #[serde(rename = "lowercase")]
+    Asc,
+    #[serde(rename = "lowercase")]
+    Desc,
+}
+
+impl Default for Order {
+    fn default() -> Self {
+        Self::Desc
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub enum Side {
+    #[serde(rename = "lowercase")]
+    From,
+    #[serde(rename = "lowercase")]
+    To,
+    #[serde(rename = "lowercase")]
+    Both,
+}
+
+impl Default for Side {
+    fn default() -> Self {
+        Self::Both
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InternalTxQuery {
+    /// limit with default value of 20 and max value of 100.
+    #[serde(default = "default_limit")]
+    limit: usize,
+    /// offset with default value of 0.
+    #[serde(default = "default_zero")]
+    offset: usize,
+    #[serde(default, deserialize_with = "u64_timestamp_deserializer")]
+    start_time: Option<TimestampDbType>,
+    #[serde(default, deserialize_with = "u64_timestamp_deserializer")]
+    end_time: Option<TimestampDbType>,
+    #[serde(default)]
+    order: Order,
+    #[serde(default)]
+    side: Side,
+}
+
+fn u64_timestamp_deserializer<'de, D>(deserializer: D) -> Result<Option<TimestampDbType>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let timestamp = Option::<u64>::deserialize(deserializer)?;
+    Ok(timestamp.map(|ts| TimestampDbType::from_timestamp(ts as i64, 0)))
+}
+
+const fn default_limit() -> usize {
+    20
+}
+const fn default_zero() -> usize {
+    0
+}
+
+/// `/internal_txs/{user_id}`
+pub async fn my_internal_txs(
+    user_id: web::Path<i32>,
+    query: web::Query<InternalTxQuery>,
+    data: web::Data<AppState>,
+) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
+    let user_id = user_id.into_inner();
+    let limit = min(query.limit, 100);
+
+    let base_query: &'static str = const_format::formatcp!(
+        r#"
+select i.time       as time,
+       af.l2_pubkey as user_from,
+       at.l2_pubkey as user_to,
+       i.asset      as asset,
+       i.amount     as amount
+from {} i
+inner join {} af on af.id = i.user_from
+inner join {} at on at.id = i.user_to
+where "#,
+        INTERNALTX,
+        ACCOUNT,
+        ACCOUNT
+    );
+    let (user_condition, args_n) = match query.side {
+        Side::From => ("i.user_from = $1", 1),
+        Side::To => ("i.user_to = $1", 1),
+        Side::Both => ("i.user_from = $1 or i.user_to = $2", 2),
     };
 
-    let txs_query = format!("select * from {} where user_from=$1 or user_to=$2", INTERNALTX);
-    let txs: Vec<InternalTx> = sqlx::query_as(&txs_query).bind(user_id).bind(user_id).fetch_all(&data.db).await?;
-    let resp: Vec<InternalTxResponse> = txs
-        .iter()
-        .map(|tx| InternalTxResponse {
-            time: tx.time,
-            user_from: tx.user_from.to_string(),
-            user_to: tx.user_to.to_string(),
-            asset: tx.asset.clone(),
-            amount: tx.amount,
-        })
-        .collect();
+    let time_condition = match (query.start_time, query.end_time) {
+        (Some(_), Some(_)) => Some(format!("i.time > ${} and i.time < ${}", args_n + 1, args_n + 2)),
+        (Some(_), None) => Some(format!("i.time > ${}", args_n + 1)),
+        (None, Some(_)) => Some(format!("i.time < ${}", args_n + 1)),
+        (None, None) => None,
+    };
 
-    Ok(Json(resp))
+    let condition = match time_condition {
+        Some(time_condition) => format!("({}) and {}", user_condition, time_condition),
+        None => user_condition.to_string(),
+    };
+
+    let constraint = format!("limit {} offset {}", limit, query.offset);
+    let sql_query = format!("{}{}{}", base_query, condition, constraint);
+
+    let query_as = sqlx::query_as(sql_query.as_str());
+
+    let query_as = match query.side {
+        Side::To | Side::From => query_as.bind(user_id),
+        Side::Both => query_as.bind(user_id).bind(user_id),
+    };
+
+    let query_as = match (query.start_time, query.end_time) {
+        (Some(start_time), Some(end_time)) => query_as.bind(start_time).bind(end_time),
+        (Some(start_time), None) => query_as.bind(start_time),
+        (None, Some(end_time)) => query_as.bind(end_time),
+        (None, None) => query_as,
+    };
+
+    let txs: Vec<InternalTxResponse> = query_as.fetch_all(&data.db).await?;
+
+    Ok(Json(txs))
 }

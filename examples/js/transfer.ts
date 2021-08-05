@@ -1,6 +1,7 @@
 import { userId } from "./config"; // dotenv
 import { defaultClient as client } from "./client";
-import { depositAssets, decimalEqual } from "./util";
+import { defaultRESTClient as rest_client } from "./RESTClient";
+import {depositAssets, decimalEqual, sleep} from "./util";
 
 import { strict as assert } from "assert";
 
@@ -74,12 +75,25 @@ async function successTransferTest() {
   console.log("successTransferTest passed");
 }
 
+async function listTxs() {
+  const res1 = (await rest_client.internal_txs(userId))[0];
+  const res2 = (await rest_client.internal_txs(anotherUserId))[0];
+  console.log(res1, res2);
+  assert.equal(res1.amount, res2.amount);
+  assert.equal(res1.asset, res2.asset);
+  assert.equal(res1.time, res2.time);
+  assert.equal(res1.user_from, res2.user_from);
+  assert.equal(res1.user_to, res2.user_to);
+}
+
 async function simpleTest() {
   await setupAsset();
   await registerUsers();
   await failureWithZeroDeltaTest();
   await failureWithInsufficientFromBalanceTest();
   await successTransferTest();
+  await sleep(3 * 1000);
+  await listTxs();
 }
 
 async function mainTest() {

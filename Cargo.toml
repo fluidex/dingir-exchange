@@ -12,6 +12,7 @@ arrayref = "0.3.6"
 bytes = "1.0.1"
 chrono = { version = "0.4.19", features = [ "serde" ] }
 config_rs = { package = "config", version = "0.10.1" }
+const_format = "0.2.15"
 crossbeam-channel = "0.5.0"
 dotenv = "0.15.0"
 fluidex-common = { git = "https://github.com/Fluidex/common-rs", branch = "master", features = [ "kafka", "rust-decimal-dingir-exchange" ] }
