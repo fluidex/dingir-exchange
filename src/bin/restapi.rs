@@ -5,6 +5,7 @@
 #![allow(clippy::single_char_pattern)]
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use fluidex_common::non_blocking_tracing;
 use sqlx::postgres::Postgres;
 use sqlx::Pool;
 use std::collections::HashMap;
@@ -27,12 +28,7 @@ async fn ping(_req: HttpRequest, _data: web::Data<AppState>) -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-
-    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(non_blocking)
-        .init();
+    let _guard = non_blocking_tracing::setup();
 
     // TODO: Should add another `config/restapi.yaml` for this target?
     let dburl = dingir_exchange::config::Settings::new().db_history;
