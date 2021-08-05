@@ -106,9 +106,9 @@ pub struct InternalTxQuery {
     /// offset with default value of 0.
     #[serde(default = "default_zero")]
     offset: usize,
-    #[serde(deserialize_with = "u64_timestamp_deserializer")]
+    #[serde(default, deserialize_with = "u64_timestamp_deserializer")]
     start_time: Option<TimestampDbType>,
-    #[serde(deserialize_with = "u64_timestamp_deserializer")]
+    #[serde(default, deserialize_with = "u64_timestamp_deserializer")]
     end_time: Option<TimestampDbType>,
     #[serde(default)]
     order: Order,
