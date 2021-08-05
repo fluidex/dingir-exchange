@@ -14,7 +14,7 @@ class RESTClient {
         });
     }
 
-    async internal_txs(user_id: number | string, params: {
+    async internal_txs(user_id: number | string, params?: {
         limit?: number,
         offset?: number,
         start_time?: number,

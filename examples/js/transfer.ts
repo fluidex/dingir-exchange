@@ -76,8 +76,10 @@ async function successTransferTest() {
 }
 
 async function listTxs() {
-  const res = await rest_client.internal_txs(userId, {limit: 100})
-  console.log(res);
+  const res1 = await rest_client.internal_txs(userId);
+  const res2 = await rest_client.internal_txs(anotherUserId);
+  console.log(res1, res2);
+  assert.equal(res1, res2);
 }
 
 async function simpleTest() {
