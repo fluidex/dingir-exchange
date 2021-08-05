@@ -79,7 +79,11 @@ async function listTxs() {
   const res1 = await rest_client.internal_txs(userId);
   const res2 = await rest_client.internal_txs(anotherUserId);
   console.log(res1, res2);
-  assert.equal(res1, res2);
+  assert.equal(res1.amount, res2.amount);
+  assert.equal(res1.asset, res2.asset);
+  assert.equal(res1.time, res2.time);
+  assert.equal(res1.user_from, res2.user_from);
+  assert.equal(res1.user_to, res2.user_to);
 }
 
 async function simpleTest() {
