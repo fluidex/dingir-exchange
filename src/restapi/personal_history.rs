@@ -162,9 +162,9 @@ where "#,
     };
 
     let time_condition = match (query.start_time, query.end_time) {
-        (Some(_), Some(_)) => Some(format!("i.time > ${} and i.time < ${}", args_n + 1, args_n + 2)),
-        (Some(_), None) => Some(format!("i.time > ${}", args_n + 1)),
-        (None, Some(_)) => Some(format!("i.time < ${}", args_n + 1)),
+        (Some(_), Some(_)) => Some(format!("i.time >= ${} and i.time <= ${}", args_n + 1, args_n + 2)),
+        (Some(_), None) => Some(format!("i.time >= ${}", args_n + 1)),
+        (None, Some(_)) => Some(format!("i.time <= ${}", args_n + 1)),
         (None, None) => None,
     };
 
