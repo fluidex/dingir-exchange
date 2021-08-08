@@ -6,6 +6,7 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
+use fluidex_common::non_blocking_tracing;
 use std::pin::Pin;
 use types::DbType;
 
@@ -15,12 +16,7 @@ use message::persist::{self, TopicConfig, MIGRATOR};
 
 fn main() {
     dotenv::dotenv().ok();
-
-    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(non_blocking)
-        .init();
+    let _guard = non_blocking_tracing::setup();
 
     let settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);

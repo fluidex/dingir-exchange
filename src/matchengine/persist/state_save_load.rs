@@ -497,7 +497,6 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
     if !do_forking() {
         return;
     }
-    //env_logger::init();
 
     // Now we are in the child process
 
