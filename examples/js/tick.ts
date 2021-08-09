@@ -120,7 +120,7 @@ async function run() {
             user,
             market,
             getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
-            getRandomFloatAround(0.3, 0.05),
+            getRandomFloatAround(0.3, 0.3),
             getRandomFloatAround(price)
           );
         }
