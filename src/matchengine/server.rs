@@ -1,11 +1,11 @@
 use crate::config::{OrderSignatrueCheck, Settings};
 use crate::controller::Controller;
-use crate::matchengine::rpc::*;
 
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use orchestra::rpc::exchange::*;
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tonic::{self, Request, Response, Status};
 
@@ -129,7 +129,7 @@ impl GrpcHandler {
 }
 
 #[tonic::async_trait]
-impl super::rpc::matchengine_server::Matchengine for GrpcHandler {
+impl matchengine_server::Matchengine for GrpcHandler {
     async fn asset_list(&self, request: Request<AssetListRequest>) -> Result<Response<AssetListResponse>, Status> {
         let stub = self.stub.read().await;
         Ok(Response::new(stub.asset_list(request.into_inner())?))

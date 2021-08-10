@@ -11,9 +11,6 @@ lint:
 	cargo fmt --all -- --check
 	cargo clippy -- -D warnings
 
-fmtproto:
-	clang-format -i proto/exchange/matchengine.proto
-
 fmtsql:
 	find migrations -type f | xargs -L 1 pg_format --type-case 2 -i
 
@@ -23,7 +20,7 @@ fmtrs:
 fmtjs:
 	cd examples/js && yarn fmt
 
-fmt: fmtproto fmtsql fmtrs fmtjs
+fmt: fmtsql fmtrs fmtjs
 
 startall:
 	cargo build
@@ -52,6 +49,3 @@ cleardb:
 	# https://stackoverflow.com/a/13823560/2078461
 	psql $(DB) -X -a -f $(DB_RESET_DIR)/down.sql
 	psql $(DB) -X -a -f $(DB_RESET_DIR)/up.sql
-
-genpb:
-	cd proto && protoc -Ithird_party/googleapis -I. --include_imports --include_source_info --descriptor_set_out=matchengine.pb exchange/matchengine.proto
