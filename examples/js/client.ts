@@ -8,7 +8,7 @@ import {
   VERBOSE
 } from "./config";
 
-const file = "../../proto/exchange/matchengine.proto";
+const file = "../../orchestra/proto/exchange/matchengine.proto";
 const load = {
   keepCase: true,
   longs: String,

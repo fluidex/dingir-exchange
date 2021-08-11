@@ -85,8 +85,11 @@ jobs:
           cd ./examples/js/
           npm install
 
+      - name: Pull git submodule
+        run: git submodule update --init --recursive
+
       - name: Up docker-compose
-        run: docker-compose --file "./docker/docker-compose.yaml" up --detach # db zookeeper kafka
+        run: docker-compose --file "./orchestra/docker/docker-compose.yaml" up --detach
 
       # 1. we build the binary after starting docker-compose, to ensure time for running services in docker-compose
       # 2. we avoid nohup cargo run directly, to make sure server is running before starting trading tests
@@ -106,7 +109,7 @@ jobs:
         run: |
           sleep 5
           make taillogs
-          docker-compose --file "./docker/docker-compose.yaml" logs --tail=20
+          docker-compose --file "./orchestra/docker/docker-compose.yaml" logs --tail=20
 
       - name: Run trading tests
         run: |

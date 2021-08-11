@@ -1,4 +1,3 @@
-use super::rpc::*;
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
@@ -17,6 +16,7 @@ use anyhow::{anyhow, bail};
 use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
 use fluidex_common::rust_decimal::prelude::Zero;
 use fluidex_common::rust_decimal::Decimal;
+use orchestra::rpc::exchange::*;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Connection;

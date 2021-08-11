@@ -1,4 +1,4 @@
 debug: true
-db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
-db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange 
+db_log: postgres://exchange:exchange_AA9944@127.0.0.1/exchange
+db_history: postgres://exchange:exchange_AA9944@127.0.0.1/exchange
 brokers: '127.0.0.1:9092'
