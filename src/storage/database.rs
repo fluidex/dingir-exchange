@@ -490,7 +490,7 @@ where
                 self.scheduler
                     .unwrap()
                     .await
-                    .map_err(|e| anyhow!("Wait scheuler exit fail: {}", e))?;
+                    .map_err(|e| anyhow!("Wait scheduler exit fail: {}", e))?;
                 Ok(())
             }
             None => Err(anyhow!("Not inited")),

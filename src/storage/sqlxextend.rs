@@ -13,7 +13,7 @@ pub trait TableSchemas: 'static {
     /* with to be opted-out by marco later ... */
     //this indicate how many arguments your struct will bind to in the sql statement
     const ARGN: i32;
-    //this incidate if these is some value should be "default", mark them by their
+    //this indicates if there are some values that should be "default", mark them by their
     //actual position, start form 1
     //for example: in VALUE (DEFAULT, $1, $2, DEFAULT, $3) should indicate the
     //default value position as [1,4]
@@ -26,7 +26,7 @@ pub trait BindQueryArg<'a, DB>
 where
     DB: sqlx::Database,
 {
-    //PgArguments sealed its add method as pub(crate) so we can not use the concerete type
+    //PgArguments sealed its add method as pub(crate) so we can not use the concrete type
     //directly (or apply the more cumbersome "as" statement ...)
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DB>)
     where
