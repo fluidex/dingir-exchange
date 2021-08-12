@@ -185,7 +185,7 @@ pub struct OrderCommitment {
 
 impl OrderCommitment {
     pub fn hash(&self) -> BigInt {
-        // consistent with https://github.com/Fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
+        // consistent with https://github.com/fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
         // TxType::PlaceOrder
         let magic_head = Fr::from_u32(4);
         let data = Fr::hash(&[

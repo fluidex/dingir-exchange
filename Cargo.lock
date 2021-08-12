@@ -359,7 +359,7 @@ dependencies = [
 [[package]]
 name = "babyjubjub-rs"
 version = "0.0.8"
-source = "git+https://github.com/Fluidex/babyjubjub-rs#b6caa0992825e59de7396a94503aab1ff62722c6"
+source = "git+https://github.com/fluidex/babyjubjub-rs#b6caa0992825e59de7396a94503aab1ff62722c6"
 dependencies = [
  "arrayref",
  "blake",
@@ -759,7 +759,7 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 [[package]]
 name = "ff_ce"
 version = "0.13.1"
-source = "git+https://github.com/Fluidex/ff#5eca8bad837b0b8995c991c03a3c99d1b61cf02c"
+source = "git+https://github.com/fluidex/ff#5eca8bad837b0b8995c991c03a3c99d1b61cf02c"
 dependencies = [
  "byteorder",
  "ff_derive_ce",
@@ -770,7 +770,7 @@ dependencies = [
 [[package]]
 name = "ff_derive_ce"
 version = "0.10.0"
-source = "git+https://github.com/Fluidex/ff#5eca8bad837b0b8995c991c03a3c99d1b61cf02c"
+source = "git+https://github.com/fluidex/ff#5eca8bad837b0b8995c991c03a3c99d1b61cf02c"
 dependencies = [
  "num-bigint 0.4.0",
  "num-integer",
@@ -801,7 +801,7 @@ dependencies = [
 [[package]]
 name = "fluidex-common"
 version = "0.1.0"
-source = "git+https://github.com/Fluidex/common-rs?branch=master#24293b3fb94d920170657ab379ce34eeeb2d1b7e"
+source = "git+https://github.com/fluidex/common-rs?branch=master#24293b3fb94d920170657ab379ce34eeeb2d1b7e"
 dependencies = [
  "babyjubjub-rs",
  "backtrace",
@@ -1553,7 +1553,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "orchestra"
 version = "0.1.0"
-source = "git+https://github.com/Fluidex/orchestra.git?branch=master#b3b45ccb205c5769d1b4ec7bf05c1c4127ebd84d"
+source = "git+https://github.com/fluidex/orchestra.git?branch=master#b3b45ccb205c5769d1b4ec7bf05c1c4127ebd84d"
 dependencies = [
  "prost",
  "serde 1.0.124",
@@ -1661,7 +1661,7 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 [[package]]
 name = "poseidon-rs"
 version = "0.0.8"
-source = "git+https://github.com/Fluidex/poseidon-rs#406496055aec6eecbf616377a87d412c6e9bda0d"
+source = "git+https://github.com/fluidex/poseidon-rs#406496055aec6eecbf616377a87d412c6e9bda0d"
 dependencies = [
  "ff_ce",
  "rand 0.8.3",

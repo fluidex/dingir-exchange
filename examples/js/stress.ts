@@ -24,7 +24,7 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   let count = 0;
   // TODO: check balance before and after stress test
-  // depends https://github.com/Fluidex/dingir-exchange/issues/30
+  // depends https://github.com/fluidex/dingir-exchange/issues/30
   while (true) {
     let promises = [];
     for (let i = 0; i < parallel; i++) {

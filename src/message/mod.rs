@@ -170,7 +170,7 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     */
 
     fn is_block(&self) -> bool {
-        // https://github.com/Fluidex/dingir-exchange/issues/119
+        // https://github.com/fluidex/dingir-exchange/issues/119
         //self.sender.is_full()
         //self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
         self.sender.len() >= (self.sender.capacity().unwrap() - 1000)
