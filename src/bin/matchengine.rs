@@ -36,8 +36,9 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
 
-    let mut conn = ConnectionType::connect(&settings.db_log).await?;
+    let mut conn = ConnectionType::connect(&settings.db_log).await.expect("cannot connect to db");
     persist::MIGRATOR.run(&mut conn).await?;
+    log::info!("MIGRATOR done");
 
     let market_cfg = if settings.market_from_db {
         persist::init_config_from_db(&mut conn, &mut settings).await?
@@ -46,9 +47,10 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     };
 
     let mut grpc_stub = create_controller((settings.clone(), market_cfg));
+    log::info!("grpc_stub created");
     grpc_stub.user_manager.load_users_from_db(&mut conn).await?;
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
-
+    log::info!("init from db done");
     let grpc = GrpcHandler::new(grpc_stub, settings);
     Ok(grpc)
 }
