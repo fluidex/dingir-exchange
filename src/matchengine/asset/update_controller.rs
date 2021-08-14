@@ -13,6 +13,22 @@ use std::time::Duration;
 
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
 
+pub struct BalanceUpdateParams {
+    pub typ: BalanceUpdateType,
+    pub user_id: u32,
+    pub asset: String,
+    pub business: String,
+    pub business_id: u64,
+    pub change: Decimal,
+    pub detail: serde_json::Value,
+}
+
+pub enum BalanceUpdateType {
+    Deposit,
+    Withdraw,
+    Transfer,
+}
+
 #[derive(PartialEq, Eq, Hash)]
 struct BalanceUpdateKey {
     pub user_id: u32,
@@ -52,23 +68,23 @@ impl BalanceUpdateController {
         &mut self,
         balance_manager: &mut BalanceManager,
         mut persistor: impl PersistExector,
-        user_id: u32,
-        asset: &str,
-        business: String,
-        business_id: u64,
-        change: Decimal,
-        mut detail: serde_json::Value,
+        mut params: BalanceUpdateParams,
     ) -> Result<()> {
+        let asset = params.asset;
+        let business = params.business;
+        let business_id = params.business_id;
+        let user_id = params.user_id;
         let cache_key = BalanceUpdateKey {
-            user_id,
-            asset: asset.to_string(),
+            user_id: user_id,
+            asset: asset.clone(),
             business: business.clone(),
-            business_id,
+            business_id: business_id,
         };
         if self.cache.contains_key(&cache_key) {
             bail!("duplicate request");
         }
         let old_balance = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
+        let change = params.change;
         let abs_change = change.abs();
         let new_balance = if change.is_sign_positive() {
             balance_manager.add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
@@ -84,9 +100,9 @@ impl BalanceUpdateController {
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
 
         if persistor.real_persist() {
-            detail["id"] = serde_json::Value::from(business_id);
+            params.detail["id"] = serde_json::Value::from(business_id);
             let balance_frozen = balance_manager.get(user_id, BalanceType::FREEZE, &asset);
-            persistor.put_balance(BalanceHistory {
+            let balance_history = BalanceHistory {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
                 asset: asset.to_string(),
@@ -95,8 +111,14 @@ impl BalanceUpdateController {
                 balance: new_balance + balance_frozen,
                 balance_available: new_balance,
                 balance_frozen,
-                detail: detail.to_string(),
-            });
+                detail: params.detail.to_string(),
+            };
+            persistor.put_balance(&balance_history);
+            match params.typ {
+                BalanceUpdateType::Deposit => persistor.put_deposit(&balance_history),
+                BalanceUpdateType::Withdraw => persistor.put_withdraw(&balance_history),
+                _ => {}
+            }
         }
         Ok(())
     }

@@ -1,3 +1,4 @@
+use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
@@ -400,16 +401,24 @@ impl Controller {
         };
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
+        let update_type = if change.is_sign_positive() {
+            BalanceUpdateType::Deposit
+        } else {
+            BalanceUpdateType::Withdraw
+        };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
-                req.user_id,
-                req.asset.as_str(),
-                req.business.clone(),
-                req.business_id,
-                change,
-                detail_json,
+                BalanceUpdateParams {
+                    typ: update_type,
+                    user_id: req.user_id,
+                    asset: req.asset.to_string(),
+                    business: req.business.clone(),
+                    business_id: req.business_id,
+                    change,
+                    detail: detail_json,
+                },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
@@ -600,12 +609,15 @@ impl Controller {
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
-                from_user_id,
-                asset_id,
-                business.to_owned(),
-                business_id,
-                -change,
-                detail_json.clone(),
+                BalanceUpdateParams {
+                    typ: BalanceUpdateType::Transfer,
+                    user_id: from_user_id,
+                    asset: asset_id.to_owned(),
+                    business: business.to_owned(),
+                    business_id,
+                    change: -change,
+                    detail: detail_json.clone(),
+                },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
@@ -614,12 +626,15 @@ impl Controller {
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
-                to_user_id,
-                asset_id,
-                business.to_owned(),
-                business_id,
-                change,
-                detail_json,
+                BalanceUpdateParams {
+                    typ: BalanceUpdateType::Transfer,
+                    user_id: to_user_id,
+                    asset: asset_id.to_owned(),
+                    business: business.to_owned(),
+                    business_id,
+                    change,
+                    detail: detail_json,
+                },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
