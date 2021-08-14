@@ -212,12 +212,20 @@ class Client {
   }
 
   async transfer(from, to, asset, delta, memo = "") {
+    let signature = "";
+    // if (this.accounts.has(user_id)) {
+    //   // add signature for this tx
+    //   let tx = new OrderInput({
+    //   });
+    //   signature = this.accounts.get(user_id).signHashPacked(tx.hash());
+    // }
     return await this.client.transfer({
       from,
       to,
       asset,
       delta,
-      memo
+      memo,
+      signature
     });
   }
 
