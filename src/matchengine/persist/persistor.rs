@@ -150,10 +150,10 @@ impl PersistExector for &mut MemBasedPersistor {
         self.messages.push(message::Message::BalanceMessage(Box::new(balance.into())));
     }
     fn put_deposit(&mut self, balance: &BalanceHistory) {
-        self.messages.push(message::Message::BalanceMessage(Box::new(balance.into())));
+        self.messages.push(message::Message::DepositMessage(Box::new(balance.into())));
     }
     fn put_withdraw(&mut self, balance: &BalanceHistory) {
-        self.messages.push(message::Message::BalanceMessage(Box::new(balance.into())));
+        self.messages.push(message::Message::WithdrawMessage(Box::new(balance.into())));
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.messages.push(message::Message::TransferMessage(Box::new(tx.into())));
@@ -193,11 +193,13 @@ impl PersistExector for FileBasedPersistor {
         let msg = message::Message::BalanceMessage(Box::new(balance.into()));
         self.write_msg(msg);
     }
-    fn put_deposit(&mut self, _balance: &BalanceHistory) {
-        // TODO
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        let msg = message::Message::DepositMessage(Box::new(balance.into()));
+        self.write_msg(msg);
     }
-    fn put_withdraw(&mut self, _balance: &BalanceHistory) {
-        // TODO
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        let msg = message::Message::WithdrawMessage(Box::new(balance.into()));
+        self.write_msg(msg);
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         let msg = message::Message::TransferMessage(Box::new(tx.into()));

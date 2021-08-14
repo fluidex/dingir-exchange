@@ -281,10 +281,12 @@ pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageSche
 #[serde(tag = "type", content = "value")]
 pub enum Message {
     BalanceMessage(Box<BalanceMessage>),
+    DepositMessage(Box<BalanceMessage>),
     OrderMessage(Box<OrderMessage>),
     TradeMessage(Box<Trade>),
     TransferMessage(Box<TransferMessage>),
     UserMessage(Box<UserMessage>),
+    WithdrawMessage(Box<BalanceMessage>),
 }
 
 /*

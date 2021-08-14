@@ -196,12 +196,10 @@ use std::collections::LinkedList;
 #[derive(Default)]
 pub struct SimpleMessageScheme {
     balances_list: LinkedList<String>,
-    deposits_list: LinkedList<String>,
     internaltxs_list: LinkedList<String>,
     orders_list: LinkedList<String>,
     trades_list: LinkedList<String>,
     users_list: LinkedList<String>,
-    withdraws_list: LinkedList<String>,
     last_poped: Option<(&'static str, String)>,
 }
 
@@ -215,24 +213,20 @@ impl MessageScheme for SimpleMessageScheme {
     }
     fn is_full(&self) -> bool {
         self.balances_list.len() >= 100
-            || self.deposits_list.len() >= 100
             || self.internaltxs_list.len() >= 100
             || self.orders_list.len() >= 100
             || self.trades_list.len() >= 100
             || self.users_list.len() >= 100
-            || self.withdraws_list.len() >= 100
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
         let list = match title_tip {
             BALANCES_TOPIC => &mut self.balances_list,
-            DEPOSITS_TOPIC => &mut self.deposits_list,
             INTERNALTX_TOPIC => &mut self.internaltxs_list,
             ORDERS_TOPIC => &mut self.orders_list,
             TRADES_TOPIC => &mut self.trades_list,
             USER_TOPIC => &mut self.users_list,
-            WITHDRAWS_TOPIC => &mut self.withdraws_list,
-            _ => unreachable!(),
+            _ => return,
         };
 
         list.push_back(message);
@@ -250,16 +244,9 @@ impl MessageScheme for SimpleMessageScheme {
             &mut self.trades_list,
             &mut self.users_list,
         ];
-        let iters = [
-            DEPOSITS_TOPIC,
-            INTERNALTX_TOPIC,
-            ORDERS_TOPIC,
-            TRADES_TOPIC,
-            USER_TOPIC,
-            WITHDRAWS_TOPIC,
-        ]
-        .iter()
-        .zip(&mut candi_list);
+        let iters = [INTERNALTX_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, USER_TOPIC]
+            .iter()
+            .zip(&mut candi_list);
 
         for i in iters.into_iter() {
             let (tp_name, l) = i;
@@ -321,7 +308,12 @@ impl MessageScheme for FullOrderMessageScheme {
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
-        self.ordered_list.push_back((title_tip, message));
+        match title_tip {
+            DEPOSITS_TOPIC | INTERNALTX_TOPIC | ORDERS_TOPIC | TRADES_TOPIC | USER_TOPIC | WITHDRAWS_TOPIC => {
+                self.ordered_list.push_back((title_tip, message))
+            }
+            _ => {}
+        };
     }
 
     fn pop_up(&mut self) -> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>> {
