@@ -10,7 +10,9 @@ pub mod consumer;
 pub mod persist;
 pub mod producer;
 
-pub use producer::{BALANCES_TOPIC, INTERNALTX_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC};
+pub use producer::{
+    BALANCES_TOPIC, DEPOSITS_TOPIC, INTERNALTX_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC, WITHDRAWS_TOPIC,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserMessage {
@@ -249,11 +251,11 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
     }
     fn push_deposit_message(&mut self, deposit: &DepositMessage) {
         let message = serde_json::to_string(&deposit).unwrap();
-        self.push_message_and_topic(message, UNIFY_TOPIC)
+        self.push_message_and_topic(message, DEPOSITS_TOPIC)
     }
     fn push_withdraw_message(&mut self, withdraw: &WithdrawMessage) {
         let message = serde_json::to_string(&withdraw).unwrap();
-        self.push_message_and_topic(message, UNIFY_TOPIC)
+        self.push_message_and_topic(message, WITHDRAWS_TOPIC)
     }
     fn push_transfer_message(&mut self, tx: &TransferMessage) {
         let message = serde_json::to_string(&tx).unwrap();

@@ -746,6 +746,7 @@ struct BalanceHistoryFromFee {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
     use crate::config::Settings;
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
@@ -779,12 +780,15 @@ mod tests {
                 .update_user_balance(
                     balance_manager,
                     &mut persistor,
-                    user_id,
-                    asset,
-                    "deposit".to_owned(),
-                    seq_id,
-                    amount,
-                    serde_json::Value::default(),
+                    BalanceUpdateParams {
+                        typ: BalanceUpdateType::Deposit,
+                        user_id,
+                        asset: asset.to_string(),
+                        business: "deposit".to_owned(),
+                        business_id: seq_id,
+                        change: amount,
+                        detail: serde_json::Value::default(),
+                    },
                 )
                 .unwrap();
         };

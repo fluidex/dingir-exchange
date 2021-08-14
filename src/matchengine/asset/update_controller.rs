@@ -75,10 +75,10 @@ impl BalanceUpdateController {
         let business_id = params.business_id;
         let user_id = params.user_id;
         let cache_key = BalanceUpdateKey {
-            user_id: user_id,
+            user_id,
             asset: asset.clone(),
             business: business.clone(),
-            business_id: business_id,
+            business_id,
         };
         if self.cache.contains_key(&cache_key) {
             bail!("duplicate request");
@@ -105,7 +105,7 @@ impl BalanceUpdateController {
             let balance_history = BalanceHistory {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
-                asset: asset.to_string(),
+                asset,
                 business,
                 change,
                 balance: new_balance + balance_frozen,
