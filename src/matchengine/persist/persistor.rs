@@ -17,7 +17,9 @@ pub trait PersistExector: Send + Sync {
     fn real_persist(&self) -> bool {
         true
     }
-    fn put_balance(&mut self, balance: BalanceHistory);
+    fn put_balance(&mut self, balance: &BalanceHistory);
+    fn put_deposit(&mut self, balance: &BalanceHistory);
+    fn put_withdraw(&mut self, balance: &BalanceHistory);
     fn put_transfer(&mut self, tx: InternalTx);
     fn put_order(&mut self, order: &Order, at_step: OrderEventType);
     fn put_trade(&mut self, trade: &Trade);
@@ -31,8 +33,14 @@ impl PersistExector for Box<dyn PersistExector + '_> {
     fn real_persist(&self) -> bool {
         self.as_ref().real_persist()
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         self.as_mut().put_balance(balance)
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        self.as_mut().put_deposit(balance)
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        self.as_mut().put_withdraw(balance)
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.as_mut().put_transfer(tx)
@@ -55,8 +63,14 @@ impl PersistExector for &mut Box<dyn PersistExector + '_> {
     fn real_persist(&self) -> bool {
         self.as_ref().real_persist()
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         self.as_mut().put_balance(balance)
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        self.as_mut().put_deposit(balance)
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        self.as_mut().put_withdraw(balance)
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.as_mut().put_transfer(tx)
@@ -90,7 +104,9 @@ impl PersistExector for DummyPersistor {
     fn real_persist(&self) -> bool {
         false
     }
-    fn put_balance(&mut self, _balance: BalanceHistory) {}
+    fn put_balance(&mut self, _balance: &BalanceHistory) {}
+    fn put_deposit(&mut self, _balance: &BalanceHistory) {}
+    fn put_withdraw(&mut self, _balance: &BalanceHistory) {}
     fn put_transfer(&mut self, _tx: InternalTx) {}
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
     fn put_trade(&mut self, _trade: &Trade) {}
@@ -101,7 +117,9 @@ impl PersistExector for &mut DummyPersistor {
     fn real_persist(&self) -> bool {
         false
     }
-    fn put_balance(&mut self, _balance: BalanceHistory) {}
+    fn put_balance(&mut self, _balance: &BalanceHistory) {}
+    fn put_deposit(&mut self, _balance: &BalanceHistory) {}
+    fn put_withdraw(&mut self, _balance: &BalanceHistory) {}
     fn put_transfer(&mut self, _tx: InternalTx) {}
     fn put_order(&mut self, _order: &Order, _as_step: OrderEventType) {}
     fn put_trade(&mut self, _trade: &Trade) {}
@@ -128,8 +146,14 @@ impl PersistExector for &mut MemBasedPersistor {
     fn put_trade(&mut self, trade: &Trade) {
         self.messages.push(message::Message::TradeMessage(Box::new(trade.clone())));
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         self.messages.push(message::Message::BalanceMessage(Box::new(balance.into())));
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        self.messages.push(message::Message::DepositMessage(Box::new(balance.into())));
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        self.messages.push(message::Message::WithdrawMessage(Box::new(balance.into())));
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.messages.push(message::Message::TransferMessage(Box::new(tx.into())));
@@ -165,8 +189,16 @@ impl PersistExector for FileBasedPersistor {
         let msg = message::Message::TradeMessage(Box::new(trade.clone()));
         self.write_msg(msg);
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         let msg = message::Message::BalanceMessage(Box::new(balance.into()));
+        self.write_msg(msg);
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        let msg = message::Message::DepositMessage(Box::new(balance.into()));
+        self.write_msg(msg);
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        let msg = message::Message::WithdrawMessage(Box::new(balance.into()));
         self.write_msg(msg);
     }
     fn put_transfer(&mut self, tx: InternalTx) {
@@ -199,8 +231,14 @@ impl PersistExector for MessengerBasedPersistor {
         }
         true
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         self.inner.push_balance_message(&balance.into());
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        self.inner.push_deposit_message(&balance.into());
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        self.inner.push_withdraw_message(&balance.into());
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.inner.push_transfer_message(&tx.into());
@@ -236,8 +274,14 @@ impl PersistExector for DBBasedPersistor {
         }
         true
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
-        self.inner.append_balance_history(balance);
+    fn put_balance(&mut self, balance: &BalanceHistory) {
+        self.inner.append_balance_history(balance.clone());
+    }
+    fn put_deposit(&mut self, _balance: &BalanceHistory) {
+        // TODO
+    }
+    fn put_withdraw(&mut self, _balance: &BalanceHistory) {
+        // TODO
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.inner.append_internal_transfer(tx);
@@ -281,9 +325,19 @@ impl PersistExector for CompositePersistor {
         }
         true
     }
-    fn put_balance(&mut self, balance: BalanceHistory) {
+    fn put_balance(&mut self, balance: &BalanceHistory) {
         for p in &mut self.persistors {
-            p.put_balance(balance.clone());
+            p.put_balance(balance);
+        }
+    }
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        for p in &mut self.persistors {
+            p.put_deposit(balance);
+        }
+    }
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        for p in &mut self.persistors {
+            p.put_withdraw(balance);
         }
     }
     fn put_transfer(&mut self, tx: InternalTx) {
