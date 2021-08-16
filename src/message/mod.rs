@@ -10,7 +10,9 @@ pub mod consumer;
 pub mod persist;
 pub mod producer;
 
-pub use producer::{BALANCES_TOPIC, INTERNALTX_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC};
+pub use producer::{
+    BALANCES_TOPIC, DEPOSITS_TOPIC, INTERNALTX_TOPIC, ORDERS_TOPIC, TRADES_TOPIC, UNIFY_TOPIC, USER_TOPIC, WITHDRAWS_TOPIC,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserMessage {
@@ -42,8 +44,8 @@ pub struct BalanceMessage {
     pub detail: String,
 }
 
-impl From<BalanceHistory> for BalanceMessage {
-    fn from(balance: BalanceHistory) -> Self {
+impl From<&BalanceHistory> for BalanceMessage {
+    fn from(balance: &BalanceHistory) -> Self {
         Self {
             timestamp: balance.time.timestamp() as f64,
             user_id: balance.user_id as u32,
@@ -53,7 +55,65 @@ impl From<BalanceHistory> for BalanceMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail,
+            detail: balance.detail.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DepositMessage {
+    pub timestamp: f64,
+    pub user_id: u32,
+    pub asset: String,
+    pub business: String,
+    pub change: String,
+    pub balance: String,
+    pub balance_available: String,
+    pub balance_frozen: String,
+    pub detail: String,
+}
+
+impl From<&BalanceHistory> for DepositMessage {
+    fn from(balance: &BalanceHistory) -> Self {
+        Self {
+            timestamp: balance.time.timestamp() as f64,
+            user_id: balance.user_id as u32,
+            asset: balance.asset.clone(),
+            business: balance.business.clone(),
+            change: balance.change.to_string(),
+            balance: balance.balance.to_string(),
+            balance_available: balance.balance_available.to_string(),
+            balance_frozen: balance.balance_frozen.to_string(),
+            detail: balance.detail.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WithdrawMessage {
+    pub timestamp: f64,
+    pub user_id: u32,
+    pub asset: String,
+    pub business: String,
+    pub change: String,
+    pub balance: String,
+    pub balance_available: String,
+    pub balance_frozen: String,
+    pub detail: String,
+}
+
+impl From<&BalanceHistory> for WithdrawMessage {
+    fn from(balance: &BalanceHistory) -> Self {
+        Self {
+            timestamp: balance.time.timestamp() as f64,
+            user_id: balance.user_id as u32,
+            asset: balance.asset.clone(),
+            business: balance.business.clone(),
+            change: balance.change.to_string(),
+            balance: balance.balance.to_string(),
+            balance_available: balance.balance_available.to_string(),
+            balance_frozen: balance.balance_frozen.to_string(),
+            detail: balance.detail.clone(),
         }
     }
 }
@@ -114,6 +174,8 @@ pub trait MessageManager: Sync + Send {
     fn push_order_message(&mut self, order: &OrderMessage);
     fn push_trade_message(&mut self, trade: &Trade);
     fn push_balance_message(&mut self, balance: &BalanceMessage);
+    fn push_deposit_message(&mut self, balance: &DepositMessage);
+    fn push_withdraw_message(&mut self, balance: &WithdrawMessage);
     fn push_transfer_message(&mut self, tx: &TransferMessage);
     fn push_user_message(&mut self, user: &UserMessage);
 }
@@ -187,6 +249,14 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
         let message = serde_json::to_string(&balance).unwrap();
         self.push_message_and_topic(message, BALANCES_TOPIC)
     }
+    fn push_deposit_message(&mut self, deposit: &DepositMessage) {
+        let message = serde_json::to_string(&deposit).unwrap();
+        self.push_message_and_topic(message, DEPOSITS_TOPIC)
+    }
+    fn push_withdraw_message(&mut self, withdraw: &WithdrawMessage) {
+        let message = serde_json::to_string(&withdraw).unwrap();
+        self.push_message_and_topic(message, WITHDRAWS_TOPIC)
+    }
     fn push_transfer_message(&mut self, tx: &TransferMessage) {
         let message = serde_json::to_string(&tx).unwrap();
         self.push_message_and_topic(message, INTERNALTX_TOPIC)
@@ -211,10 +281,12 @@ pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageSche
 #[serde(tag = "type", content = "value")]
 pub enum Message {
     BalanceMessage(Box<BalanceMessage>),
-    TransferMessage(Box<TransferMessage>),
-    UserMessage(Box<UserMessage>),
+    DepositMessage(Box<BalanceMessage>),
     OrderMessage(Box<OrderMessage>),
     TradeMessage(Box<Trade>),
+    TransferMessage(Box<TransferMessage>),
+    UserMessage(Box<UserMessage>),
+    WithdrawMessage(Box<BalanceMessage>),
 }
 
 /*

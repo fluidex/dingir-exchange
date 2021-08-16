@@ -182,21 +182,23 @@ impl<T: MessageScheme> RdProducerContext<T> {
     }
 }
 
+pub const BALANCES_TOPIC: &str = "balances";
+pub const DEPOSITS_TOPIC: &str = "deposits";
+pub const INTERNALTX_TOPIC: &str = "internaltransfer";
 pub const ORDERS_TOPIC: &str = "orders";
 pub const TRADES_TOPIC: &str = "trades";
-pub const BALANCES_TOPIC: &str = "balances";
-pub const INTERNALTX_TOPIC: &str = "internaltransfer";
-pub const USER_TOPIC: &str = "registeruser";
 pub const UNIFY_TOPIC: &str = "unifyevents";
+pub const USER_TOPIC: &str = "registeruser";
+pub const WITHDRAWS_TOPIC: &str = "withdraws";
 
 use std::collections::LinkedList;
 
 #[derive(Default)]
 pub struct SimpleMessageScheme {
-    orders_list: LinkedList<String>,
-    trades_list: LinkedList<String>,
     balances_list: LinkedList<String>,
     internaltxs_list: LinkedList<String>,
+    orders_list: LinkedList<String>,
+    trades_list: LinkedList<String>,
     users_list: LinkedList<String>,
     last_poped: Option<(&'static str, String)>,
 }
@@ -210,21 +212,21 @@ impl MessageScheme for SimpleMessageScheme {
         vec![("queue.buffering.max.ms", "1")]
     }
     fn is_full(&self) -> bool {
-        self.orders_list.len() >= 100
-            || self.trades_list.len() >= 100
-            || self.balances_list.len() >= 100
+        self.balances_list.len() >= 100
             || self.internaltxs_list.len() >= 100
+            || self.orders_list.len() >= 100
+            || self.trades_list.len() >= 100
             || self.users_list.len() >= 100
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
         let list = match title_tip {
-            ORDERS_TOPIC => &mut self.orders_list,
-            TRADES_TOPIC => &mut self.trades_list,
             BALANCES_TOPIC => &mut self.balances_list,
             INTERNALTX_TOPIC => &mut self.internaltxs_list,
+            ORDERS_TOPIC => &mut self.orders_list,
+            TRADES_TOPIC => &mut self.trades_list,
             USER_TOPIC => &mut self.users_list,
-            _ => unreachable!(),
+            _ => return,
         };
 
         list.push_back(message);
@@ -306,7 +308,12 @@ impl MessageScheme for FullOrderMessageScheme {
     }
 
     fn on_message(&mut self, title_tip: &'static str, message: String) {
-        self.ordered_list.push_back((title_tip, message));
+        match title_tip {
+            DEPOSITS_TOPIC | INTERNALTX_TOPIC | ORDERS_TOPIC | TRADES_TOPIC | USER_TOPIC | WITHDRAWS_TOPIC => {
+                self.ordered_list.push_back((title_tip, message))
+            }
+            _ => {}
+        };
     }
 
     fn pop_up(&mut self) -> Option<BaseRecord<'_, str, str, Self::DeliverOpaque>> {
