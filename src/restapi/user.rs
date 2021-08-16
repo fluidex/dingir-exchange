@@ -17,7 +17,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> Result<Jso
     let sql_query = format!("select * from {} where l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
     //let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
     let user: AccountDesc = sqlx::query_as(&sql_query).bind(user_id).fetch_one(&data.db).await.map_err(|e| {
-        println!("{:?}", e);
+        log::error!("{:?}", e);
         RpcError::bad_request("invalid user id or address")
     })?;
 
