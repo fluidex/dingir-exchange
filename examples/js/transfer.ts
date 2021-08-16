@@ -1,7 +1,7 @@
 import { userId } from "./config"; // dotenv
 import { defaultClient as client } from "./client";
 import { defaultRESTClient as rest_client } from "./RESTClient";
-import {depositAssets, decimalEqual, sleep} from "./util";
+import { depositAssets, decimalEqual, sleep } from "./util";
 
 import { strict as assert } from "assert";
 

@@ -245,6 +245,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
     }
 
     async fn transfer(&self, request: Request<TransferRequest>) -> Result<Response<TransferResponse>, Status> {
+        // TODO: add signature verification
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.transfer(true, request.into_inner()) }));
 

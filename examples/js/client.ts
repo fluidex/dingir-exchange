@@ -1,6 +1,6 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
-import { Account, OrderInput } from "fluidex.js";
+import { Account, OrderInput, TransferTx } from "fluidex.js";
 import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
@@ -211,14 +211,34 @@ class Client {
     return await this.client.OrderBookDepth({ market, limit, interval });
   }
 
-  async transfer(from, to, asset, delta, memo = "") {
-    return await this.client.transfer({
+  createTransferTx(from, to, asset, delta, memo) {
+    let user_id = from;
+    let signature = "";
+    if (this.accounts.has(user_id)) {
+      // add signature for this tx
+      let nonce = 0; // use 0 as nonce for now
+      let tx = new TransferTx({
+        token_id: this.assets.get(asset).inner_id,
+        amount: delta,
+        from: from,
+        from_nonce: nonce,
+        to: to,
+      });
+      signature = this.accounts.get(user_id).signHashPacked(tx.hash());
+    }
+    return {
       from,
       to,
       asset,
       delta,
-      memo
-    });
+      memo,
+      signature
+    };
+  }
+
+  async transfer(from, to, asset, delta, memo = "") {
+    let tx = this.createTransferTx(from, to, asset, delta, memo);
+    return await this.client.transfer(tx);
   }
 
   async debugDump() {
