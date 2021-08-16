@@ -211,27 +211,33 @@ class Client {
     return await this.client.OrderBookDepth({ market, limit, interval });
   }
 
-  async transfer(from, to, asset, delta, memo = "") {
+  async createTransferTx(from, to, asset, delta, memo) {
     let signature = "";
     if (this.accounts.has(user_id)) {
       // add signature for this tx
+      let nonce = 0; // use 0 as nonce for now
       let tx = new TransferTx({
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
-        from: from, //?
-        from_nonce: 0, //?
+        from: from,
+        from_nonce: nonce,
         to: to,
       });
       signature = this.accounts.get(user_id).signHashPacked(tx.hash());
     }
-    return await this.client.transfer({
+    return {
       from,
       to,
       asset,
       delta,
       memo,
-      signature //?
-    });
+      signature
+    };
+  }
+
+  async transfer(from, to, asset, delta, memo = "") {
+    let tx = this.createTransferTx(from, to, asset, delta, memo);
+    return await this.client.transfer(tx);
   }
 
   async debugDump() {
