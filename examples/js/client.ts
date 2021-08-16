@@ -211,7 +211,7 @@ class Client {
     return await this.client.OrderBookDepth({ market, limit, interval });
   }
 
-  async createTransferTx(from, to, asset, delta, memo) {
+  createTransferTx(from, to, asset, delta, memo) {
     let user_id = from;
     let signature = "";
     if (this.accounts.has(user_id)) {
