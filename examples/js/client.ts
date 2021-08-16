@@ -212,6 +212,7 @@ class Client {
   }
 
   async createTransferTx(from, to, asset, delta, memo) {
+    let user_id = from;
     let signature = "";
     if (this.accounts.has(user_id)) {
       // add signature for this tx
