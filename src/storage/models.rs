@@ -203,9 +203,9 @@ pub struct InternalTx {
     pub time: TimestampDbType,
     pub user_from: i32,
     pub user_to: i32,
-    pub signature: String,
     pub asset: String,
     pub amount: DecimalDbType,
+    pub signature: String,
 }
 
 /*
@@ -229,9 +229,9 @@ impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
         arg.add(self.time);
         arg.add(self.user_from);
         arg.add(self.user_to);
-        arg.add(&self.signature);
         arg.add(&self.asset);
         arg.add(self.amount);
+        arg.add(&self.signature);
     }
 }
 

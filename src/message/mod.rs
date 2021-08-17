@@ -123,9 +123,9 @@ pub struct TransferMessage {
     pub time: f64,
     pub user_from: u32,
     pub user_to: u32,
-    pub signature: String,
     pub asset: String,
     pub amount: String,
+    pub signature: String,
 }
 
 impl From<InternalTx> for TransferMessage {
@@ -134,9 +134,9 @@ impl From<InternalTx> for TransferMessage {
             time: FTimestamp::from(&tx.time).into(),
             user_from: tx.user_from as u32,
             user_to: tx.user_to as u32,
-            signature: tx.signature,
-            asset: tx.asset.to_string(),
+            asset: tx.asset,
             amount: tx.amount.to_string(),
+            signature: tx.signature,
         }
     }
 }

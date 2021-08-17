@@ -643,9 +643,9 @@ impl Controller {
                 time: timestamp.into(),
                 user_from: from_user_id as i32, // TODO: will this overflow?
                 user_to: to_user_id as i32,     // TODO: will this overflow?
-                signature: req.signature.clone(),
                 asset: asset_id.to_string(),
                 amount: change,
+                signature: req.signature.clone(),
             });
 
             self.append_operation_log(OPERATION_TRANSFER, &req);
