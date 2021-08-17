@@ -680,6 +680,7 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
             time: FTimestamp(origin.time).into(),
             user_from: origin.user_from as i32, // TODO: will this overflow?
             user_to: origin.user_to as i32,     // TODO: will this overflow?
+            signature: origin.signature.clone(),
             asset: origin.asset.clone(),
             amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
         }
