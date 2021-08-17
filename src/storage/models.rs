@@ -221,7 +221,7 @@ impl sqlxextend::TableSchemas for InternalTx {
     fn table_name() -> &'static str {
         INTERNALTX
     }
-    const ARGN: i32 = 5;
+    const ARGN: i32 = 6;
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
