@@ -645,6 +645,7 @@ impl Controller {
                 user_to: to_user_id as i32,     // TODO: will this overflow?
                 asset: asset_id.to_string(),
                 amount: change,
+                signature: req.signature.as_bytes().to_vec(),
             });
 
             self.append_operation_log(OPERATION_TRANSFER, &req);

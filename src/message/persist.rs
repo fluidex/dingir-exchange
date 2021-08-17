@@ -682,6 +682,7 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
             user_to: origin.user_to as i32,     // TODO: will this overflow?
             asset: origin.asset.clone(),
             amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
+            signature: origin.signature.as_bytes().to_vec(),
         }
     }
 }

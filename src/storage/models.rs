@@ -205,6 +205,7 @@ pub struct InternalTx {
     pub user_to: i32,
     pub asset: String,
     pub amount: DecimalDbType,
+    pub signature: Vec<u8>,
 }
 
 /*
@@ -220,7 +221,7 @@ impl sqlxextend::TableSchemas for InternalTx {
     fn table_name() -> &'static str {
         INTERNALTX
     }
-    const ARGN: i32 = 5;
+    const ARGN: i32 = 6;
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
@@ -230,6 +231,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
         arg.add(self.user_to);
         arg.add(&self.asset);
         arg.add(self.amount);
+        arg.add(&self.signature);
     }
 }
 
