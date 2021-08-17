@@ -205,7 +205,7 @@ pub struct InternalTx {
     pub user_to: i32,
     pub asset: String,
     pub amount: DecimalDbType,
-    pub signature: String,
+    pub signature: Vec<u8>,
 }
 
 /*

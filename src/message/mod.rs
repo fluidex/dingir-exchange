@@ -136,7 +136,7 @@ impl From<InternalTx> for TransferMessage {
             user_to: tx.user_to as u32,
             asset: tx.asset,
             amount: tx.amount.to_string(),
-            signature: tx.signature,
+            signature: String::from_utf8(tx.signature).unwrap(),
         }
     }
 }
