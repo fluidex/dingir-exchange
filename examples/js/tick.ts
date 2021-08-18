@@ -113,7 +113,7 @@ async function transferTest() {
   const res1 = await client.transfer(botsIds[0].toString(), botsIds[1].toString(), "USDT", 1000);
   assert.equal(res1.success, true);
 
-  const res2 = await client.transfer(botsIds[0].toString(), botsIds[2].toString(), "USDT", 1000);
+  const res2 = await client.transfer(botsIds[1].toString(), botsIds[2].toString(), "USDT", 1000);
   assert.equal(res2.success, true);
 
   const res3 = await client.transfer(botsIds[2].toString(), botsIds[3].toString(), "USDT", 1000);
