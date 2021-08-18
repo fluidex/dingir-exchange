@@ -24,10 +24,11 @@ impl SimpleMessageHandler for &MessageWriter {
         let mut file = self.out_file.lock().unwrap();
 
         let msgtype = match std::str::from_utf8(msg.key().unwrap()).unwrap() {
+            "deposits" => "DepositMessage",
+            "internaltransfer" => "TransferMessage",
             "orders" => "OrderMessage",
-            "trades" => "TradeMessage",
-            "balances" => "BalanceMessage",
             "registeruser" => "UserMessage",
+            "trades" => "TradeMessage",
             _ => unreachable!(),
         };
 
