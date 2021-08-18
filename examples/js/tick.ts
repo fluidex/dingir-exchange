@@ -110,16 +110,16 @@ async function cancelAll() {
 async function transferTest() {
   console.log("successTransferTest BEGIN");
 
-  const res1 = await client.transfer(botsIds[0].toString(), botsIds[1].toString(), "USDT", 10);
+  const res1 = await client.transfer(botsIds[0].toString(), botsIds[1].toString(), "USDT", 1000);
   assert.equal(res1.success, true);
 
-  const res2 = await client.transfer(botsIds[0].toString(), botsIds[2].toString(), "USDT", 10);
+  const res2 = await client.transfer(botsIds[0].toString(), botsIds[2].toString(), "USDT", 1000);
   assert.equal(res2.success, true);
 
-  const res3 = await client.transfer(botsIds[2].toString(), botsIds[3].toString(), "USDT", 10);
+  const res3 = await client.transfer(botsIds[2].toString(), botsIds[3].toString(), "USDT", 1000);
   assert.equal(res3.success, true);
 
-  const res4 = await client.transfer(botsIds[3].toString(), botsIds[1].toString(), "USDT", 10);
+  const res4 = await client.transfer(botsIds[3].toString(), botsIds[1].toString(), "USDT", 1000);
   assert.equal(res4.success, true);
 
   console.log("successTransferTest END");
