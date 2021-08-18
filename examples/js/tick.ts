@@ -8,8 +8,9 @@ import {
   depositAssets
 } from "./util";
 import axios from "axios";
-import { getTestAccount } from "./accounts";
 import { Account } from "fluidex.js";
+import { getTestAccount } from "./accounts";
+import { strict as assert } from "assert";
 
 const verbose = true;
 const botsIds = [1, 2, 3, 4, 5];
@@ -105,6 +106,25 @@ async function cancelAll() {
     await cancelAllForUser(user_id);
   }
 }
+
+async function transferTest() {
+  console.log("successTransferTest BEGIN");
+
+  const res1 = await client.transfer(botsIds[0].toString(), botsIds[1].toString(), "USDT", 1000);
+  assert.equal(res1.success, true);
+
+  const res2 = await client.transfer(botsIds[1].toString(), botsIds[2].toString(), "USDT", 1000);
+  assert.equal(res2.success, true);
+
+  const res3 = await client.transfer(botsIds[2].toString(), botsIds[3].toString(), "USDT", 1000);
+  assert.equal(res3.success, true);
+
+  const res4 = await client.transfer(botsIds[3].toString(), botsIds[0].toString(), "USDT", 1000);
+  assert.equal(res4.success, true);
+
+  console.log("successTransferTest END");
+}
+
 async function run() {
   for (let cnt = 0; ; cnt++) {
     try {
@@ -141,6 +161,7 @@ async function main() {
     await client.debugReset();
     await registerAccounts();
     await initAssets();
+    await transferTest();
   }
   await run();
 }

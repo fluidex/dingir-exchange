@@ -220,9 +220,9 @@ class Client {
       let tx = new TransferTx({
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
-        from: from,
+        from,
         from_nonce: nonce,
-        to: to,
+        to
       });
       signature = this.accounts.get(user_id).signHashPacked(tx.hash());
     }
