@@ -75,10 +75,10 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: Install Node.js 14
+      - name: Install Node.js 16
         uses: actions/setup-node@v2
         with:
-          node-version: '14'
+          node-version: '16'
 
       - name: NPM install
         run: |
