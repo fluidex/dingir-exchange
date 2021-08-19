@@ -15,6 +15,20 @@ use fluidex_common::non_blocking_tracing;
 use fluidex_common::rdkafka::consumer::StreamConsumer;
 use fluidex_common::rdkafka::message::{BorrowedMessage, Message};
 
+fn get_msg_tag_from_topic(t: &str) -> Option<&'static str> {
+    Some(match t {
+        "deposits" => "DepositMessage",
+        "internaltransfer" => "TransferMessage",
+        "orders" => "OrderMessage",
+        "registeruser" => "UserMessage",
+        "trades" => "TradeMessage",
+        _ => {
+            println!("skip msg of type {}", t);
+            return None;
+        }
+    })
+}
+
 struct MessageWriter {
     out_file: Mutex<File>,
 }
@@ -22,19 +36,12 @@ struct MessageWriter {
 impl SimpleMessageHandler for &MessageWriter {
     fn on_message(&self, msg: &BorrowedMessage<'_>) {
         let mut file = self.out_file.lock().unwrap();
-
-        let msgtype = match std::str::from_utf8(msg.key().unwrap()).unwrap() {
-            "deposits" => "DepositMessage",
-            "internaltransfer" => "TransferMessage",
-            "orders" => "OrderMessage",
-            "registeruser" => "UserMessage",
-            "trades" => "TradeMessage",
-            _ => unreachable!(),
-        };
-
-        let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
-        file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
-            .unwrap();
+        let msg_key = std::str::from_utf8(msg.key().unwrap()).unwrap();
+        if let Some(msgtype) = get_msg_tag_from_topic(msg_key) {
+            let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
+            file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
+                .unwrap();
+        }
     }
 }
 
