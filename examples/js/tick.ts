@@ -24,6 +24,7 @@ async function initClient() {
 async function loadAccounts() {
   for (const user_id of botsIds) {
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    console.log("acc", user_id, acc);
     client.addAccount(user_id, acc);
   }
 }
@@ -154,8 +155,8 @@ async function run() {
 }
 async function main() {
   const reset = true;
-  await initClient();
   await loadAccounts();
+  await initClient();
   //await cancelAll();
   if (reset) {
     await client.debugReset();
