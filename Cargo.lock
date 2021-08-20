@@ -1557,7 +1557,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "orchestra"
 version = "0.1.0"
-source = "git+https://github.com/fluidex/orchestra.git?branch=bump/prost#c684d8c04b8e52b53a9ea6bb1969364ba967c0b1"
+source = "git+https://github.com/fluidex/orchestra.git?branch=master#d71b33d25230d101f637fdc99ed3d4e645f2b285"
 dependencies = [
  "prost",
  "serde 1.0.124",
