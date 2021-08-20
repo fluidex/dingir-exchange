@@ -161,6 +161,31 @@ class Client {
     }
     return await this.client.OrderPut(order);
   }
+  async batchOrderPut(
+    market,
+    reset,
+    orders
+  ) {
+    let order_reqs = [];
+    for (const o of orders) {
+      const { user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = o;
+      order_reqs.push(await this.createOrder(
+        user_id,
+        market,
+        order_side,
+        order_type,
+        amount,
+        price,
+        taker_fee,
+        maker_fee
+      ));
+    }
+    return await this.client.batchOrderPut({
+      market,
+      reset,
+      orders: order_reqs
+    });
+  }
 
   async assetList() {
     return (await this.client.AssetList({})).asset_lists;
