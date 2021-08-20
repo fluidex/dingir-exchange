@@ -446,15 +446,26 @@ impl Controller {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
-        let market = &req.market;
-        if !self.markets.contains_key(market) {
+        let market_name = &req.market;
+        if !self.markets.contains_key(market_name) {
             return Err(Status::invalid_argument("invalid market"));
+        }
+        let orders = &req.orders;
+        if req.reset {
+            for order_req in orders {
+                if market_name != &order_req.market {
+                    return Err(Status::invalid_argument("inconsistent order markets"));
+                }
+                let market = self.markets.get_mut(market_name).unwrap();
+                let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
+                market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
+            }
         }
         let mut result_code = ResultCode::Success;
         let mut error_message = "".to_string();
-        let mut order_ids = Vec::with_capacity(req.orders.len());
-        for order_req in &req.orders {
-            if market != &order_req.market {
+        let mut order_ids = Vec::with_capacity(orders.len());
+        for order_req in orders {
+            if market_name != &order_req.market {
                 return Err(Status::invalid_argument("inconsistent order markets"));
             }
 
