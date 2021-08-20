@@ -28,7 +28,7 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 nix = "0.20.0"
 num_enum = "0.5.1"
-orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "master", features = [ "exchange" ] }
+orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "bump/prost", features = [ "exchange" ] }
 qstring = "0.7.2"
 rand = "0.8.3"
 serde = { version = "1.0.124", features = [ "derive" ] }
@@ -36,7 +36,7 @@ serde_json = "1.0.64"
 sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "migrate" ] }
 thiserror = "1.0.24"
 tokio = { version = "1.9.0", features = [ "full" ] }
-tonic = "0.4.0"
+tonic = "0.5.2"
 tracing = "0.1"
 tracing-appender = "0.1"
 tracing-subscriber = "0.2"
