@@ -116,5 +116,6 @@ jobs:
           cd ./examples/js/
           npx ts-node trade.ts
           sleep 5
-          npx ts-node print_orders.ts 
+          npx ts-node print_orders.ts
           npx ts-node transfer.ts
+          npx ts-node put_batch_orders.ts
