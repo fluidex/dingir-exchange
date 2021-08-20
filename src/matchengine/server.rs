@@ -9,6 +9,8 @@ use orchestra::rpc::exchange::*;
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tonic::{self, Request, Response, Status};
 
+const MAX_BATCH_ORDER_NUM: usize = 40;
+
 type StubType = Arc<RwLock<Controller>>;
 type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<Output = ()> + Send>> + Send>;
 
@@ -126,6 +128,33 @@ impl GrpcHandler {
             self.set_close.take().expect("Do not call twice with on_leave"),
         )
     }
+
+    async fn check_order_signature(&self, req: &OrderPutRequest) -> Result<(), Status> {
+        if self.settings.check_eddsa_signatue == OrderSignatrueCheck::Needed
+            || self.settings.check_eddsa_signatue == OrderSignatrueCheck::Auto && !req.signature.is_empty()
+        {
+            // check order signature here
+            // order signature checking is not 'write' op, so it need not to be moved into the main thread
+            // it is better to finish it here
+            // TODO: refactor
+            let stub = self.stub.read().await;
+            if !stub.markets.contains_key(&req.market) {
+                return Err(Status::invalid_argument("invalid market"));
+            }
+            let market = stub.markets.get(&req.market).unwrap();
+            let order = stub
+                .balance_manager
+                .asset_manager
+                .commit_order(&req, &market)
+                .map_err(|_| Status::invalid_argument("invalid order params"))?;
+            let msg = order.hash();
+            if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
+                return Err(Status::invalid_argument("invalid signature"));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[tonic::async_trait]
@@ -186,31 +215,29 @@ impl matchengine_server::Matchengine for GrpcHandler {
 
     async fn order_put(&self, request: Request<OrderPutRequest>) -> Result<Response<OrderInfo>, Status> {
         let req = request.into_inner();
+        self.check_order_signature(&req).await?;
 
-        if self.settings.check_eddsa_signatue == OrderSignatrueCheck::Needed
-            || self.settings.check_eddsa_signatue == OrderSignatrueCheck::Auto && !req.signature.is_empty()
-        {
-            // check order signature here
-            // order signature checking is not 'write' op, so it need not to be moved into the main thread
-            // it is better to finish it here
-            // TODO: refactor
-            let stub = self.stub.read().await;
-            if !stub.markets.contains_key(&req.market) {
-                return Err(Status::invalid_argument("invalid market"));
-            }
-            let market = stub.markets.get(&req.market).unwrap();
-            let order = stub
-                .balance_manager
-                .asset_manager
-                .commit_order(&req, &market)
-                .map_err(|_| Status::invalid_argument("invalid order params"))?;
-            let msg = order.hash();
-            if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
-                return Err(Status::invalid_argument("invalid signature"));
-            }
-        }
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_put(true, req) }));
+
+        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        map_dispatch_ret(rt.await)
+    }
+
+    async fn batch_order_put(&self, request: Request<BatchOrderPutRequest>) -> Result<Response<BatchOrderPutResponse>, Status> {
+        let req = request.into_inner();
+        if req.orders.len() > MAX_BATCH_ORDER_NUM {
+            return Err(Status::invalid_argument(format!(
+                "out of maximum support order number ({})",
+                MAX_BATCH_ORDER_NUM
+            )));
+        }
+        for order_req in &req.orders {
+            self.check_order_signature(order_req).await?;
+        }
+
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.batch_order_put(true, req) }));
 
         self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)

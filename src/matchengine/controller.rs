@@ -106,6 +106,7 @@ const OPERATION_BALANCE_UPDATE: &str = "balance_update";
 const OPERATION_ORDER_CANCEL: &str = "order_cancel";
 const OPERATION_ORDER_CANCEL_ALL: &str = "order_cancel_all";
 const OPERATION_ORDER_PUT: &str = "order_put";
+const OPERATION_BATCH_ORDER_PUT: &str = "batch_order_put";
 const OPERATION_TRANSFER: &str = "transfer";
 
 pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
@@ -434,30 +435,46 @@ impl Controller {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
-        if !self.markets.contains_key(&req.market) {
-            return Err(Status::invalid_argument("invalid market"));
-        }
-        let total_order_num: usize = self
-            .markets
-            .iter()
-            .map(|(_, market)| market.get_order_num_of_user(req.user_id))
-            .sum();
-        debug_assert!(total_order_num <= self.settings.user_order_num_limit);
-        if total_order_num == self.settings.user_order_num_limit {
-            return Err(Status::unavailable("too many active orders for user"));
-        }
-        let market = self.markets.get_mut(&req.market).unwrap();
-        let balance_manager = &mut self.balance_manager;
-        //let persistor = self.get_persistor(real);
-        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
-        let order = market
-            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
-            .map_err(|e| Status::unknown(format!("{}", e)))?;
+        let order = self.put_order(real, &req)?;
         if real {
             self.append_operation_log(OPERATION_ORDER_PUT, &req);
         }
         Ok(OrderInfo::from(order))
+    }
+
+    pub fn batch_order_put(&mut self, real: bool, req: BatchOrderPutRequest) -> Result<BatchOrderPutResponse, Status> {
+        if !self.check_service_available() {
+            return Err(Status::unavailable(""));
+        }
+        let market = &req.market;
+        if !self.markets.contains_key(market) {
+            return Err(Status::invalid_argument("invalid market"));
+        }
+        let mut result_code = ResultCode::Success;
+        let mut error_message = "".to_string();
+        let mut order_ids = Vec::with_capacity(req.orders.len());
+        for order_req in &req.orders {
+            if market != &order_req.market {
+                return Err(Status::invalid_argument("inconsistent order markets"));
+            }
+
+            match self.put_order(real, &order_req) {
+                Ok(order) => order_ids.push(order.id),
+                Err(error) => {
+                    result_code = ResultCode::InternalError;
+                    error_message = error.to_string();
+                    break;
+                }
+            }
+        }
+        if real {
+            self.append_operation_log(OPERATION_BATCH_ORDER_PUT, &req);
+        }
+        Ok(BatchOrderPutResponse {
+            result_code: result_code.into(),
+            error_message,
+            order_ids,
+        })
     }
 
     pub fn order_cancel(&mut self, real: bool, req: OrderCancelRequest) -> Result<OrderInfo, tonic::Status> {
@@ -752,6 +769,9 @@ impl Controller {
             OPERATION_ORDER_PUT => {
                 self.order_put(false, serde_json::from_str(params)?)?;
             }
+            OPERATION_BATCH_ORDER_PUT => {
+                self.batch_order_put(false, serde_json::from_str(params)?)?;
+            }
             OPERATION_TRANSFER => {
                 self.transfer(false, serde_json::from_str(params)?)?;
             }
@@ -761,6 +781,27 @@ impl Controller {
             _ => bail!("invalid operation {}", method),
         }
         Ok(())
+    }
+    fn put_order(&mut self, real: bool, req: &OrderPutRequest) -> Result<Order, Status> {
+        if !self.markets.contains_key(&req.market) {
+            return Err(Status::invalid_argument("invalid market"));
+        }
+        let total_order_num: usize = self
+            .markets
+            .iter()
+            .map(|(_, market)| market.get_order_num_of_user(req.user_id))
+            .sum();
+        debug_assert!(total_order_num <= self.settings.user_order_num_limit);
+        if total_order_num == self.settings.user_order_num_limit {
+            return Err(Status::unavailable("too many active orders for user"));
+        }
+        let market = self.markets.get_mut(&req.market).unwrap();
+        let balance_manager = &mut self.balance_manager;
+        let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
+        let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
+        market
+            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
+            .map_err(|e| Status::unknown(format!("{}", e)))
     }
     fn append_operation_log<Operation>(&mut self, method: &str, req: &Operation)
     where
