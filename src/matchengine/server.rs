@@ -17,7 +17,7 @@ type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<
 pub struct GrpcHandler {
     stub: StubType,
     settings: Settings,
-    task_dispacther: mpsc::Sender<ControllerAction>,
+    task_dispatcher: mpsc::Sender<ControllerAction>,
     set_close: Option<oneshot::Sender<()>>,
 }
 
@@ -82,7 +82,7 @@ impl GrpcHandler {
         let stub_for_dispatch = stub.clone();
 
         let ret = GrpcHandler {
-            task_dispacther: tx,
+            task_dispatcher: tx,
             set_close: Some(tx_close),
             settings,
             stub,
@@ -124,7 +124,7 @@ impl GrpcHandler {
 
     pub fn on_leave(&mut self) -> ServerLeave {
         ServerLeave(
-            self.task_dispacther.clone(),
+            self.task_dispatcher.clone(),
             self.set_close.take().expect("Do not call twice with on_leave"),
         )
     }
@@ -201,7 +201,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.register_user(true, request.into_inner()) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -209,7 +209,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.update_balance(true, request.into_inner()) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -220,7 +220,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_put(true, req) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -239,7 +239,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.batch_order_put(true, req) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -247,7 +247,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_cancel(true, request.into_inner()) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
     async fn order_cancel_all(
@@ -258,7 +258,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
             Box::pin(async move { ctrl.order_cancel_all(true, request.into_inner()) })
         });
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -276,7 +276,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.transfer(true, request.into_inner()) }));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -286,7 +286,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_dump(request.into_inner())));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -295,7 +295,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_reset(request.into_inner())));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
@@ -304,7 +304,7 @@ impl matchengine_server::Matchengine for GrpcHandler {
         let ControllerDispatch(act, rt) =
             ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(ctrl.debug_reload(request.into_inner())));
 
-        self.task_dispacther.send(act).await.map_err(map_dispatch_err)?;
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)
     }
 
