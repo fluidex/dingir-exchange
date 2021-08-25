@@ -302,30 +302,34 @@ async function main() {
     await defaultGrpcClient.orderCancelAll(user_id, market);
     //console.log('batch orders:', orders);
     try {
-      await defaultClient.orderPut(
-        user_id,
-        market,
-        ORDER_SIDE_BID,
-        ORDER_TYPE_LIMIT,
-        bidAmount,
-        bidPrice,
-        "0",
-        "0"
-      );
+      if (bidAmount > 0.001) {
+        await defaultClient.orderPut(
+          user_id,
+          market,
+          ORDER_SIDE_BID,
+          ORDER_TYPE_LIMIT,
+          bidAmount,
+          bidPrice,
+          "0",
+          "0"
+        );
+      }
     } catch (e) {
       console.log("put error", bid_order, e);
     }
     try {
-      await defaultClient.orderPut(
-        user_id,
-        market,
-        ORDER_SIDE_ASK,
-        ORDER_TYPE_LIMIT,
-        askAmount,
-        askPrice,
-        "0",
-        "0"
-      );
+      if (askAmount > 0.001) {
+        await defaultClient.orderPut(
+          user_id,
+          market,
+          ORDER_SIDE_ASK,
+          ORDER_TYPE_LIMIT,
+          askAmount,
+          askPrice,
+          "0",
+          "0"
+        );
+      }
     } catch (e) {
       console.log("put error", ask_order, e);
     }
