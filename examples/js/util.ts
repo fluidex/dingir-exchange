@@ -10,7 +10,9 @@ import {
 import { defaultClient as client } from "./client";
 
 import Decimal from "decimal.js";
+var gaussian = require("gaussian");
 import { strict as assert } from "assert";
+import axios from "axios";
 
 function depositId() {
   return Date.now();
@@ -67,6 +69,12 @@ export async function putLimitOrder(userId, market, side, amount, price) {
 export function getRandomFloat(min, max) {
   return Math.random() * (max - min) + min;
 }
+export function getRandomFloatAroundNormal(value, stddev_ratio = 0.02) {
+  var distribution = gaussian(value, value * stddev_ratio);
+  // Take a random sample using inverse transform sampling method.
+  var sample = distribution.ppf(Math.random());
+  return sample;
+}
 export function getRandomFloatAround(value, ratio = 0.05, abs = 0) {
   const eps1 = getRandomFloat(-abs, abs);
   const eps2 = getRandomFloat(-value * ratio, value * ratio);
@@ -91,4 +99,37 @@ export async function putRandOrder(userId, market) {
 
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+let pricesCache = new Map();
+let pricesUpdatedTime = 0;
+export async function getPriceOfCoin(
+  sym,
+  timeout = 60, // default 1min
+  backend = "coinstats"
+): Promise<number> {
+  // limit query rate
+  if (Date.now() > pricesUpdatedTime + timeout * 1000) {
+    // update prices
+    try {
+      if (backend == "coinstats") {
+        const url =
+          "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
+        const data = await axios.get(url);
+        for (const elem of data.data.coins) {
+          pricesCache.set(elem.symbol, elem.price);
+        }
+      } else if (backend == "cryptocompare") {
+        const url =
+          "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
+        // TODO
+      }
+
+      pricesUpdatedTime = Date.now();
+    } catch (e) {
+      console.log("update prices err", e);
+    }
+  }
+
+  return pricesCache.get(sym);
 }

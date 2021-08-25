@@ -4,10 +4,11 @@ import {
   sleep,
   putLimitOrder,
   getRandomFloatAround,
+  getRandomFloatAroundNormal,
   getRandomElem,
-  depositAssets
+  depositAssets,
+  getPriceOfCoin
 } from "./util";
-import axios from "axios";
 import { Account } from "fluidex.js";
 import { getTestAccount } from "./accounts";
 import { strict as assert } from "assert";
@@ -32,7 +33,7 @@ async function registerAccounts() {
   for (const user_id of botsIds) {
     // TODO: clean codes here
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-    await client.client.RegisterUser({
+    await client.registerUser({
       user_id,
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey
@@ -53,33 +54,9 @@ async function initAssets() {
 function randUser() {
   return getRandomElem(botsIds);
 }
-let priceUpdatedTime = 0;
-async function updatePrices(backend) {
-  try {
-    // limit query rate
-    if (Date.now() <= priceUpdatedTime + 60 * 1000) {
-      return;
-    }
-    if (backend == "coinstats") {
-      const url =
-        "https://api.coinstats.app/public/v1/coins?skip=0&limit=100&currency=USD";
-      const data = await axios.get(url);
-      for (const elem of data.data.coins) {
-        prices.set(elem.symbol, elem.price);
-      }
-    } else if (backend == "cryptocompare") {
-      const url =
-        "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD";
-      // TODO
-    }
-    priceUpdatedTime = Date.now();
-  } catch (e) {
-    console.log("update price err", e);
-  }
-}
 
-function getPrice(token: string): number {
-  const price = prices.get(token);
+async function getPrice(token: string): Promise<number> {
+  const price = await getPriceOfCoin(token);
   if (verbose) {
     console.log("price", token, price);
   }
@@ -130,19 +107,18 @@ async function run() {
   for (let cnt = 0; ; cnt++) {
     try {
       await sleep(1000);
-      await updatePrices("coinstats");
       async function tickForUser(user) {
         if (Math.floor(cnt / botsIds.length) % 200 == 0) {
           await cancelAllForUser(user);
         }
         for (let market of markets) {
-          const price = getPrice(market.split("_")[0]);
+          const price = await getPrice(market.split("_")[0]);
           await putLimitOrder(
             user,
             market,
             getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
             getRandomFloatAround(0.3, 0.3),
-            getRandomFloatAround(price)
+            getRandomFloatAroundNormal(price)
           );
         }
       }

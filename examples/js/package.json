@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "fmt": "npx prettier --write *.ts *.js *.mjs package.json"
+    "fmt": "npx prettier --write **/*.ts *.js *.mjs package.json"
   },
   "dependencies": {
     "@eeston/grpc-caller": "^0.20.2",
@@ -8,6 +8,7 @@
     "axios": "^0.21.1",
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
+    "gaussian": "^1.2.0",
     "grpc": "^1.24.2",
     "kafkajs": "^1.11.0",
     "lodash": "^4.17.21"
