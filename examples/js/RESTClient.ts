@@ -3,6 +3,12 @@ import * as _ from "lodash";
 
 const REST_API_SERVER = "http://localhost:50053/restapi";
 
+class UserInfo {
+  id: number;
+  l1_address: string;
+  l2_pubkey: string;
+}
+
 class RESTClient {
   client: AxiosInstance;
 
@@ -12,6 +18,18 @@ class RESTClient {
       baseURL: server,
       timeout: 1000
     });
+  }
+
+  async get_user_by_addr(addr: string): Promise<UserInfo> {
+    let resp = await this.client.get(`/user/${addr}`);
+    //console.log('user info', resp.data);
+    if (resp.data.error) {
+      console.log("error:", resp.data);
+      return null;
+    }
+    let userInfo = (resp.data as unknown) as UserInfo;
+    //console.log('raw', resp.data, 'result', userInfo);
+    return userInfo;
   }
 
   async internal_txs(

@@ -64,6 +64,10 @@ class Client {
     return { available, frozen, total };
   }
 
+  async orderQuery(user_id, market) {
+    return await this.client.OrderQuery({user_id, market})
+  }
+
   async balanceUpdate(user_id, asset, business, business_id, delta, detail) {
     return await this.client.BalanceUpdate({
       user_id,
@@ -161,15 +165,10 @@ class Client {
     }
     return await this.client.OrderPut(order);
   }
-  async batchOrderPut(
-    market,
-    reset,
-    orders
-  ) {
+  async batchOrderPut(market, reset, orders) {
     let order_reqs = [];
     for (const o of orders) {
-      const { user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = o;
-      order_reqs.push(await this.createOrder(
+      const {
         user_id,
         market,
         order_side,
@@ -178,7 +177,19 @@ class Client {
         price,
         taker_fee,
         maker_fee
-      ));
+      } = o;
+      order_reqs.push(
+        await this.createOrder(
+          user_id,
+          market,
+          order_side,
+          order_type,
+          amount,
+          price,
+          taker_fee,
+          maker_fee
+        )
+      );
     }
     return await this.client.batchOrderPut({
       market,
@@ -280,7 +291,7 @@ class Client {
 
   async registerUser(user) {
     return await this.client.RegisterUser({
-      user_id: user.id,
+      user_id: user.id || user.user_id, // legacy reasons
       l1_address: user.l1_address,
       l2_pubkey: user.l2_pubkey
     });
