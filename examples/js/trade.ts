@@ -211,7 +211,7 @@ async function mainTest(withMQ) {
 
 async function main() {
   try {
-    await mainTest(false);
+    await mainTest(!!process.env.TEST_MQ || false);
   } catch (error) {
     console.error("Caught error:", error);
     process.exit(1);
