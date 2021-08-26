@@ -709,6 +709,7 @@ dependencies = [
  "nix",
  "num_enum",
  "orchestra",
+ "paperclip",
  "qstring",
  "rand 0.8.3",
  "serde 1.0.124",
@@ -734,6 +735,12 @@ name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
+name = "dtoa"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
 
 [[package]]
 name = "either"
@@ -1262,6 +1269,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd96ffd135b2fd7b973ac026d28085defbe8983df057ced3eb4f2130b0831312"
 dependencies = [
  "scopeguard",
+ "serde 1.0.124",
 ]
 
 [[package]]
@@ -1566,6 +1574,77 @@ dependencies = [
 ]
 
 [[package]]
+name = "paperclip"
+version = "0.5.0"
+source = "git+https://github.com/fluidex/paperclip.git#374e30b0bbef538f536f896999313c03f995a69a"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "once_cell",
+ "paperclip-actix",
+ "paperclip-core",
+ "paperclip-macros",
+ "parking_lot",
+ "semver",
+ "serde 1.0.124",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "paperclip-actix"
+version = "0.3.0"
+source = "git+https://github.com/fluidex/paperclip.git#374e30b0bbef538f536f896999313c03f995a69a"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "futures",
+ "once_cell",
+ "paperclip-core",
+ "paperclip-macros",
+ "parking_lot",
+ "serde_json",
+]
+
+[[package]]
+name = "paperclip-core"
+version = "0.3.0"
+source = "git+https://github.com/fluidex/paperclip.git#374e30b0bbef538f536f896999313c03f995a69a"
+dependencies = [
+ "actix-web",
+ "mime",
+ "once_cell",
+ "paperclip-macros",
+ "parking_lot",
+ "pin-project",
+ "regex",
+ "serde 1.0.124",
+ "serde_json",
+ "serde_yaml",
+ "thiserror",
+]
+
+[[package]]
+name = "paperclip-macros"
+version = "0.4.0"
+source = "git+https://github.com/fluidex/paperclip.git#374e30b0bbef538f536f896999313c03f995a69a"
+dependencies = [
+ "heck",
+ "http",
+ "lazy_static",
+ "mime",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "strum",
+ "strum_macros",
+ "syn",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1727,6 +1806,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
 dependencies = [
  "toml",
+]
+
+[[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
 ]
 
 [[package]]
@@ -2170,6 +2273,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.8.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6375dbd828ed6964c3748e4ef6d18e7a175d408ffe184bca01698d0c73f915a9"
+dependencies = [
+ "dtoa",
+ "indexmap",
+ "serde 1.0.124",
+ "yaml-rust",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2431,6 +2546,24 @@ checksum = "8ee348cb74b87454fff4b551cbf727025810a004f88aeacae7f85b87f4e9a1c1"
 dependencies = [
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "strum"
+version = "0.19.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b89a286a7e3b5720b9a477b23253bc50debac207c8d21505f8e70b36792f11b5"
+
+[[package]]
+name = "strum_macros"
+version = "0.19.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e61bb0be289045cb80bfce000512e32d09f8337e54c186725da381377ad1f8d5"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
