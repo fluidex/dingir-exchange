@@ -23,20 +23,18 @@ impl EthLogGuard {
     }
 
     pub fn accept(&self, log_meta: &EthLogMetadata) -> bool {
-        return if log_meta.block_number < self.block_number {
-            false
-        } else if log_meta.block_number == self.block_number && self.history.contains(log_meta) {
+        if log_meta.block_number < self.block_number || (log_meta.block_number == self.block_number && self.history.contains(log_meta)) {
             false
         } else {
             true
-        };
+        }
     }
 
     pub fn accept_optional(&self, log_meta: &Option<EthLogMetadata>) -> bool {
-        return match log_meta {
+        match log_meta {
             None => true,
             Some(meta) => self.accept(meta),
-        };
+        }
     }
 
     pub fn update(&mut self, log_meta: EthLogMetadata) {
