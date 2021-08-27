@@ -1,6 +1,7 @@
 use crate::types::OrderSide;
 use chrono::NaiveDateTime;
-use serde::Serialize;
+use paperclip::actix::Apiv2Schema;
+use serde::{Deserialize, Serialize};
 
 pub type DecimalDbType = fluidex_common::rust_decimal::Decimal;
 // https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
@@ -51,7 +52,7 @@ pub struct MarketDesc {
     pub market_name: Option<String>,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct AccountDesc {
     pub id: i32, // TODO: i32 or i64?
     pub l1_address: String,
