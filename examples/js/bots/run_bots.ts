@@ -16,6 +16,7 @@ import {
 } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
+// TODO: exclude my orders
 async function estimateMarketOrderSell(
   client: grpcClient,
   market,
@@ -142,7 +143,7 @@ async function initUser(): Promise<number> {
     "camp awful sand include refuse cash reveal mystery pupil salad length plunge square admit vocal draft found side same clock hurt length say figure";
   const mnemonic3 =
     "sound select report rug run cave provide index grief foster bar someone garage donate nominee crew once oil sausage flight tail holiday style afford";
-  const acc = Account.fromMnemonic(mnemonic2);
+  const acc = Account.fromMnemonic(mnemonic3);
   //console.log('acc is', acc);
   const restClient = defaultRESTClient;
   let userInfo = await restClient.get_user_by_addr(acc.ethAddr);
@@ -213,18 +214,32 @@ async function main() {
   await rebalance(user_id);
 
   let count = 0;
+  //let lastBidPrice = '0';
+  //let lastBidAmount = '0';
+  //let lastAskPrice = '0';
+  //let lastAskAmount = '0';
   while (true) {
-    //console.log("count:", count);
+    if (VERBOSE) {
+      console.log("count:", count);
+    }
+    count += 1;
+    if (VERBOSE) {
+      console.log("sleep 500ms");
+    }
+    await sleep(500);
     try {
-      if (count % 100 == 0) {
+      if (count % 100 == 1) {
         const externalPrice = await getPriceOfCoin(baseCoin);
         console.log("externalPrice:", externalPrice);
+        //       console.log(
+        //       "depth:",
+        //     await defaultClient.orderDepth(market, 20, "0.1")
+        // );
         console.log(
-          "depth:",
-          await defaultClient.orderDepth(market, 20, "0.1")
+          "my orders:",
+          await defaultClient.orderQuery(user_id, market)
         );
-        console.log("orders:", await defaultClient.orderQuery(user_id, market));
-        await defaultGrpcClient.orderCancelAll(user_id, market);
+        //        await defaultGrpcClient.orderCancelAll(user_id, market);
 
         async function printBalance() {
           const balance = await defaultGrpcClient.balanceQuery(user_id);
@@ -264,6 +279,21 @@ async function main() {
       }
       */
       }
+
+      const oldOrders = await defaultClient.orderQuery(user_id, market);
+      if (VERBOSE) {
+        console.log("oldOrders", oldOrders);
+      }
+      const oldAskOrder = oldOrders.orders.find(
+        elem => elem.order_side == "ASK"
+      );
+      const oldBidOrder = oldOrders.orders.find(
+        elem => elem.order_side == "BID"
+      );
+
+      //      await defaultGrpcClient.orderCancelAll(user_id, market);
+
+      //console.log('batch orders:', orders);
       let orderbook = null; // fetch orderbook
       // put a big buy order and a big sell order
       const price = await getPriceOfCoin(baseCoin, 5);
@@ -279,12 +309,48 @@ async function main() {
       const ratio = 0.8; // use 80% of my assets to make market
 
       const spread = 0.0005;
-      const askPrice = price * (1 + spread);
-      const bidPrice = price * (1 - spread);
-      const bidAmount = (allQuote * ratio) / bidPrice;
-      const askAmount = allBase * ratio;
+      let askPriceRaw = price * (1 + spread);
+      let bidPriceRaw = price * (1 - spread);
+      let bidAmountRaw = (allQuote * ratio) / bidPriceRaw;
+      let askAmountRaw = allBase * ratio;
+      let {
+        price: askPrice,
+        amount: askAmount
+      } = defaultGrpcClient.roundOrderInput(market, askAmountRaw, askPriceRaw);
+      let {
+        price: bidPrice,
+        amount: bidAmount
+      } = defaultGrpcClient.roundOrderInput(market, bidAmountRaw, bidPriceRaw);
+      let minAmount = 0.001;
+      if (askAmountRaw < minAmount) {
+        askAmount = "";
+        askPrice = "";
+      }
+      if (bidAmountRaw < minAmount) {
+        bidAmount = "";
+        bidPrice = "";
+      }
 
       // const { user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = o;
+      if (VERBOSE) {
+        console.log({ bidPrice, bidAmount, askAmount, askPrice });
+        //console.log({ bidPriceRaw, bidAmountRaw, askAmountRaw, askPriceRaw });
+      }
+      let lastBidPrice = oldBidOrder?.price || "";
+      let lastBidAmount = oldBidOrder?.amount || "";
+      let lastAskPrice = oldAskOrder?.price || "";
+      let lastAskAmount = oldAskOrder?.amount || "";
+      //if(bidPrice == lastBidPrice && bidAmount == lastBidAmount && askPrice ==lastAskPrice && askAmount == lastAskAmount) {
+      if (bidPrice == lastBidPrice && askPrice == lastAskPrice) {
+        if (VERBOSE) {
+          console.log("same order shape, skip");
+        }
+        continue;
+      }
+      //lastAskPrice = askPrice;
+      //lastAskAmount = askAmount;
+      //lastBidPrice = bidPrice;
+      //lastBidAmount = bidAmount;
       const bid_order = {
         user_id,
         market,
@@ -301,12 +367,14 @@ async function main() {
         amount: askAmount,
         price: askPrice
       };
-
       await defaultGrpcClient.orderCancelAll(user_id, market);
-      //console.log('batch orders:', orders);
+
       try {
-        if (bidAmount > 0.001) {
-          await defaultClient.orderPut(
+        if (
+          Number(bidAmount) > 0.001 &&
+          (true || bidAmount != lastBidAmount || bidPrice != lastBidPrice)
+        ) {
+          let res = await defaultClient.orderPut(
             user_id,
             market,
             ORDER_SIDE_BID,
@@ -316,13 +384,19 @@ async function main() {
             "0",
             "0"
           );
+          if (true || VERBOSE) {
+            console.log("put", res);
+          }
         }
       } catch (e) {
         console.log("put error", bid_order, e);
       }
       try {
-        if (askAmount > 0.001) {
-          await defaultClient.orderPut(
+        if (
+          Number(askAmount) > 0.001 &&
+          (true || askAmount != lastAskAmount || askPrice != lastAskPrice)
+        ) {
+          let res = await defaultClient.orderPut(
             user_id,
             market,
             ORDER_SIDE_ASK,
@@ -332,6 +406,9 @@ async function main() {
             "0",
             "0"
           );
+          if (true || VERBOSE) {
+            console.log("put", res);
+          }
         }
       } catch (e) {
         console.log("put error", ask_order, e);
@@ -341,8 +418,6 @@ async function main() {
     } catch (e) {
       console.log("err", e);
     }
-    count += 1;
-    sleep(500);
   }
 }
 

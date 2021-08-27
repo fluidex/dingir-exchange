@@ -65,7 +65,7 @@ class Client {
   }
 
   async orderQuery(user_id, market) {
-    return await this.client.OrderQuery({user_id, market})
+    return await this.client.OrderQuery({ user_id, market });
   }
 
   async balanceUpdate(user_id, asset, business, business_id, delta, detail) {
@@ -77,6 +77,12 @@ class Client {
       delta,
       detail: JSON.stringify(detail)
     });
+  }
+  roundOrderInput(market, amount, price) {
+    let marketInfo = this.markets.get(market);
+    let amountRounded = Number(amount).toFixed(marketInfo.amount_precision);
+    let priceRounded = Number(price).toFixed(marketInfo.price_precision);
+    return { amount: amountRounded, price: priceRounded };
   }
   async createOrder(
     user_id,
