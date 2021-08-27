@@ -41,7 +41,7 @@ impl EthLogGuard {
             self.history.clear();
         }
 
-        assert!(!self.history.insert(log_meta));
+        assert!(self.history.insert(log_meta));
     }
 
     pub fn update_optional(&mut self, log_meta: Option<EthLogMetadata>) {
