@@ -5,7 +5,7 @@
 #![allow(clippy::single_char_pattern)]
 
 pub mod matchengine;
-pub use matchengine::{asset, controller, eth_guard, dto, history, market, persist, sequencer, server, user_manager};
+pub use matchengine::{asset, controller, dto, eth_guard, history, market, persist, sequencer, server, user_manager};
 pub mod storage;
 pub use storage::{database, models, sqlxextend};
 pub mod config;

@@ -356,7 +356,7 @@ impl Controller {
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
         if !self.eth_guard.accept_optional(&meta) {
-            return Ok(req)
+            return Ok(req);
         }
 
         let last_user_id = self.user_manager.users.len() as u32;
@@ -406,7 +406,7 @@ impl Controller {
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
         if !self.eth_guard.accept_optional(&meta) {
-            return Ok(BalanceUpdateResponse::default())
+            return Ok(BalanceUpdateResponse::default());
         }
 
         if !self.balance_manager.asset_manager.asset_exist(&req.asset) {
