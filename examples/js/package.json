@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "fmt": "npx prettier --write **/*.ts *.js *.mjs package.json"
+    "fmt": "npx prettier --write \"**/*.ts\" *.js *.mjs package.json"
   },
   "dependencies": {
     "@eeston/grpc-caller": "^0.20.2",
