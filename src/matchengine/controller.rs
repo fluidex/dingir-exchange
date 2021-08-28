@@ -2,6 +2,7 @@ use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
+use crate::eth_guard::{EthLogGuard, EthLogMetadata};
 use crate::history::DatabaseHistoryWriter;
 use crate::market::{self, Order, OrderInput};
 use crate::message::{FullOrderMessageManager, SimpleMessageManager};
@@ -88,6 +89,7 @@ pub struct Controller {
     pub sequencer: Sequencer,
     pub user_manager: UserManager,
     pub balance_manager: BalanceManager,
+    pub eth_guard: EthLogGuard,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<String, market::Market>,
@@ -138,6 +140,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         //            asset_manager,
         user_manager,
         balance_manager,
+        eth_guard: EthLogGuard::new(0),
         update_controller,
         markets,
         log_handler: Box::<OperationLogSender>::new(log_handler),
@@ -350,6 +353,12 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
+        let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
+        // ignore processed request
+        if !self.eth_guard.accept_optional(&meta) {
+            return Ok(req);
+        }
+
         let last_user_id = self.user_manager.users.len() as u32;
         req.user_id = last_user_id + 1;
         // TODO: check user_id
@@ -378,10 +387,14 @@ impl Controller {
         if real {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);
         }
+
+        self.eth_guard.update_optional(meta);
+
         Ok(UserInfo {
             user_id: req.user_id,
             l1_address: req.l1_address,
             l2_pubkey: req.l2_pubkey,
+            log_metadata: req.log_metadata,
         })
     }
 
@@ -389,6 +402,13 @@ impl Controller {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
+
+        let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
+        // ignore processed request
+        if !self.eth_guard.accept_optional(&meta) {
+            return Ok(BalanceUpdateResponse::default());
+        }
+
         if !self.balance_manager.asset_manager.asset_exist(&req.asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
@@ -428,6 +448,9 @@ impl Controller {
         if real {
             self.append_operation_log(OPERATION_BALANCE_UPDATE, &req);
         }
+
+        self.eth_guard.update_optional(meta);
+
         Ok(BalanceUpdateResponse::default())
     }
 
