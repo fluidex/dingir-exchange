@@ -1,4 +1,5 @@
 use num_enum::TryFromPrimitive;
+use paperclip::actix::Apiv2Schema;
 use serde::{Deserialize, Serialize};
 
 pub type SimpleResult = anyhow::Result<()>;
@@ -14,7 +15,7 @@ pub enum MarketRole {
 // It seems we don't need varchar(n), text is enough?
 // https://github.com/launchbadge/sqlx/issues/237#issuecomment-610696905 must use 'varchar'!!!
 // text is more readable than #[repr(i16)] and TryFromPrimitive
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type, Apiv2Schema)]
 #[sqlx(type_name = "varchar")]
 #[sqlx(rename_all = "lowercase")]
 pub enum OrderSide {

@@ -1615,12 +1615,14 @@ version = "0.3.0"
 source = "git+https://github.com/fluidex/paperclip.git#374e30b0bbef538f536f896999313c03f995a69a"
 dependencies = [
  "actix-web",
+ "chrono",
  "mime",
  "once_cell",
  "paperclip-macros",
  "parking_lot",
  "pin-project",
  "regex",
+ "rust_decimal",
  "serde 1.0.124",
  "serde_json",
  "serde_yaml",
