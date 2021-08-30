@@ -29,7 +29,7 @@ pub struct KlineResult {
     pub nxt: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Apiv2Schema)]
 pub struct TickerResult {
     pub market: String,
     #[serde(rename = "price_change_percent")]

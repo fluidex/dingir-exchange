@@ -31,13 +31,11 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> Resul
 
     let sql_query = format!("select * from {} where market = $1 order by time desc limit {}", MARKETTRADE, limit);
 
-    let trades: Vec<models::MarketTrade> = match sqlx::query_as(&sql_query).bind(market).fetch_all(&data.db).await {
-        Ok(trades) => trades,
-        Err(error) => {
-            let error: RpcError = error.into();
-            return Err(error.into());
-        }
-    };
+    let trades: Vec<models::MarketTrade> = sqlx::query_as(&sql_query)
+        .bind(market)
+        .fetch_all(&data.db)
+        .await
+        .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
 
     log::debug!("query {} recent_trades records", trades.len());
     Ok(Json(trades))
@@ -85,18 +83,12 @@ pub async fn order_trades(
         USERTRADE
     );
 
-    let trades: Vec<QueriedUserTrade> = match sqlx::query_as(&sql_query)
+    let trades: Vec<QueriedUserTrade> = sqlx::query_as(&sql_query)
         .bind(market_name)
         .bind(order_id)
         .fetch_all(&app_state.db)
         .await
-    {
-        Ok(trades) => trades,
-        Err(error) => {
-            let error: RpcError = error.into();
-            return Err(error.into());
-        }
-    };
+        .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
 
     Ok(Json(types::OrderTradeResult {
         trades: trades
