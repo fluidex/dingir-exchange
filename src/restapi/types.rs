@@ -1,4 +1,5 @@
 use crate::config::{Asset, Market};
+use paperclip::actix::Apiv2Schema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -42,7 +43,7 @@ pub struct TickerResult {
     pub to: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct MarketTrade {
     pub time: String,
     pub trade_id: i64,
@@ -52,7 +53,7 @@ pub struct MarketTrade {
     pub fee: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct OrderTradeResult {
     pub trades: Vec<MarketTrade>,
 }
