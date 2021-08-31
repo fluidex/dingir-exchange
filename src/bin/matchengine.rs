@@ -36,7 +36,9 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
 
-    let mut conn = ConnectionType::connect(&settings.db_log).await.expect("cannot connect to db");
+    let mut conn = ConnectionType::connect(&settings.db_log)
+        .await
+        .expect(&*format!("cannot connect to db at {}", settings.db_log));
     persist::MIGRATOR.run(&mut conn).await?;
     log::info!("MIGRATOR done");
 
