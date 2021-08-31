@@ -212,7 +212,9 @@ pub async fn symbols(
             .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
     }
 
-    let queried_market = if queried_market.is_none() {
+    let queried_market = if let Some(queried_market) = queried_market {
+        queried_market
+    } else {
         log::debug!("query market from name {}", rsymbol);
         let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
         //TODO: would this returning correct? should we just
@@ -222,8 +224,6 @@ pub async fn symbols(
             .fetch_one(&app_state.db)
             .await
             .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
-    } else {
-        queried_market.unwrap()
     };
 
     Ok(Json(Symbol::from(queried_market)))
