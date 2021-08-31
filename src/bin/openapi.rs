@@ -1,5 +1,7 @@
 use actix_web::{App, HttpServer};
+use dingir_exchange::openapi::personal_history::my_internal_txs;
 use dingir_exchange::openapi::public_history::{order_trades, recent_trades};
+use dingir_exchange::openapi::tradingview::ticker;
 use dingir_exchange::openapi::user::get_user;
 use dingir_exchange::restapi::state::{AppCache, AppState};
 use fluidex_common::non_blocking_tracing;
@@ -51,7 +53,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/ping", web::get().to(ping))
                     .route("/user/{l1addr_or_l2pubkey}", web::get().to(get_user))
                     .route("/recenttrades/{market}", web::get().to(recent_trades))
-                    .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades)),
+                    .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
+                    .route("/internal_txs/{user_id}", web::get().to(my_internal_txs))
+                    .route("/ticker_{ticker_inv}/{market}", web::get().to(ticker)),
             )
             .with_json_spec_at("/api/spec")
             .build()

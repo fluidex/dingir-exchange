@@ -76,7 +76,7 @@ pub struct BalanceHistory {
     pub detail: String,
 }
 
-#[derive(sqlx::Type, Debug, Clone, Serialize)]
+#[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 #[sqlx(type_name = "order_status", rename_all = "lowercase")]
 pub enum OrderStatus {
     Active,
@@ -85,7 +85,7 @@ pub enum OrderStatus {
     Expired,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone, Serialize)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct OrderHistory {
     pub id: i64,
     pub create_time: TimestampDbType,

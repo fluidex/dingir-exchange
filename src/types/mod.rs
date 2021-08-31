@@ -23,7 +23,7 @@ pub enum OrderSide {
     BID,
 }
 // TryFromPrimitive
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, sqlx::Type, Apiv2Schema)]
 #[sqlx(type_name = "varchar")]
 #[sqlx(rename_all = "lowercase")]
 pub enum OrderType {
