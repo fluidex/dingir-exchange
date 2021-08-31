@@ -5,7 +5,7 @@ use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
 use crate::restapi::{mock, state};
 use actix_web::Responder;
 use paperclip::actix::web::{self, HttpRequest, Json};
-use paperclip::actix::{api_v2_operation, Apiv2Schema};
+use paperclip::actix::api_v2_operation;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -343,10 +343,8 @@ struct TickerItem {
     quote_sum: Option<Decimal>,
 }
 
-// gupeng
-
-#[derive(Serialize, Deserialize, Apiv2Schema)]
-pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
+#[derive(Serialize, Deserialize)]
+struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 
 #[cfg(sqlxverf)]
 fn sqlverf_ticker() -> impl std::any::Any {
@@ -362,10 +360,13 @@ fn sqlverf_ticker() -> impl std::any::Any {
 #[api_v2_operation]
 pub async fn ticker(
     req: HttpRequest,
-    path: web::Path<(TickerInv, String)>,
+    path: web::Path<(String, String)>,
     app_state: web::Data<state::AppState>,
 ) -> Result<Json<TickerResult>, actix_web::Error> {
-    let (TickerInv(ticker_inv), market_name) = path.into_inner();
+    let (ticker_inv, market_name) = path.into_inner();
+    let ticker_inv: TickerInv = serde_json::from_str(&ticker_inv).unwrap();
+    let ticker_inv = ticker_inv.0;
+
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
