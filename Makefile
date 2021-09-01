@@ -2,7 +2,7 @@ DB="postgres://exchange:exchange_AA9944@127.0.0.1/exchange"
 DB_RESET_DIR="migrations/reset"
 BUILD_MODE="debug"
 # tokio-runtime-worker does not work well, do not know why...
-PROCESSES="restapi|persistor|matchengine|tokio-runtime-w|ticker.ts"
+PROCESSES="openapi|restapi|persistor|matchengine|tokio-runtime-w|ticker.ts"
 CURRENTDATE=`date +"%Y-%m-%d"`
 
 # code related
@@ -32,6 +32,7 @@ startall:
 	`pwd`/target/$(BUILD_MODE)/matchengine 1>logs/matchengine.$(CURRENTDATE).log 2>&1 &
 	# fix the migrator order problem
 	sleep 3; `pwd`/target/$(BUILD_MODE)/persistor 1>logs/persistor.$(CURRENTDATE).log 2>&1 &
+	`pwd`/target/$(BUILD_MODE)/openapi 1>logs/openapi.$(CURRENTDATE).log 2>&1 &
 	`pwd`/target/$(BUILD_MODE)/restapi 1>logs/restapi.$(CURRENTDATE).log 2>&1 &
 list:
 	pgrep -l $(PROCESSES) || true
