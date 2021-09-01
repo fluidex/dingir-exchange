@@ -209,7 +209,7 @@ pub async fn symbols(
             .bind(as_asset[1])
             .fetch_optional(&app_state.db)
             .await
-            .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
+            .map_err(|err| TradeViewError::from(err))?;
     }
 
     let queried_market = if let Some(queried_market) = queried_market {
@@ -223,7 +223,7 @@ pub async fn symbols(
             .bind(&symbol)
             .fetch_one(&app_state.db)
             .await
-            .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
+            .map_err(|err| TradeViewError::from(err))?
     };
 
     Ok(Json(Symbol::from(queried_market)))
@@ -328,7 +328,7 @@ pub async fn search_symbols(
             .bind(as_asset[1])
             .fetch_all(&app_state.db)
             .await
-            .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
+            .map_err(|err| TradeViewError::from(err))?
     } else {
         log::debug!("query symbol as name {}", rsymbol);
         let symbol_query_2 = format!(
@@ -339,7 +339,7 @@ pub async fn search_symbols(
             .bind(rsymbol)
             .fetch_all(&app_state.db)
             .await
-            .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
+            .map_err(|err| TradeViewError::from(err))?
     };
 
     Ok(Json(ret.into_iter().map(From::from).collect()))
@@ -432,7 +432,7 @@ pub async fn ticker(
         .bind(from_ts.naive_utc())
         .fetch_one(&app_state.db)
         .await
-        .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
+        .map_err(|err| TradeViewError::from(err))?;
 
     let ret = TickerResult {
         market: market_name.clone(),
@@ -525,7 +525,7 @@ fn sqlverf_history() -> impl std::any::Any {
 
 #[api_v2_operation]
 pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppState>) -> Result<Json<KlineResult>, actix_web::Error> {
-    let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
+    let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string()).map_err(|err| TradeViewError::from(err))?;
     let req = req.into_inner();
     log::debug!("kline req {:?}", req);
 
@@ -556,11 +556,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     let mut out_l: Vec<f32> = Vec::new();
     let mut out_v: Vec<f32> = Vec::new();
 
-    while let Some(item) = query_rows
-        .try_next()
-        .await
-        .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
-    {
+    while let Some(item) = query_rows.try_next().await.map_err(|err| TradeViewError::from(err))? {
         out_t.push(item.ts.as_ref().map(NaiveDateTime::timestamp).unwrap_or(0) as i32);
         out_c.push(item.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_o.push(item.first.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
@@ -577,7 +573,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
             .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
             .fetch_optional(&app_state.db)
             .await
-            .map_err(|err| actix_web::Error::from(RpcError::from(err)))?
+            .map_err(|err| TradeViewError::from(err))?
             .map(|x: NaiveDateTime| x.timestamp() as i32);
 
         return Ok(Json(KlineResult {
