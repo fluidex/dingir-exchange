@@ -1,7 +1,7 @@
 use actix_web::{App, HttpServer};
 use dingir_exchange::openapi::personal_history::my_internal_txs;
 use dingir_exchange::openapi::public_history::{order_trades, recent_trades};
-use dingir_exchange::openapi::tradingview::ticker;
+use dingir_exchange::openapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
 use dingir_exchange::openapi::user::get_user;
 use dingir_exchange::restapi::state::{AppCache, AppState};
 use fluidex_common::non_blocking_tracing;
@@ -55,7 +55,15 @@ async fn main() -> std::io::Result<()> {
                     .route("/recenttrades/{market}", web::get().to(recent_trades))
                     .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
                     .route("/internal_txs/{user_id}", web::get().to(my_internal_txs))
-                    .route("/ticker_{ticker_inv}/{market}", web::get().to(ticker)),
+                    .route("/ticker_{ticker_inv}/{market}", web::get().to(ticker))
+                    .service(
+                        web::scope("/tradingview")
+                            .route("/time", web::get().to(unix_timestamp))
+                            .route("/config", web::get().to(chart_config))
+                            .route("/search", web::get().to(search_symbols))
+                            .route("/symbols", web::get().to(symbols))
+                            .route("/history", web::get().to(history)),
+                    ),
             )
             .with_json_spec_at("/api/spec")
             .build()

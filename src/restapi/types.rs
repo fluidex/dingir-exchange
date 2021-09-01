@@ -10,7 +10,7 @@ pub struct KlineReq {
     pub resolution: i32,
     pub usemock: Option<String>,
 }
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Apiv2Schema)]
 pub struct KlineResult {
     pub s: String, // status, 'ok' or 'no_data' etc
     #[serde(skip_serializing_if = "Vec::is_empty")]

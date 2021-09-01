@@ -3,9 +3,8 @@ use crate::models::{DecimalDbType, OrderHistory, TimestampDbType};
 use crate::restapi::errors::RpcError;
 use crate::restapi::state::AppState;
 use core::cmp::min;
-use paperclip::actix::api_v2_operation;
 use paperclip::actix::web::{self, HttpRequest, Json};
-use paperclip::actix::Apiv2Schema;
+use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize, Apiv2Schema)]
