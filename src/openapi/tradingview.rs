@@ -4,6 +4,7 @@ use crate::restapi::errors::RpcError;
 use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
 use crate::restapi::{mock, state};
 use actix_web::Responder;
+use humantime::parse_duration;
 use paperclip::actix::web::{self, HttpRequest, Json};
 use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::{Deserialize, Serialize};
@@ -381,8 +382,7 @@ pub async fn ticker(
     app_state: web::Data<state::AppState>,
 ) -> Result<Json<TickerResult>, actix_web::Error> {
     let (ticker_inv, market_name) = path.into_inner();
-    let ticker_inv: TickerInv = serde_json::from_str(&ticker_inv).unwrap();
-    let ticker_inv = ticker_inv.0;
+    let ticker_inv = parse_duration(&ticker_inv).unwrap();
 
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();

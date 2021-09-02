@@ -21,6 +21,7 @@ futures-channel = "0.3.13"
 futures-core = { version = "0.3.13", default-features = false }
 futures-util = { version = "0.3.13", default-features = false }
 hex = "0.4.3"
+humantime = "2.1.0"
 humantime-serde = "1.0.1"
 hyper = "0.14.4"
 itertools = "0.10.0"
