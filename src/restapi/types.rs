@@ -58,14 +58,14 @@ pub struct OrderTradeResult {
     pub trades: Vec<MarketTrade>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct NewAssetReq {
     pub assets: Vec<Asset>,
     #[serde(default)]
     pub not_reload: bool,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Apiv2Schema)]
 pub struct NewTradePairReq {
     pub market: Market,
     #[serde(default)]

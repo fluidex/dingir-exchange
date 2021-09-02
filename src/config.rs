@@ -1,10 +1,11 @@
 use config_rs::{Config, File};
 use fluidex_common::rust_decimal::Decimal;
+use paperclip::actix::Apiv2Schema;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, Apiv2Schema)]
 #[serde(default)]
 pub struct Asset {
     pub id: String,
@@ -25,7 +26,7 @@ pub struct MarketUnit {
     pub prec: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Apiv2Schema)]
 #[serde(default)]
 pub struct Market {
     pub name: String,

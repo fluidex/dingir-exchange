@@ -1,11 +1,12 @@
 use actix_web::{App, HttpServer};
+use dingir_exchange::openapi::manage::market;
 use dingir_exchange::openapi::personal_history::my_internal_txs;
 use dingir_exchange::openapi::public_history::{order_trades, recent_trades};
 use dingir_exchange::openapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
 use dingir_exchange::openapi::user::get_user;
 use dingir_exchange::restapi::state::{AppCache, AppState};
 use fluidex_common::non_blocking_tracing;
-use paperclip::actix::web::{self};
+use paperclip::actix::web::{self, HttpResponse};
 use paperclip::actix::{api_v2_operation, OpenApiExt};
 use sqlx::postgres::Postgres;
 use sqlx::Pool;
@@ -43,7 +44,9 @@ async fn main() -> std::io::Result<()> {
         config,
     });
 
-    HttpServer::new(move || {
+    let workers = user_map.config.workers;
+
+    let server = HttpServer::new(move || {
         App::new()
             .app_data(user_map.clone())
             .app_data(AppCache::new())
@@ -63,14 +66,29 @@ async fn main() -> std::io::Result<()> {
                             .route("/search", web::get().to(search_symbols))
                             .route("/symbols", web::get().to(symbols))
                             .route("/history", web::get().to(history)),
-                    ),
+                    )
+                    .service(if user_map.manage_channel.is_some() {
+                        web::scope("/manage").service(
+                            web::scope("/market")
+                                .route("/reload", web::post().to(market::reload))
+                                .route("/tradepairs", web::post().to(market::add_pair))
+                                .route("/assets", web::post().to(market::add_assets)),
+                        )
+                    } else {
+                        web::scope("/manage")
+                            .service(web::resource("/").to(|| HttpResponse::Forbidden().body(String::from("No manage endpoint"))))
+                    }),
             )
             .with_json_spec_at("/api/spec")
             .build()
-    })
-    .bind("0.0.0.0:50054")?
-    .run()
-    .await
+    });
+
+    let server = match workers {
+        Some(wr) => server.workers(wr),
+        None => server,
+    };
+
+    server.bind("0.0.0.0:50054")?.run().await
 }
 
 #[api_v2_operation]
