@@ -1,25 +1,19 @@
-use actix_web::web::{self, Data, Json};
-use actix_web::{HttpRequest, Responder};
+use crate::models::tablenames::{MARKET, MARKETTRADE};
+use crate::models::MarketDesc;
+use crate::restapi::errors::RpcError;
+use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
+use crate::restapi::{mock, state};
+use actix_web::Responder;
+use humantime::parse_duration;
+use paperclip::actix::web::{self, HttpRequest, Json};
+use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{
-    time::{Duration, SystemTime, UNIX_EPOCH},
-    vec,
-};
-
-use super::errors::RpcError;
-use super::types::{KlineReq, KlineResult, TickerResult};
-use crate::restapi::state;
-
-use super::mock;
-
-use crate::models::{
-    tablenames::{MARKET, MARKETTRADE},
-    MarketDesc,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
+#[api_v2_operation]
 pub async fn unix_timestamp(_req: HttpRequest) -> impl Responder {
     format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
 }
@@ -28,6 +22,7 @@ static DEFAULT_EXCHANGE: &str = "test";
 static DEFAULT_SYMBOL: &str = "tradepair";
 static DEFAULT_SESSION: &str = "24x7";
 
+#[api_v2_operation]
 pub async fn chart_config(_req: HttpRequest) -> impl Responder {
     log::debug!("request config");
     let value = json!({
@@ -50,12 +45,12 @@ pub async fn chart_config(_req: HttpRequest) -> impl Responder {
     value.to_string()
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Apiv2Schema)]
 pub struct SymbolQueryReq {
     symbol: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Apiv2Schema)]
 pub struct Symbol {
     name: String,
     ticker: String,
@@ -188,7 +183,11 @@ fn test_symbol_resolution() {
     assert_eq!(sym2, "BTC_ETH");
 }
 
-pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<state::AppState>) -> Result<web::Json<Symbol>, RpcError> {
+#[api_v2_operation]
+pub async fn symbols(
+    symbol_req: web::Query<SymbolQueryReq>,
+    app_state: web::Data<state::AppState>,
+) -> Result<web::Json<Symbol>, actix_web::Error> {
     let symbol = symbol_req.into_inner().symbol;
     log::debug!("resolve symbol {:?}", symbol);
 
@@ -210,17 +209,22 @@ pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<sta
             .bind(as_asset[0])
             .bind(as_asset[1])
             .fetch_optional(&app_state.db)
-            .await?;
+            .await
+            .map_err(TradeViewError::from)?;
     }
 
-    let queried_market = if queried_market.is_none() {
+    let queried_market = if let Some(queried_market) = queried_market {
+        queried_market
+    } else {
         log::debug!("query market from name {}", rsymbol);
         let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
         //TODO: would this returning correct? should we just
         //response 404?
-        sqlx::query_as(&symbol_query_2).bind(&symbol).fetch_one(&app_state.db).await?
-    } else {
-        queried_market.unwrap()
+        sqlx::query_as(&symbol_query_2)
+            .bind(&symbol)
+            .fetch_one(&app_state.db)
+            .await
+            .map_err(TradeViewError::from)?
     };
 
     Ok(Json(Symbol::from(queried_market)))
@@ -247,7 +251,7 @@ pub async fn symbols(symbol_req: web::Query<SymbolQueryReq>, app_state: Data<sta
     .to_string())*/
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Apiv2Schema)]
 pub struct SymbolSearchQueryReq {
     query: String,
     #[serde(default, rename = "type")]
@@ -258,7 +262,7 @@ pub struct SymbolSearchQueryReq {
     limit: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Apiv2Schema)]
 pub struct SymbolDesc {
     symbol: String,
     full_name: String, // e.g. BTCE:BTCUSD
@@ -293,10 +297,11 @@ fn sqlverf_symbol_search() -> impl std::any::Any {
     )
 }
 
+#[api_v2_operation]
 pub async fn search_symbols(
     symbol_search_req: web::Query<SymbolSearchQueryReq>,
-    app_state: Data<state::AppState>,
-) -> Result<web::Json<Vec<SymbolDesc>>, RpcError> {
+    app_state: web::Data<state::AppState>,
+) -> Result<web::Json<Vec<SymbolDesc>>, actix_web::Error> {
     let symbol_query = symbol_search_req.into_inner();
     log::debug!("search symbol {:?}", symbol_query);
 
@@ -323,14 +328,19 @@ pub async fn search_symbols(
             .bind(as_asset[0])
             .bind(as_asset[1])
             .fetch_all(&app_state.db)
-            .await?
+            .await
+            .map_err(TradeViewError::from)?
     } else {
         log::debug!("query symbol as name {}", rsymbol);
         let symbol_query_2 = format!(
             "select * from {} where base_asset = $1 OR quote_asset = $1 OR market_name = $1{}",
             MARKET, limit_query
         );
-        sqlx::query_as(&symbol_query_2).bind(rsymbol).fetch_all(&app_state.db).await?
+        sqlx::query_as(&symbol_query_2)
+            .bind(rsymbol)
+            .fetch_all(&app_state.db)
+            .await
+            .map_err(TradeViewError::from)?
     };
 
     Ok(Json(ret.into_iter().map(From::from).collect()))
@@ -351,8 +361,8 @@ struct TickerItem {
     quote_sum: Option<Decimal>,
 }
 
-#[derive(Deserialize)]
-pub struct TickerInv(#[serde(with = "humantime_serde")] Duration);
+#[derive(Serialize, Deserialize)]
+struct TickerInv(#[serde(with = "humantime_serde")] Duration);
 
 #[cfg(sqlxverf)]
 fn sqlverf_ticker() -> impl std::any::Any {
@@ -365,12 +375,15 @@ fn sqlverf_ticker() -> impl std::any::Any {
     )
 }
 
+#[api_v2_operation]
 pub async fn ticker(
     req: HttpRequest,
-    path: web::Path<(TickerInv, String)>,
-    app_state: Data<state::AppState>,
-) -> Result<Json<TickerResult>, RpcError> {
-    let (TickerInv(ticker_inv), market_name) = path.into_inner();
+    path: web::Path<(String, String)>,
+    app_state: web::Data<state::AppState>,
+) -> Result<Json<TickerResult>, actix_web::Error> {
+    let (ticker_inv, market_name) = path.into_inner();
+    let ticker_inv = parse_duration(&ticker_inv).unwrap();
+
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
@@ -418,7 +431,8 @@ pub async fn ticker(
         .bind(&market_name)
         .bind(from_ts.naive_utc())
         .fetch_one(&app_state.db)
-        .await?;
+        .await
+        .map_err(TradeViewError::from)?;
 
     let ret = TickerResult {
         market: market_name.clone(),
@@ -509,8 +523,9 @@ fn sqlverf_history() -> impl std::any::Any {
     )
 }
 
-pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) -> Result<Json<KlineResult>, TradeViewError> {
-    let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string())?;
+#[api_v2_operation]
+pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppState>) -> Result<Json<KlineResult>, actix_web::Error> {
+    let req: web::Query<KlineReq> = web::Query::from_query(req_origin.query_string()).map_err(TradeViewError::from)?;
     let req = req.into_inner();
     log::debug!("kline req {:?}", req);
 
@@ -541,7 +556,7 @@ pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) 
     let mut out_l: Vec<f32> = Vec::new();
     let mut out_v: Vec<f32> = Vec::new();
 
-    while let Some(item) = query_rows.try_next().await? {
+    while let Some(item) = query_rows.try_next().await.map_err(TradeViewError::from)? {
         out_t.push(item.ts.as_ref().map(NaiveDateTime::timestamp).unwrap_or(0) as i32);
         out_c.push(item.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_o.push(item.first.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
@@ -557,7 +572,8 @@ pub async fn history(req_origin: HttpRequest, app_state: Data<state::AppState>) 
         let nxt = sqlx::query_scalar(&next_query)
             .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
             .fetch_optional(&app_state.db)
-            .await?
+            .await
+            .map_err(TradeViewError::from)?
             .map(|x: NaiveDateTime| x.timestamp() as i32);
 
         return Ok(Json(KlineResult {
