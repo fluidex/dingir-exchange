@@ -1,29 +1,25 @@
-use actix_web::{
-    web::{self, Json},
-    HttpRequest,
-};
+use crate::models::tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY};
+use crate::models::{DecimalDbType, OrderHistory, TimestampDbType};
+use crate::restapi::errors::RpcError;
+use crate::restapi::state::AppState;
 use core::cmp::min;
+use paperclip::actix::web::{self, HttpRequest, Json};
+use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::models::{
-    tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY},
-    DecimalDbType, OrderHistory, TimestampDbType,
-};
-
-use super::{errors::RpcError, state::AppState};
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct OrderResponse {
     total: i64,
     orders: Vec<OrderHistory>,
 }
 
-pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<OrderResponse>, RpcError> {
+#[api_v2_operation]
+pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<OrderResponse>, actix_web::Error> {
     let market = req.match_info().get("market").unwrap();
     let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
     let user_id = match user_id {
         Err(_) => {
-            return Err(RpcError::bad_request("invalid user_id"));
+            return Err(RpcError::bad_request("invalid user_id").into());
         }
         _ => user_id.unwrap(),
     };
@@ -47,7 +43,8 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
         sqlx::query_as(&order_query).bind(market).bind(user_id)
     }
     .fetch_all(&data.db)
-    .await?;
+    .await
+    .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
     let count_query = format!("select count(*) from {} where {}", table, condition);
     let total: i64 = if market == "all" {
         sqlx::query_scalar(&count_query).bind(user_id)
@@ -55,11 +52,12 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
         sqlx::query_scalar(&count_query).bind(market).bind(user_id)
     }
     .fetch_one(&data.db)
-    .await?;
+    .await
+    .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
     Ok(Json(OrderResponse { total, orders }))
 }
 
-#[derive(sqlx::FromRow, Serialize)]
+#[derive(sqlx::FromRow, Serialize, Deserialize, Apiv2Schema)]
 pub struct InternalTxResponse {
     time: TimestampDbType,
     user_from: String,
@@ -68,7 +66,7 @@ pub struct InternalTxResponse {
     amount: DecimalDbType,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Apiv2Schema)]
 pub enum Order {
     #[serde(rename = "lowercase")]
     Asc,
@@ -82,7 +80,7 @@ impl Default for Order {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Apiv2Schema)]
 pub enum Side {
     #[serde(rename = "lowercase")]
     From,
@@ -98,7 +96,7 @@ impl Default for Side {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Apiv2Schema)]
 pub struct InternalTxQuery {
     /// limit with default value of 20 and max value of 100.
     #[serde(default = "default_limit")]
@@ -132,11 +130,12 @@ const fn default_zero() -> usize {
 }
 
 /// `/internal_txs/{user_id}`
+#[api_v2_operation]
 pub async fn my_internal_txs(
     user_id: web::Path<i32>,
     query: web::Query<InternalTxQuery>,
     data: web::Data<AppState>,
-) -> Result<Json<Vec<InternalTxResponse>>, RpcError> {
+) -> Result<Json<Vec<InternalTxResponse>>, actix_web::Error> {
     let user_id = user_id.into_inner();
     let limit = min(query.limit, 100);
 
@@ -190,7 +189,10 @@ where "#,
         (None, None) => query_as,
     };
 
-    let txs: Vec<InternalTxResponse> = query_as.fetch_all(&data.db).await?;
+    let txs: Vec<InternalTxResponse> = query_as
+        .fetch_all(&data.db)
+        .await
+        .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
 
     Ok(Json(txs))
 }

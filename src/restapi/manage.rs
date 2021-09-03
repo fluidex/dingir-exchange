@@ -1,58 +1,67 @@
-use actix_web::{http, web, Responder};
-//use web::Json;
+use crate::restapi::{state, types};
+use crate::storage;
+use actix_web::error::InternalError;
+use actix_web::http::StatusCode;
 use futures::future::OptionFuture;
 use orchestra::rpc::exchange::*;
-
-use super::{state, types};
-use crate::storage;
+use paperclip::actix::api_v2_operation;
+use paperclip::actix::web;
 
 pub mod market {
-
     use super::*;
 
-    async fn do_reload(app_state: &state::AppState) -> (String, http::StatusCode) {
+    async fn do_reload(app_state: &state::AppState) -> Result<&'static str, actix_web::Error> {
         let mut rpc_cli = matchengine_client::MatchengineClient::new(app_state.manage_channel.as_ref().unwrap().clone());
 
         if let Err(e) = rpc_cli.reload_markets(ReloadMarketsRequest { from_scratch: false }).await {
-            return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(InternalError::new(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR).into());
         }
 
-        (String::from("done"), http::StatusCode::OK)
+        Ok("done")
     }
 
-    pub async fn add_assets(req: web::Json<types::NewAssetReq>, app_state: web::Data<state::AppState>) -> impl Responder {
+    #[api_v2_operation]
+    pub async fn add_assets(
+        req: web::Json<types::NewAssetReq>,
+        app_state: web::Data<state::AppState>,
+    ) -> Result<&'static str, actix_web::Error> {
         let assets_req = req.into_inner();
 
         for asset in &assets_req.assets {
             log::debug!("Add asset {:?}", asset);
             if let Err(e) = storage::config::persist_asset_to_db(&app_state.db, asset, false).await {
-                return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
+                return Err(InternalError::new(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR).into());
             }
         }
 
         if !assets_req.not_reload {
             do_reload(&app_state.into_inner()).await
         } else {
-            (String::from("done"), http::StatusCode::OK)
+            Ok("done")
         }
     }
 
-    pub async fn reload(app_state: web::Data<state::AppState>) -> impl Responder {
+    #[api_v2_operation]
+    pub async fn reload(app_state: web::Data<state::AppState>) -> Result<&'static str, actix_web::Error> {
         do_reload(&app_state.into_inner()).await
     }
 
-    pub async fn add_pair(req: web::Json<types::NewTradePairReq>, app_state: web::Data<state::AppState>) -> impl Responder {
+    #[api_v2_operation]
+    pub async fn add_pair(
+        req: web::Json<types::NewTradePairReq>,
+        app_state: web::Data<state::AppState>,
+    ) -> Result<&'static str, actix_web::Error> {
         let trade_pair = req.into_inner();
 
         if let Some(asset) = trade_pair.asset_base.as_ref() {
             if asset.id != trade_pair.market.base {
-                return (String::from("Base asset not match"), http::StatusCode::BAD_REQUEST);
+                return Err(InternalError::new("Base asset not match".to_owned(), StatusCode::BAD_REQUEST).into());
             }
         }
 
         if let Some(asset) = trade_pair.asset_quote.as_ref() {
             if asset.id != trade_pair.market.quote {
-                return (String::from("Quote asset not match"), http::StatusCode::BAD_REQUEST);
+                return Err(InternalError::new("Quote asset not match".to_owned(), StatusCode::BAD_REQUEST).into());
             }
         }
 
@@ -64,7 +73,7 @@ pub mod market {
         )
         .await
         {
-            return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(InternalError::new(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR).into());
         }
 
         if let Some(Err(e)) = OptionFuture::from(
@@ -75,17 +84,17 @@ pub mod market {
         )
         .await
         {
-            return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(InternalError::new(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR).into());
         }
 
         if let Err(e) = storage::config::persist_market_to_db(&app_state.db, &trade_pair.market).await {
-            return (e.to_string(), http::StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(InternalError::new(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR).into());
         }
 
         if !trade_pair.not_reload {
             do_reload(&app_state.into_inner()).await
         } else {
-            (String::from("done"), http::StatusCode::OK)
+            Ok("done")
         }
     }
 }
