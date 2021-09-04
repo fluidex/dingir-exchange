@@ -2,7 +2,7 @@
 
 CREATE TABLE account (
     id INT CHECK (id >= 1) NOT NULL PRIMARY KEY, -- need to be consistent with rollup account_id
-    l1_address VARCHAR(66) NOT NULL DEFAULT '',
+    l1_address VARCHAR(42) NOT NULL DEFAULT '',
     l2_pubkey VARCHAR(66) NOT NULL DEFAULT ''
 );
 
