@@ -50,10 +50,9 @@ $ brew install cmake librdkafka
 ```
 # Simple test
 $ cd $DingirExchangeDir
-$ cd docker
-$ docker-compose up # Lanuch the external dependency services like Postgresql and Kafka
-$ cd $DingirExchangeDir
-$ cargo run --bin matchengine # or `make startall` to start all services
+# Lanuch the external dependency services like Postgresql and Kafka
+$ docker-compose --file "./orchestra/docker/docker-compose.yaml" up --detach
+$ make startall # or `cargo run --bin matchengine` to start only core service
 $ cd $DingirExchangeDir/examples/js ; npm i
 # This script will put orders into the exchange.
 # Then you will find some orders got matched, trades generated,
