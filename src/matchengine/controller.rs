@@ -439,7 +439,7 @@ impl Controller {
                     business_id: req.business_id,
                     change,
                     detail: detail_json,
-                    signature: req.signature.clone().unwrap_or("".to_owned()),
+                    signature: req.signature.clone().unwrap_or_else(|| "".to_owned()),
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
