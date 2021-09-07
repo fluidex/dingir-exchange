@@ -74,6 +74,7 @@ pub struct BalanceHistory {
     pub balance_frozen: DecimalDbType,
     // TODO: change it to jsonb
     pub detail: String,
+    pub signature: String,
 }
 
 #[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
@@ -278,6 +279,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
         arg.add(&self.balance_available);
         arg.add(&self.balance_frozen);
         arg.add(&self.detail);
+        arg.add(&self.signature);
     }
 }
 

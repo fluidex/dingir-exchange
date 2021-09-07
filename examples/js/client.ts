@@ -1,6 +1,6 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
-import { Account, OrderInput, TransferTx } from "fluidex.js";
+import { Account, OrderInput, TransferTx, WithdrawTx } from "fluidex.js";
 import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
@@ -75,7 +75,8 @@ class Client {
       business,
       business_id,
       delta,
-      detail: JSON.stringify(detail)
+      detail: JSON.stringify(detail),
+      signature: ""
     });
   }
   roundOrderInput(market, amount, price) {
@@ -278,9 +279,37 @@ class Client {
     };
   }
 
+  createWithdrawTx(account_id, asset, business, business_id, delta, detail) {
+    let signature = "";
+    if (this.accounts.has(account_id)) {
+      let tx = new WithdrawTx({
+        account_id,
+        token_id: this.assets.get(asset).inner_id,
+        amount: delta,
+        nonce: 0,
+        old_balance: 0 // TODO: Update `old_balance` with precision.
+      });
+      signature = this.accounts.get(account_id).signHashPacked(tx.hash());
+    }
+    return {
+      user_id: account_id,
+      asset,
+      business,
+      business_id,
+      delta,
+      detail: JSON.stringify(detail),
+      signature: signature
+    };
+  }
+
   async transfer(from, to, asset, delta, memo = "") {
     let tx = this.createTransferTx(from, to, asset, delta, memo);
     return await this.client.transfer(tx);
+  }
+
+  async withdraw(user_id, asset, business, business_id, delta, detail) {
+    let tx = this.createWithdrawTx(user_id, asset, business, business_id, delta, detail);
+    return await this.client.BalanceUpdate(tx);
   }
 
   async debugDump() {

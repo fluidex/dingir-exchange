@@ -439,6 +439,7 @@ impl Controller {
                     business_id: req.business_id,
                     change,
                     detail: detail_json,
+                    signature: req.signature.clone().unwrap_or("".to_owned()),
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
@@ -668,6 +669,7 @@ impl Controller {
                     business_id,
                     change: -change,
                     detail: detail_json.clone(),
+                    signature: "".to_owned(),
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
@@ -685,6 +687,7 @@ impl Controller {
                     business_id,
                     change,
                     detail: detail_json,
+                    signature: "".to_owned(),
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
