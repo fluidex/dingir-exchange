@@ -366,11 +366,14 @@ impl Controller {
         //     return Err(Status::invalid_argument("inconsist user_id"));
         // }
 
+        let l1_address = req.l1_address.to_lowercase();
+        let l2_pubkey = req.l2_pubkey.to_lowercase();
+
         self.user_manager.users.insert(
             req.user_id,
             user_manager::UserInfo {
-                l1_address: req.l1_address.clone(),
-                l2_pubkey: req.l2_pubkey.clone(),
+                l1_address: l1_address.clone(),
+                l2_pubkey: l2_pubkey.clone(),
             },
         );
 
@@ -379,8 +382,8 @@ impl Controller {
             detail["id"] = serde_json::Value::from(req.user_id);
             self.persistor.register_user(models::AccountDesc {
                 id: req.user_id as i32,
-                l1_address: req.l1_address.clone(),
-                l2_pubkey: req.l2_pubkey.clone(),
+                l1_address: l1_address.clone(),
+                l2_pubkey: l2_pubkey.clone(),
             });
         }
 
@@ -392,8 +395,8 @@ impl Controller {
 
         Ok(UserInfo {
             user_id: req.user_id,
-            l1_address: req.l1_address,
-            l2_pubkey: req.l2_pubkey,
+            l1_address,
+            l2_pubkey,
             log_metadata: req.log_metadata,
         })
     }
