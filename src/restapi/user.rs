@@ -6,10 +6,10 @@ use paperclip::actix::web::{self, HttpRequest, Json};
 
 #[api_v2_operation]
 pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<AccountDesc>, actix_web::Error> {
-    let user_id: &str = req.match_info().get("l1addr_or_l2pubkey").unwrap();
+    let user_id = req.match_info().get("l1addr_or_l2pubkey").unwrap().to_lowercase();
     let mut user_map = data.user_addr_map.lock().unwrap();
-    if user_map.contains_key(user_id) {
-        let user_info = &*user_map.get(user_id).unwrap();
+    if user_map.contains_key(&user_id) {
+        let user_info = &*user_map.get(&user_id).unwrap();
         return Ok(Json(user_info.clone()));
     }
 
