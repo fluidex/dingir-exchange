@@ -296,7 +296,7 @@ class Client {
       asset,
       business,
       business_id,
-      delta,
+      delta: -delta,
       detail: JSON.stringify(detail),
       signature: signature
     };
@@ -311,7 +311,7 @@ class Client {
     if (delta < 0) {
       throw new Error("Parameter `delta` must be positive in `withdraw` function");
     }
-    let tx = this.createWithdrawTx(user_id, asset, business, business_id, -delta, detail);
+    let tx = this.createWithdrawTx(user_id, asset, business, business_id, delta, detail);
     return await this.client.BalanceUpdate(tx);
   }
 
