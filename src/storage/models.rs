@@ -262,7 +262,7 @@ impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
         BALANCEHISTORY
     }
-    const ARGN: i32 = 9;
+    const ARGN: i32 = 10;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
