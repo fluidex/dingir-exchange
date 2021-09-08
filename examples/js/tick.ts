@@ -110,7 +110,7 @@ async function transferTest() {
 async function withdrawTest() {
   console.log("withdrawTest BEGIN");
 
-  const res1 = await client.withdraw(
+  await client.withdraw(
     botsIds[0],
     "USDT",
     "withdraw",
@@ -118,9 +118,8 @@ async function withdrawTest() {
     100,
     { key0: "value0" }
   );
-  assert.equal(res1.success, true);
 
-  const res2 = await client.withdraw(
+  await client.withdraw(
     botsIds[1],
     "USDT",
     "withdraw",
@@ -128,9 +127,8 @@ async function withdrawTest() {
     100,
     { key1: "value1" }
   );
-  assert.equal(res2.success, true);
 
-  const res3 = await client.withdraw(
+  await client.withdraw(
     botsIds[2],
     "USDT",
     "withdraw",
@@ -138,9 +136,8 @@ async function withdrawTest() {
     100,
     { key2: "value2" }
   );
-  assert.equal(res3.success, true);
 
-  const res4 = await client.withdraw(
+  await client.withdraw(
     botsIds[3],
     "USDT",
     "withdraw",
@@ -148,7 +145,6 @@ async function withdrawTest() {
     100,
     { key3: "value3" }
   );
-  assert.equal(res4.success, true);
 
   console.log("withdrawTest END");
 }

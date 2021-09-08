@@ -308,7 +308,10 @@ class Client {
   }
 
   async withdraw(user_id, asset, business, business_id, delta, detail) {
-    let tx = this.createWithdrawTx(user_id, asset, business, business_id, delta, detail);
+    if (delta < 0) {
+      throw new Error("Parameter `delta` must be positive in `withdraw` function");
+    }
+    let tx = this.createWithdrawTx(user_id, asset, business, business_id, -delta, detail);
     return await this.client.BalanceUpdate(tx);
   }
 
