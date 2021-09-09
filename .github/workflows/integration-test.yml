@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: examples/js/package-lock.json
 
       - name: Cache node_modules
-        id: cache
+        id: npm_cache
         uses: actions/cache@v2
         with:
           path: ./examples/js/node_modules
