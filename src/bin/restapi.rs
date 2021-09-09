@@ -22,7 +22,7 @@ async fn main() -> std::io::Result<()> {
     let db_url = dingir_exchange::config::Settings::new().db_history;
     log::debug!("Prepared DB connection: {}", &db_url);
 
-    let config = dingir_exchange::restapi::config::Settings::default();
+    let config = dingir_exchange::restapi::config::Settings::new();
     let manage_channel = if let Some(ep_str) = &config.manage_endpoint {
         log::info!("Connect to manage channel {}", ep_str);
         Some(
