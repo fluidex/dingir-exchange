@@ -42,6 +42,7 @@ pub struct BalanceMessage {
     pub balance_available: String,
     pub balance_frozen: String,
     pub detail: String,
+    pub signature: String,
 }
 
 impl From<&BalanceHistory> for BalanceMessage {
@@ -56,6 +57,7 @@ impl From<&BalanceHistory> for BalanceMessage {
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
             detail: balance.detail.clone(),
+            signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }
 }
@@ -100,6 +102,7 @@ pub struct WithdrawMessage {
     pub balance_available: String,
     pub balance_frozen: String,
     pub detail: String,
+    pub signature: String,
 }
 
 impl From<&BalanceHistory> for WithdrawMessage {
@@ -114,6 +117,7 @@ impl From<&BalanceHistory> for WithdrawMessage {
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
             detail: balance.detail.clone(),
+            signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }
 }
