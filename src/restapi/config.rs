@@ -40,7 +40,7 @@ impl Default for Settings {
 impl Settings {
     pub fn new() -> Self {
         let mut conf = Config::default();
-        conf.merge(File::with_name("config/restapi")).unwrap();
+        conf.merge(File::with_name("config/restapi/default.yaml")).unwrap();
         conf.try_into().unwrap()
     }
 }
