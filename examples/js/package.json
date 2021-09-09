@@ -5,7 +5,7 @@
   "dependencies": {
     "@eeston/grpc-caller": "^0.20.2",
     "@grpc/grpc-js": "^1.2.5",
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
     "gaussian": "^1.2.0",
