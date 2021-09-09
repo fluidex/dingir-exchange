@@ -82,10 +82,18 @@ jobs:
           cache: 'npm'
           cache-dependency-path: examples/js/package-lock.json
 
-      - name: NPM install
+      - name: Cache node_modules
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: ./examples/js/node_modules
+          key: modules-${{ hashFiles('examples/js/package-lock.json') }}
+
+      - name: NPM ci
+        if: steps.npm_cache.outputs.cache-hit != 'true'
         run: |
           cd ./examples/js/
-          npm install
+          npm ci
 
       - name: Pull git submodule
         run: git submodule update --init --recursive
