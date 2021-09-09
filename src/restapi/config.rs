@@ -1,3 +1,4 @@
+use config_rs::{Config, File};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -33,5 +34,13 @@ impl Default for Settings {
             manage_endpoint: None,
             trading: Default::default(),
         }
+    }
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        let mut conf = Config::default();
+        conf.merge(File::with_name("config/restapi")).unwrap();
+        conf.try_into().unwrap()
     }
 }
