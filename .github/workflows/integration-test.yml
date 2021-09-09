@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ./examples/js/node_modules
-          key: modules-${{ hashFiles('examples/js/package-lock.json') }}
+          key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
 
       - name: NPM ci
         if: steps.npm_cache.outputs.cache-hit != 'true'
@@ -103,17 +103,11 @@ jobs:
 
       # 1. we build the binary after starting docker-compose, to ensure time for running services in docker-compose
       # 2. we avoid nohup cargo run directly, to make sure server is running before starting trading tests
-      - name: Run "cargo build"
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --
+      - name: Start exchange server daemon
+        run: make startall
 
       - name: show sccache stats
         run: ~/.cargo/bin/sccache -s
-
-      - name: Start exchange server daemon
-        run: make startall
 
       - name: Check services status
         run: |
