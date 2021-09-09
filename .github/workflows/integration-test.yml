@@ -79,8 +79,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '16'
-          cache: 'npm'
-          cache-dependency-path: examples/js/package-lock.json
+#           cache: 'npm'
+#           cache-dependency-path: examples/js/package-lock.json
 
       - name: Cache node_modules
         id: npm_cache
