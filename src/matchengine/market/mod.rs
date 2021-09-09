@@ -788,7 +788,7 @@ mod tests {
                         business_id: seq_id,
                         change: amount,
                         detail: serde_json::Value::default(),
-                        signature: "".to_owned(),
+                        signature: vec![],
                     },
                 )
                 .unwrap();
