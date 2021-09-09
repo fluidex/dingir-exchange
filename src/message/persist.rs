@@ -614,7 +614,7 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
             balance_available: DecimalDbType::from_str(&origin.balance_available).unwrap_or_else(decimal_warning),
             balance_frozen: DecimalDbType::from_str(&origin.balance_frozen).unwrap_or_else(decimal_warning),
             detail: origin.detail.clone(),
-            signature: "".to_owned(),
+            signature: origin.signature.to_owned(),
         }
     }
 }
