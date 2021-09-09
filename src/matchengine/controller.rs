@@ -442,6 +442,7 @@ impl Controller {
                     business_id: req.business_id,
                     change,
                     detail: detail_json,
+                    signature: req.signature.clone().map_or_else(Vec::new, |sig| sig.as_bytes().to_vec()),
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
@@ -671,6 +672,7 @@ impl Controller {
                     business_id,
                     change: -change,
                     detail: detail_json.clone(),
+                    signature: vec![],
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
@@ -688,6 +690,7 @@ impl Controller {
                     business_id,
                     change,
                     detail: detail_json,
+                    signature: vec![],
                 },
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;

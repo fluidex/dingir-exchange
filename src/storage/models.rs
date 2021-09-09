@@ -74,6 +74,7 @@ pub struct BalanceHistory {
     pub balance_frozen: DecimalDbType,
     // TODO: change it to jsonb
     pub detail: String,
+    pub signature: Vec<u8>,
 }
 
 #[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
@@ -261,7 +262,7 @@ impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
         BALANCEHISTORY
     }
-    const ARGN: i32 = 9;
+    const ARGN: i32 = 10;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
@@ -278,6 +279,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
         arg.add(&self.balance_available);
         arg.add(&self.balance_frozen);
         arg.add(&self.detail);
+        arg.add(&self.signature);
     }
 }
 
