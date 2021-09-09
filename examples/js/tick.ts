@@ -18,6 +18,10 @@ const botsIds = [1, 2, 3, 4, 5];
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
+function businessId() {
+  return Date.now();
+}
+
 async function initClient() {
   await client.connect();
   markets = Array.from(client.markets.keys());
@@ -103,6 +107,48 @@ async function transferTest() {
   console.log("successTransferTest END");
 }
 
+async function withdrawTest() {
+  console.log("withdrawTest BEGIN");
+
+  await client.withdraw(
+    botsIds[0],
+    "USDT",
+    "withdraw",
+    businessId(),
+    100,
+    { key0: "value0" }
+  );
+
+  await client.withdraw(
+    botsIds[1],
+    "USDT",
+    "withdraw",
+    businessId(),
+    100,
+    { key1: "value1" }
+  );
+
+  await client.withdraw(
+    botsIds[2],
+    "USDT",
+    "withdraw",
+    businessId(),
+    100,
+    { key2: "value2" }
+  );
+
+  await client.withdraw(
+    botsIds[3],
+    "USDT",
+    "withdraw",
+    businessId(),
+    100,
+    { key3: "value3" }
+  );
+
+  console.log("withdrawTest END");
+}
+
 async function run() {
   for (let cnt = 0; ; cnt++) {
     try {
@@ -139,6 +185,7 @@ async function main() {
     await registerAccounts();
     await initAssets();
     await transferTest();
+    await withdrawTest();
   }
   await run();
 }

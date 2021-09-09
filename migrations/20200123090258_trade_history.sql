@@ -8,7 +8,8 @@ CREATE TABLE balance_history (
     balance DECIMAL(30, 16) NOT NULL,
     balance_available DECIMAL(30, 16) NOT NULL,
     balance_frozen DECIMAL(30, 16) NOT NULL,
-    detail TEXT NOT NULL
+    detail TEXT NOT NULL,
+    signature BYTEA NOT NULL
 );
 
 CREATE INDEX balance_history_idx_user_asset ON balance_history (user_id, asset);

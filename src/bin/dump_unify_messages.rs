@@ -22,6 +22,7 @@ fn get_msg_tag_from_topic(t: &str) -> Option<&'static str> {
         "orders" => "OrderMessage",
         "registeruser" => "UserMessage",
         "trades" => "TradeMessage",
+        "withdraws" => "WithdrawMessage",
         _ => {
             println!("skip msg of type {}", t);
             return None;
