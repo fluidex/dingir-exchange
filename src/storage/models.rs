@@ -74,7 +74,7 @@ pub struct BalanceHistory {
     pub balance_frozen: DecimalDbType,
     // TODO: change it to jsonb
     pub detail: String,
-    pub signature: String,
+    pub signature: Vec<u8>,
 }
 
 #[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]

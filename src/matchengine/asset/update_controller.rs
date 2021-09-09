@@ -21,7 +21,7 @@ pub struct BalanceUpdateParams {
     pub business_id: u64,
     pub change: Decimal,
     pub detail: serde_json::Value,
-    pub signature: String,
+    pub signature: Vec<u8>,
 }
 
 pub enum BalanceUpdateType {
