@@ -30,7 +30,7 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
   const balances = await client.balanceQuery(userId);
   console.log("\nasset\tsum\tavaiable\tfrozen");
   for (const asset of printList) {
-    const balance = balances[asset];
+    const balance = balances.get(asset);
     console.log(
       asset,
       "\t",

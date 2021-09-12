@@ -11,7 +11,7 @@ import {
 } from "./config"; // dotenv
 import { getTestAccount } from "./accounts";
 import { defaultClient as client } from "./client";
-import { depositAssets, printBalance, sleep, decimalEqual } from "./util";
+import { depositAssets, sleep, decimalEqual } from "./util";
 import { KafkaConsumer } from "./kafka_client";
 
 import { Account } from "fluidex.js";
