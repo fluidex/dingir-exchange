@@ -99,4 +99,4 @@ jobs:
 
       - run: |
           cd ./examples/js/
-          npx eslint *
+          npx eslint *.ts
