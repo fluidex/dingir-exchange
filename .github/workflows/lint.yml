@@ -97,4 +97,6 @@ jobs:
           cd ./examples/js/
           npm ci
 
-      - run: npx eslint examples/js/*
+      - run: |
+          cd ./examples/js/
+          npx eslint *
