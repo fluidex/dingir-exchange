@@ -19,7 +19,7 @@ async function initAccounts() {
   await client.client.RegisterUser({
     userId,
     l1_address: acc.ethAddr,
-    l2_pubkey: acc.bjjPubKey
+    l2_pubkey: acc.bjjPubKey,
   });
 }
 
@@ -32,10 +32,10 @@ async function orderTest() {
     "ETH_USDT",
     "LINK_USDT",
     "MATIC_USDT",
-    "UNI_USDT"
+    "UNI_USDT",
   ]);
   let orders = await Promise.all(
-    markets.map(market =>
+    markets.map((market) =>
       client
         .orderPut(
           userId,
@@ -47,7 +47,7 @@ async function orderTest() {
           fee,
           fee
         )
-        .then(o => [market, o.id])
+        .then((o) => [market, o.id])
     )
   );
   console.log(orders);
