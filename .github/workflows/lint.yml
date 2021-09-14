@@ -68,4 +68,4 @@ jobs:
       with:
         dry: True
         prettier_options: --check examples/*
-        # github_token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+        # github_token: ${{ secrets.GITHUB_TOKEN }}
