@@ -5,14 +5,14 @@ import { defaultRESTClient, RESTClient } from "../RESTClient";
 import {
   defaultClient as defaultGrpcClient,
   Client as grpcClient,
-  defaultClient
+  defaultClient,
 } from "../client";
 import { sleep, depositAssets, getPriceOfCoin } from "../util";
 import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
@@ -44,7 +44,7 @@ async function estimateMarketOrderSell(
     quote: quoteAcc,
     avgPrice: quoteAcc / baseAcc,
     bestPrice,
-    worstPrice
+    worstPrice,
   };
   //console.log("estimateMarketOrderSell:", estimateResult);
   return estimateResult;
@@ -79,7 +79,7 @@ async function estimateMarketOrderBuy(
     quote: quoteAcc,
     avgPrice: quoteAcc / tradeAmount,
     bestPrice,
-    worstPrice
+    worstPrice,
   };
   //console.log("estimateMarketOrderBuy:", estimateResult);
   return estimateResult;
@@ -153,7 +153,7 @@ async function initUser(): Promise<number> {
     let resp = await defaultGrpcClient.registerUser({
       user_id: 0, // discard in server side
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey
+      l2_pubkey: acc.bjjPubKey,
     });
     const t = Date.now();
     console.log("register resp", resp);
@@ -259,13 +259,13 @@ async function main() {
           console.log("------- BALANCE1:", {
             quote: allQuote,
             base: res.quote,
-            total: allQuote + res.quote
+            total: allQuote + res.quote,
           });
           console.log("------- BALANCE2:", {
             quote: allQuote,
             base: allBase * externalPrice,
             total: allQuote + allBase * externalPrice,
-            totalInB: allQuote / externalPrice + allBase
+            totalInB: allQuote / externalPrice + allBase,
           });
         }
 
@@ -285,10 +285,10 @@ async function main() {
         console.log("oldOrders", oldOrders);
       }
       const oldAskOrder = oldOrders.orders.find(
-        elem => elem.order_side == "ASK"
+        (elem) => elem.order_side == "ASK"
       );
       const oldBidOrder = oldOrders.orders.find(
-        elem => elem.order_side == "BID"
+        (elem) => elem.order_side == "BID"
       );
 
       //      await defaultGrpcClient.orderCancelAll(user_id, market);
@@ -313,14 +313,10 @@ async function main() {
       let bidPriceRaw = price * (1 - spread);
       let bidAmountRaw = (allQuote * ratio) / bidPriceRaw;
       let askAmountRaw = allBase * ratio;
-      let {
-        price: askPrice,
-        amount: askAmount
-      } = defaultGrpcClient.roundOrderInput(market, askAmountRaw, askPriceRaw);
-      let {
-        price: bidPrice,
-        amount: bidAmount
-      } = defaultGrpcClient.roundOrderInput(market, bidAmountRaw, bidPriceRaw);
+      let { price: askPrice, amount: askAmount } =
+        defaultGrpcClient.roundOrderInput(market, askAmountRaw, askPriceRaw);
+      let { price: bidPrice, amount: bidAmount } =
+        defaultGrpcClient.roundOrderInput(market, bidAmountRaw, bidPriceRaw);
       let minAmount = 0.001;
       if (askAmountRaw < minAmount) {
         askAmount = "";
@@ -357,7 +353,7 @@ async function main() {
         order_side: ORDER_SIDE_BID,
         order_type: ORDER_TYPE_LIMIT,
         amount: bidAmount,
-        price: bidPrice
+        price: bidPrice,
       };
       const ask_order = {
         user_id,
@@ -365,7 +361,7 @@ async function main() {
         order_side: ORDER_SIDE_ASK,
         order_type: ORDER_TYPE_LIMIT,
         amount: askAmount,
-        price: askPrice
+        price: askPrice,
       };
       await defaultGrpcClient.orderCancelAll(user_id, market);
 

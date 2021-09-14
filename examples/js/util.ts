@@ -5,7 +5,7 @@ import {
   ORDER_SIDE_ASK,
   ORDER_TYPE_MARKET,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "./config"; // dotenv
 import { defaultClient as client } from "./client";
 
@@ -48,7 +48,7 @@ export async function depositAssets(assets: object, userId: number) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
     await client.balanceUpdate(userId, asset, "deposit", depositId(), amount, {
-      key: "value"
+      key: "value",
     });
   }
 }
@@ -98,7 +98,7 @@ export async function putRandOrder(userId, market) {
 }
 
 export function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 let pricesCache = new Map();

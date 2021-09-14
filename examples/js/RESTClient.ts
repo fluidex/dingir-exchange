@@ -16,7 +16,7 @@ class RESTClient {
     console.log("using REST API server: ", server);
     this.client = axios.create({
       baseURL: server,
-      timeout: 1000
+      timeout: 1000,
     });
   }
 
@@ -27,7 +27,7 @@ class RESTClient {
       console.log("error:", resp.data);
       return null;
     }
-    let userInfo = (resp.data as unknown) as UserInfo;
+    let userInfo = resp.data as unknown as UserInfo;
     //console.log('raw', resp.data, 'result', userInfo);
     return userInfo;
   }
@@ -44,7 +44,7 @@ class RESTClient {
     }
   ) {
     let resp = await this.client.get(`/internal_txs/${user_id}`, {
-      params: _.pickBy(params, _.identity)
+      params: _.pickBy(params, _.identity),
     });
     if (resp.status === 200) {
       return resp.data;
