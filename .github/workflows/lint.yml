@@ -63,9 +63,31 @@ jobs:
           command: clippy
           args: -- -D warnings
 
-    - name: Prettify js/ts code
-      uses: creyD/prettier_action@v4.0
-      with:
-        dry: True
-        prettier_options: --check examples/*
-        # github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Node.js 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          # cache: 'npm'
+          # cache-dependency-path: examples/js/package-lock.json
+
+      - name: Prettify js/ts code
+        uses: creyD/prettier_action@v4.0
+        with:
+          dry: True
+          prettier_options: --check examples/*
+          # github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache node_modules
+        id: npm_cache
+        uses: actions/cache@v2
+        with:
+          path: ./examples/js/node_modules
+          key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
+
+      - name: npm ci
+        if: steps.npm_cache.outputs.cache-hit != 'true'
+        run: |
+          cd ./examples/js/
+          npm ci
+
+      - run: npx eslint src/

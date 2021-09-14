@@ -89,7 +89,7 @@ jobs:
           path: ./examples/js/node_modules
           key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
 
-      - name: NPM ci
+      - name: npm ci
         if: steps.npm_cache.outputs.cache-hit != 'true'
         run: |
           cd ./examples/js/
