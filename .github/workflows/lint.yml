@@ -74,7 +74,7 @@ jobs:
         uses: creyD/prettier_action@v4.0
         with:
           dry: True
-          prettier_options: --check examples/*
+          prettier_options: --check examples/js/*
           # github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache node_modules
@@ -90,4 +90,4 @@ jobs:
           cd ./examples/js/
           npm ci
 
-      - run: npx eslint src/
+      - run: npx eslint examples/js/*
