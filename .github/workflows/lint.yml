@@ -83,18 +83,3 @@ jobs:
           dry: True
           prettier_options: --check examples/js/*
           # github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cache node_modules
-        id: npm_cache
-        uses: actions/cache@v2
-        with:
-          path: ./examples/js/node_modules
-          key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
-
-      - name: npm ci
-        if: steps.npm_cache.outputs.cache-hit != 'true'
-        run: |
-          cd ./examples/js/
-          npm ci
-
-      - run: npx eslint examples/js/*
