@@ -23,9 +23,7 @@ async function stressTest({ parallel, interval, repeat }) {
     return (Date.now() - startTime) / 1000;
   }
   let count = 0;
-  // TODO: check balance before and after stress test
-  // depends https://github.com/fluidex/dingir-exchange/issues/30
-  while (true) {
+  for (;;) {
     let promises = [];
     for (let i = 0; i < parallel; i++) {
       promises.push(putRandOrder(userId, market));
@@ -46,7 +44,6 @@ async function stressTest({ parallel, interval, repeat }) {
     if (repeat != 0 && count >= repeat) {
       break;
     }
-    //await printBalance();
   }
   const totalTime = elapsedSecs();
   await printBalance();
@@ -65,8 +62,8 @@ async function stressTest({ parallel, interval, repeat }) {
 
 async function main() {
   try {
-    await stressTest({ parallel: 50, interval: 500, repeat: 50 });
-    //await stressTest({ parallel: 1, interval: 500, repeat: 0 });
+    await stressTest({ parallel: 500, interval: 100, repeat: 100 });
+    // await stressTest({ parallel: 1, interval: 500, repeat: 0 });
   } catch (error) {
     console.error("Caught error:", error);
     process.exit(1);
