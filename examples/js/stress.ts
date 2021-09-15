@@ -7,7 +7,7 @@ import {
   putRandOrder,
   sleep,
   decimalAdd,
-  decimalEqual,
+  decimalEqual
 } from "./util";
 
 async function stressTest({ parallel, interval, repeat }) {

@@ -6,7 +6,7 @@ const isCI = !!process.env.GITHUB_ACTIONS;
 
 const new_asset = {
   assets: [{ name: "BTC", prec_save: 4, prec_show: 4 }],
-  not_reload: true,
+  not_reload: true
 };
 
 const new_market1 = {
@@ -15,13 +15,13 @@ const new_market1 = {
     base: { name: "BTC", prec: 2 },
     quote: { name: "USDC", prec: 4 },
     fee_prec: 2,
-    min_amount: 0.01,
+    min_amount: 0.01
   },
   asset_quote: {
     name: "USDC",
     prec_save: 6,
-    prec_show: 6,
-  },
+    prec_show: 6
+  }
 };
 
 const new_market2 = {
@@ -30,8 +30,8 @@ const new_market2 = {
     base: { name: "BTC", prec: 2 },
     quote: { name: "USDT", prec: 4 },
     fee_prec: 2,
-    min_amount: 0.01,
-  },
+    min_amount: 0.01
+  }
 };
 async function main() {
   const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
@@ -79,7 +79,7 @@ async function main() {
     assert.equal(markets.length, 3);
   }
 }
-main().catch(function (e) {
+main().catch(function(e) {
   console.log(e);
   process.exit(1);
   //throw e;

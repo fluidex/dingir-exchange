@@ -7,7 +7,7 @@ import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_MARKET,
-  ORDER_TYPE_LIMIT,
+  ORDER_TYPE_LIMIT
 } from "./config"; // dotenv
 import { getTestAccount } from "./accounts";
 import { defaultClient as client } from "./client";
@@ -36,7 +36,7 @@ async function initAccounts() {
     await client.client.RegisterUser({
       user_id,
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey,
+      l2_pubkey: acc.bjjPubKey
     });
   }
 }
@@ -93,7 +93,7 @@ async function orderTest() {
   const depth = await client.orderDepth(market, 100, /*not merge*/ "0");
   assert.deepEqual(depth, {
     asks: [],
-    bids: [{ price: "1.10", amount: "10.0000" }],
+    bids: [{ price: "1.10", amount: "10.0000" }]
   });
 
   await client.orderCancel(askUser, market, 1);
