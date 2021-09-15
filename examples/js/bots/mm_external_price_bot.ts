@@ -4,7 +4,7 @@ import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "../config";
 class PriceBotParams {}
 class MMByPriceBot {
@@ -41,8 +41,12 @@ class MMByPriceBot {
   // run every second
   async tick(balance, oldOrders): Promise<{ reset; orders }> {
     const VERBOSE = this.verbose;
-    const oldAskOrder = oldOrders.orders.find(elem => elem.order_side == "ASK");
-    const oldBidOrder = oldOrders.orders.find(elem => elem.order_side == "BID");
+    const oldAskOrder = oldOrders.orders.find(
+      (elem) => elem.order_side == "ASK"
+    );
+    const oldBidOrder = oldOrders.orders.find(
+      (elem) => elem.order_side == "BID"
+    );
 
     // put a big buy order and a big sell order
     //const price = await getPriceOfCoin(baseCoin, 5);
@@ -99,7 +103,7 @@ class MMByPriceBot {
       }
       return {
         reset: false,
-        orders: []
+        orders: [],
       };
     }
     //lastAskPrice = askPrice;
@@ -112,7 +116,7 @@ class MMByPriceBot {
       order_side: ORDER_SIDE_BID,
       order_type: ORDER_TYPE_LIMIT,
       amount: bidAmount,
-      price: bidPrice
+      price: bidPrice,
     };
     const ask_order = {
       user_id: this.user_id,
@@ -120,11 +124,11 @@ class MMByPriceBot {
       order_side: ORDER_SIDE_ASK,
       order_type: ORDER_TYPE_LIMIT,
       amount: askAmount,
-      price: askPrice
+      price: askPrice,
     };
     return {
       reset: true,
-      orders: [bid_order, ask_order]
+      orders: [bid_order, ask_order],
     };
   }
   handleTrade(trade) {}
