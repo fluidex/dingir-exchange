@@ -12,7 +12,7 @@ export class KafkaConsumer {
     const brokers = process.env.KAFKA_BROKERS;
     const kafka = new Kafka.Kafka({
       brokers: (brokers || "127.0.0.1:9092").split(","),
-      logLevel: Kafka.logLevel.WARN,
+      logLevel: Kafka.logLevel.WARN
     });
     const consumer = kafka.consumer({ groupId: "test-group" });
     this.consumer = consumer;
@@ -31,11 +31,11 @@ export class KafkaConsumer {
             partition,
             offset: message.offset,
             key: message.key.toString(),
-            value: message.value.toString(),
+            value: message.value.toString()
           });
         }
         this.messages.get(topic).push(message.value.toString());
-      },
+      }
     });
   }
   Reset() {

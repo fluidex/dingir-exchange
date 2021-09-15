@@ -27,7 +27,7 @@ async function registerAccounts() {
     await client.client.RegisterUser({
       user_id,
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey,
+      l2_pubkey: acc.bjjPubKey
     });
   }
 }
@@ -67,7 +67,7 @@ async function putOrdersTest() {
       amount: "1",
       price: "1",
       taker_fee: fee,
-      maker_fee: fee,
+      maker_fee: fee
     },
     {
       user_id: botsIds[1],
@@ -77,8 +77,8 @@ async function putOrdersTest() {
       amount: "1",
       price: "1",
       taker_fee: fee,
-      maker_fee: fee,
-    },
+      maker_fee: fee
+    }
   ]);
 
   const newOrderNum1 = await openOrderNum(userId1);
@@ -110,7 +110,7 @@ async function putAndResetOrdersTest() {
       amount: "1",
       price: "1",
       taker_fee: fee,
-      maker_fee: fee,
+      maker_fee: fee
     },
     {
       user_id: botsIds[1],
@@ -120,8 +120,8 @@ async function putAndResetOrdersTest() {
       amount: "1",
       price: "1",
       taker_fee: fee,
-      maker_fee: fee,
-    },
+      maker_fee: fee
+    }
   ]);
 
   const newOrderNum1 = await openOrderNum(userId1);
