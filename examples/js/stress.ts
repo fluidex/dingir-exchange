@@ -10,7 +10,7 @@ import {
   putRandOrder,
   sleep,
   decimalAdd,
-  decimalEqual,
+  decimalEqual
 } from "./util";
 
 async function stressTest({ parallel, interval, repeat }) {
@@ -20,10 +20,10 @@ async function stressTest({ parallel, interval, repeat }) {
   console.log(await client.orderCancelAll(userId2, market));
   await depositAssets({ USDT: "10000000", ETH: "10000" }, userId1);
   await depositAssets({ USDT: "10000000", ETH: "10000" }, userId2);
-  const USDTBefore1 = await client.balanceQueryByAsset(userId1, "USDT");
-  const ETHBefore1 = await client.balanceQueryByAsset(userId1, "ETH");
-  const USDTBefore2 = await client.balanceQueryByAsset(userId2, "USDT");
-  const ETHBefore2 = await client.balanceQueryByAsset(userId2, "ETH");
+  /*
+  const USDTBefore = await client.balanceQueryByAsset(userId, "USDT");
+  const ETHBefore = await client.balanceQueryByAsset(userId, "ETH");
+  */
   await printBalance();
   const startTime = Date.now();
   function elapsedSecs() {
@@ -55,18 +55,18 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   const totalTime = elapsedSecs();
   await printBalance();
-  const USDTAfter1 = await client.balanceQueryByAsset(userId1, "USDT");
-  const ETHAfter1 = await client.balanceQueryByAsset(userId1, "ETH");
-  const USDTAfter2 = await client.balanceQueryByAsset(userId2, "USDT");
-  const ETHAfter2 = await client.balanceQueryByAsset(userId2, "ETH");
-  /* TODO: Needs to validate the all balances for each asset.
+  /*
+  const USDTAfter = await client.balanceQueryByAsset(userId, "USDT");
+  const ETHAfter = await client.balanceQueryByAsset(userId, "ETH");
   decimalEqual(USDTAfter.available, USDTBefore.available);
   decimalEqual(USDTAfter.frozen, USDTBefore.frozen);
   decimalEqual(USDTAfter.total, USDTBefore.total);
   */
+  const result = await client.marketSummary(market);
+  console.log(result);
   const tradeCountAfter = (await client.marketSummary(market)).trade_count;
-  console.log(tradeCountBefore);
   console.log(tradeCountAfter);
+  console.log(tradeCountBefore);
   console.log("avg orders/s:", (parallel * repeat) / totalTime);
   console.log(
     "avg trades/s:",
@@ -77,7 +77,7 @@ async function stressTest({ parallel, interval, repeat }) {
 
 async function main() {
   try {
-    await stressTest({ parallel: 120, interval: 100, repeat: 230 });
+    await stressTest({ parallel: 150, interval: 100, repeat: 150 });
     // await stressTest({ parallel: 1, interval: 500, repeat: 0 });
   } catch (error) {
     console.error("Caught error:", error);

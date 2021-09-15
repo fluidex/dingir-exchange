@@ -45,8 +45,8 @@ impl OperationLogConsumer for OperationLogSender {
 
 // TODO: reuse pool of two dbs when they are same?
 fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
-    let persist_to_mq = true;
-    let persist_to_mq_full_order = true;
+    let persist_to_mq = false;
+    let persist_to_mq_full_order = false;
     let persist_to_db = false;
     let persist_to_file = false;
     let mut persistor = Box::new(CompositePersistor::default());

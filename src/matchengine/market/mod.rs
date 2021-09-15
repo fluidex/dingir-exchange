@@ -16,6 +16,9 @@ use fluidex_common::rust_decimal::{Decimal, RoundingStrategy};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
+use std::fs::File;
+use {pprof::protos::Message, std::io::Write};
+
 pub use types::{OrderSide, OrderType};
 
 mod order;
@@ -45,6 +48,8 @@ pub struct Market {
     pub disable_self_trade: bool,
     pub disable_market_order: bool,
     pub check_eddsa_signatue: OrderSignatrueCheck,
+
+    wrapped_profiler: Option<pprof::ProfilerGuard<'static>>,
 }
 
 pub struct BalanceManagerWrapper<'a> {
@@ -124,6 +129,7 @@ impl Market {
             disable_self_trade: global_settings.disable_self_trade,
             disable_market_order: global_settings.disable_market_order,
             check_eddsa_signatue: global_settings.check_eddsa_signatue,
+            wrapped_profiler: None,
         };
         Ok(market)
     }
@@ -308,6 +314,7 @@ impl Market {
 
         // TODO: find a more elegant way to handle this
         let mut need_cancel = false;
+
         for maker_ref in counter_orders {
             // Step1: get ask and bid
             let mut maker = maker_ref.borrow_mut();
@@ -401,6 +408,22 @@ impl Market {
             };
             #[cfg(feature = "emit_state_diff")]
             let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+
+            if self.trade_count % 10000 == 0 {
+                if let Some(profiler) = &self.wrapped_profiler {
+                    if let Ok(report) = profiler.report().build() {
+                        let mut file = File::create(format!("profile_trade_{}.pb", self.trade_count)).unwrap();
+                        let profile = report.pprof().unwrap();
+
+                        let mut content = Vec::new();
+                        profile.encode(&mut content).unwrap();
+                        file.write_all(&content).unwrap();
+                    }
+                }
+
+                self.wrapped_profiler = Some(pprof::ProfilerGuard::new(100).unwrap());
+            }
+
             self.trade_count += 1;
             if self.disable_self_trade {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
