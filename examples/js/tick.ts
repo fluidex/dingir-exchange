@@ -7,7 +7,7 @@ import {
   getRandomFloatAroundNormal,
   getRandomElem,
   depositAssets,
-  getPriceOfCoin
+  getPriceOfCoin,
 } from "./util";
 import { Account } from "fluidex.js";
 import { getTestAccount } from "./accounts";
@@ -40,7 +40,7 @@ async function registerAccounts() {
     await client.registerUser({
       user_id,
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey
+      l2_pubkey: acc.bjjPubKey,
     });
   }
 }
@@ -111,19 +111,19 @@ async function withdrawTest() {
   console.log("withdrawTest BEGIN");
 
   await client.withdraw(botsIds[0], "USDT", "withdraw", businessId(), 100, {
-    key0: "value0"
+    key0: "value0",
   });
 
   await client.withdraw(botsIds[1], "USDT", "withdraw", businessId(), 100, {
-    key1: "value1"
+    key1: "value1",
   });
 
   await client.withdraw(botsIds[2], "USDT", "withdraw", businessId(), 100, {
-    key2: "value2"
+    key2: "value2",
   });
 
   await client.withdraw(botsIds[3], "USDT", "withdraw", businessId(), 100, {
-    key3: "value3"
+    key3: "value3",
   });
 
   console.log("withdrawTest END");

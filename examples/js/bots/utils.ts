@@ -3,14 +3,14 @@ import { defaultRESTClient, RESTClient } from "../RESTClient";
 import {
   defaultClient as defaultGrpcClient,
   Client as grpcClient,
-  defaultClient
+  defaultClient,
 } from "../client";
 import { sleep, depositAssets, getPriceOfCoin } from "../util";
 import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
@@ -42,7 +42,7 @@ async function estimateMarketOrderSell(
     quote: quoteAcc,
     avgPrice: quoteAcc / baseAcc,
     bestPrice,
-    worstPrice
+    worstPrice,
   };
   //console.log("estimateMarketOrderSell:", estimateResult);
   return estimateResult;
@@ -77,7 +77,7 @@ async function estimateMarketOrderBuy(
     quote: quoteAcc,
     avgPrice: quoteAcc / tradeAmount,
     bestPrice,
-    worstPrice
+    worstPrice,
   };
   //console.log("estimateMarketOrderBuy:", estimateResult);
   return estimateResult;
@@ -182,13 +182,13 @@ async function printBalance(user_id, baseCoin, quoteCoin, market) {
   console.log("------- BALANCE1:", {
     quote: allQuote,
     base: res.quote,
-    total: allQuote + res.quote
+    total: allQuote + res.quote,
   });
   console.log("------- BALANCE2:", {
     quote: allQuote,
     base: allBase * externalPrice,
     total: allQuote + allBase * externalPrice,
-    totalInB: allQuote / externalPrice + allBase
+    totalInB: allQuote / externalPrice + allBase,
   });
 }
 
@@ -198,5 +198,5 @@ export {
   execMarketOrderAsLimit_Sell,
   execMarketOrderAsLimit_Buy,
   rebalance,
-  printBalance
+  printBalance,
 };
