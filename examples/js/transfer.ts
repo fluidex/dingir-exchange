@@ -21,7 +21,7 @@ async function registerUsers() {
     await client.registerUser({
       id: i,
       l1_address: "l1_address_" + i,
-      l2_pubkey: "l2_pubkey_" + i,
+      l2_pubkey: "l2_pubkey_" + i
     });
     console.log("register user", i);
   }
