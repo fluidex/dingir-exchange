@@ -93,4 +93,4 @@ jobs:
       - name: Prettify js/ts code
         run: |
           cd examples/js/
-          npx prettier --check "*.{js,ts}"
+          npx prettier --check "**/*.{js,ts}"
