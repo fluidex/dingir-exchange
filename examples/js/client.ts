@@ -5,7 +5,7 @@ import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "./config";
 
 const file = "../../orchestra/proto/exchange/matchengine.proto";
@@ -14,7 +14,7 @@ const load = {
   longs: String,
   enums: String,
   defaults: true,
-  oneofs: true
+  oneofs: true,
 };
 
 function fullPrec(d, p): Decimal {
@@ -57,7 +57,7 @@ class Client {
     const allBalances = (
       await this.client.BalanceQuery({ user_id: user_id, assets: [asset] })
     ).balances;
-    const balance = allBalances.find(item => item.asset_id == asset);
+    const balance = allBalances.find((item) => item.asset_id == asset);
     let available = new Decimal(balance.available);
     let frozen = new Decimal(balance.frozen);
     let total = available.add(frozen);
@@ -76,7 +76,7 @@ class Client {
       business_id,
       delta,
       detail: JSON.stringify(detail),
-      signature: ""
+      signature: "",
     });
   }
   roundOrderInput(market, amount, price) {
@@ -130,7 +130,7 @@ class Client {
         tokenSell,
         tokenBuy,
         totalSell,
-        totalBuy
+        totalBuy,
       });
       signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
     }
@@ -143,7 +143,7 @@ class Client {
       price: priceRounded,
       taker_fee,
       maker_fee,
-      signature
+      signature,
     };
   }
   async orderPut(
@@ -183,7 +183,7 @@ class Client {
         amount,
         price,
         taker_fee,
-        maker_fee
+        maker_fee,
       } = o;
       order_reqs.push(
         await this.createOrder(
@@ -201,7 +201,7 @@ class Client {
     return await this.client.batchOrderPut({
       market,
       reset,
-      orders: order_reqs
+      orders: order_reqs,
     });
   }
 
@@ -233,7 +233,7 @@ class Client {
     }
     let resp = (await this.client.MarketSummary({ markets })).market_summaries;
     if (typeof req === "string") {
-      return resp.find(item => item.name === req);
+      return resp.find((item) => item.name === req);
     }
     return resp;
   }
@@ -265,7 +265,7 @@ class Client {
         amount: delta,
         from,
         from_nonce: nonce,
-        to
+        to,
       });
       signature = this.accounts.get(user_id).signHashPacked(tx.hash());
     }
@@ -275,7 +275,7 @@ class Client {
       asset,
       delta,
       memo,
-      signature
+      signature,
     };
   }
 
@@ -287,7 +287,7 @@ class Client {
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
         nonce: 0,
-        old_balance: 0 // TODO: Update `old_balance` with precision.
+        old_balance: 0, // TODO: Update `old_balance` with precision.
       });
       signature = this.accounts.get(account_id).signHashPacked(tx.hash());
     }
@@ -298,7 +298,7 @@ class Client {
       business_id,
       delta: -delta,
       detail: JSON.stringify(detail),
-      signature: signature
+      signature: signature,
     };
   }
 
@@ -340,7 +340,7 @@ class Client {
     return await this.client.RegisterUser({
       user_id: user.id || user.user_id, // legacy reasons
       l1_address: user.l1_address,
-      l2_pubkey: user.l2_pubkey
+      l2_pubkey: user.l2_pubkey,
     });
   }
 }

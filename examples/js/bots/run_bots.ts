@@ -5,14 +5,14 @@ import { defaultRESTClient, RESTClient } from "../RESTClient";
 import {
   defaultClient as defaultGrpcClient,
   Client as grpcClient,
-  defaultClient
+  defaultClient,
 } from "../client";
 import { sleep, depositAssets, getPriceOfCoin } from "../util";
 import {
   ORDER_SIDE_BID,
   ORDER_SIDE_ASK,
   ORDER_TYPE_LIMIT,
-  VERBOSE
+  VERBOSE,
 } from "../config";
 import {
   estimateMarketOrderSell,
@@ -20,7 +20,7 @@ import {
   execMarketOrderAsLimit_Sell,
   execMarketOrderAsLimit_Buy,
   rebalance,
-  printBalance
+  printBalance,
 } from "./utils";
 import { executeOrders } from "./executor";
 async function initUser(): Promise<number> {
@@ -40,7 +40,7 @@ async function initUser(): Promise<number> {
     let resp = await defaultGrpcClient.registerUser({
       user_id: 0, // discard in server side
       l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey
+      l2_pubkey: acc.bjjPubKey,
     });
     const t = Date.now();
     console.log("register resp", resp);
@@ -79,7 +79,7 @@ async function main() {
     null,
     VERBOSE
   );
-  bot.priceFn = async function(coin: string) {
+  bot.priceFn = async function (coin: string) {
     return await getPriceOfCoin(coin, 5, "coinstats");
   };
   let count = 0;
