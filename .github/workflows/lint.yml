@@ -81,7 +81,7 @@ jobs:
         id: npm_cache
         uses: actions/cache@v2
         with:
-          path: node_modules
+          path: examples/js/node_modules
           key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
 
       - name: npm ci
