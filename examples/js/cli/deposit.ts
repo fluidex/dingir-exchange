@@ -1,6 +1,6 @@
 //deposit a lot to engine, so we would not encounter "balance not enough" failure
 
-import { depositAssets } from "./util";
+import { depositAssets } from "../exchange_helper";
 
 async function main() {
   //if I really had so much money ....

@@ -1,14 +1,9 @@
 import { market, userId } from "./config"; // dotenv
 import { defaultClient as client } from "./client";
 
-import {
-  depositAssets,
-  printBalance,
-  putRandOrder,
-  sleep,
-  decimalAdd,
-  decimalEqual,
-} from "./util";
+import { sleep, decimalAdd, assertDecimalEqual } from "./util";
+
+import { depositAssets, printBalance, putRandOrder } from "./exchange_helper";
 
 async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await client.marketSummary(market)).trade_count;
@@ -33,14 +28,7 @@ async function stressTest({ parallel, interval, repeat }) {
       await sleep(interval);
     }
     count += 1;
-    console.log(
-      "avg orders/s:",
-      (parallel * count) / elapsedSecs(),
-      "orders",
-      parallel * count,
-      "secs",
-      elapsedSecs()
-    );
+    console.log("avg orders/s:", (parallel * count) / elapsedSecs(), "orders", parallel * count, "secs", elapsedSecs());
     if (repeat != 0 && count >= repeat) {
       break;
     }
@@ -49,14 +37,11 @@ async function stressTest({ parallel, interval, repeat }) {
   await printBalance();
   const USDTAfter = await client.balanceQueryByAsset(userId, "USDT");
   const ETHAfter = await client.balanceQueryByAsset(userId, "ETH");
-  decimalEqual(USDTAfter, USDTBefore);
-  decimalEqual(ETHAfter, ETHBefore);
+  assertDecimalEqual(USDTAfter, USDTBefore);
+  assertDecimalEqual(ETHAfter, ETHBefore);
   const tradeCountAfter = (await client.marketSummary(market)).trade_count;
   console.log("avg orders/s:", (parallel * repeat) / totalTime);
-  console.log(
-    "avg trades/s:",
-    (tradeCountAfter - tradeCountBefore) / totalTime
-  );
+  console.log("avg trades/s:", (tradeCountAfter - tradeCountBefore) / totalTime);
   console.log("stressTest done");
 }
 

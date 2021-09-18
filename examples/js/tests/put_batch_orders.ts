@@ -1,9 +1,9 @@
 import axios from "axios";
 import { Account } from "fluidex.js";
-import { defaultClient as client } from "./client";
-import { depositAssets } from "./util";
-import { fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "./config";
-import { getTestAccount } from "./accounts";
+import { defaultClient as client } from "../client";
+import { depositAssets } from "../exchange_helper";
+import { fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "../config";
+import { getTestAccount } from "../accounts";
 import { strict as assert } from "assert";
 
 const botsIds = [1, 2, 3, 4, 5];
@@ -133,8 +133,7 @@ async function putAndResetOrdersTest() {
 }
 
 async function openOrderNum(userId) {
-  return (await axios.get(`http://${apiServer}/api/orders/ETH_USDT/${userId}`))
-    .data.orders.length;
+  return (await axios.get(`http://${apiServer}/api/orders/ETH_USDT/${userId}`)).data.orders.length;
 }
 
 async function main() {

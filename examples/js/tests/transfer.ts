@@ -1,9 +1,10 @@
-import { userId } from "./config"; // dotenv
-import { defaultClient as client } from "./client";
-import { defaultRESTClient as rest_client } from "./RESTClient";
-import { depositAssets, decimalEqual, sleep } from "./util";
+import { userId } from "../config"; // dotenv
+import { defaultClient as client } from "../client";
+import { defaultRESTClient as rest_client } from "../RESTClient";
+import { assertDecimalEqual, sleep } from "../util";
 
 import { strict as assert } from "assert";
+import { depositAssets } from "../exchange_helper";
 
 const anotherUserId = userId + 10;
 
@@ -11,9 +12,9 @@ async function setupAsset() {
   await depositAssets({ ETH: "100.0" }, userId);
 
   const balance1 = await client.balanceQueryByAsset(userId, "ETH");
-  decimalEqual(balance1.available, "100");
+  assertDecimalEqual(balance1.available, "100");
   const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
-  decimalEqual(balance2.available, "0");
+  assertDecimalEqual(balance2.available, "0");
 }
 
 async function registerUsers() {
@@ -33,12 +34,12 @@ async function failureWithZeroDeltaTest() {
 
   assert.equal(res.success, false);
   assert.equal(res.asset, "ETH");
-  decimalEqual(res.balance_from, "100");
+  assertDecimalEqual(res.balance_from, "100");
 
   const balance1 = await client.balanceQueryByAsset(userId, "ETH");
-  decimalEqual(balance1.available, "100");
+  assertDecimalEqual(balance1.available, "100");
   const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
-  decimalEqual(balance2.available, "0");
+  assertDecimalEqual(balance2.available, "0");
 
   console.log("failureWithZeroDeltaTest passed");
 }
@@ -49,12 +50,12 @@ async function failureWithInsufficientFromBalanceTest() {
 
   assert.equal(res.success, false);
   assert.equal(res.asset, "ETH");
-  decimalEqual(res.balance_from, "100");
+  assertDecimalEqual(res.balance_from, "100");
 
   const balance1 = await client.balanceQueryByAsset(userId, "ETH");
-  decimalEqual(balance1.available, "100");
+  assertDecimalEqual(balance1.available, "100");
   const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
-  decimalEqual(balance2.available, "0");
+  assertDecimalEqual(balance2.available, "0");
 
   console.log("failureWithInsufficientFromBalanceTest passed");
 }
@@ -65,12 +66,12 @@ async function successTransferTest() {
 
   assert.equal(res.success, true);
   assert.equal(res.asset, "ETH");
-  decimalEqual(res.balance_from, "50");
+  assertDecimalEqual(res.balance_from, "50");
 
   const balance1 = await client.balanceQueryByAsset(userId, "ETH");
-  decimalEqual(balance1.available, "50");
+  assertDecimalEqual(balance1.available, "50");
   const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
-  decimalEqual(balance2.available, "50");
+  assertDecimalEqual(balance2.available, "50");
 
   console.log("successTransferTest passed");
 }

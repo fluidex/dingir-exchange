@@ -1,11 +1,6 @@
 import { Client } from "../client";
 import { Bot } from "./bot";
-import {
-  ORDER_SIDE_BID,
-  ORDER_SIDE_ASK,
-  ORDER_TYPE_LIMIT,
-  VERBOSE,
-} from "../config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
 class PriceBotParams {}
 class MMByPriceBot {
   client: Client;
@@ -41,24 +36,16 @@ class MMByPriceBot {
   // run every second
   async tick(balance, oldOrders): Promise<{ reset; orders }> {
     const VERBOSE = this.verbose;
-    const oldAskOrder = oldOrders.orders.find(
-      (elem) => elem.order_side == "ASK"
-    );
-    const oldBidOrder = oldOrders.orders.find(
-      (elem) => elem.order_side == "BID"
-    );
+    const oldAskOrder = oldOrders.orders.find(elem => elem.order_side == "ASK");
+    const oldBidOrder = oldOrders.orders.find(elem => elem.order_side == "BID");
 
     // put a big buy order and a big sell order
     //const price = await getPriceOfCoin(baseCoin, 5);
 
     const price = await this.priceFn(this.baseCoin);
 
-    const allBase =
-      Number(balance.get(this.baseCoin).available) +
-      Number(balance.get(this.baseCoin).frozen);
-    const allQuote =
-      Number(balance.get(this.quoteCoin).available) +
-      Number(balance.get(this.quoteCoin).frozen);
+    const allBase = Number(balance.get(this.baseCoin).available) + Number(balance.get(this.baseCoin).frozen);
+    const allQuote = Number(balance.get(this.quoteCoin).available) + Number(balance.get(this.quoteCoin).frozen);
     //console.log({allBase, allQuote});
     const ratio = 0.8; // use 80% of my assets to make market
 
@@ -67,16 +54,8 @@ class MMByPriceBot {
     let bidPriceRaw = price * (1 - spread);
     let bidAmountRaw = (allQuote * ratio) / bidPriceRaw;
     let askAmountRaw = allBase * ratio;
-    let { price: askPrice, amount: askAmount } = this.client.roundOrderInput(
-      this.market,
-      askAmountRaw,
-      askPriceRaw
-    );
-    let { price: bidPrice, amount: bidAmount } = this.client.roundOrderInput(
-      this.market,
-      bidAmountRaw,
-      bidPriceRaw
-    );
+    let { price: askPrice, amount: askAmount } = this.client.roundOrderInput(this.market, askAmountRaw, askPriceRaw);
+    let { price: bidPrice, amount: bidAmount } = this.client.roundOrderInput(this.market, bidAmountRaw, bidPriceRaw);
     let minAmount = 0.001;
     if (askAmountRaw < minAmount) {
       askAmount = "";
