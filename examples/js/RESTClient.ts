@@ -27,7 +27,7 @@ class RESTClient {
       console.log("error:", resp.data);
       return null;
     }
-    let userInfo = (resp.data as unknown) as UserInfo;
+    let userInfo = resp.data as unknown as UserInfo;
     //console.log('raw', resp.data, 'result', userInfo);
     return userInfo;
   }

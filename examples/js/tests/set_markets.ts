@@ -65,7 +65,7 @@ async function main() {
     assert.equal(markets.length, 3);
   }
 }
-main().catch(function(e) {
+main().catch(function (e) {
   console.log(e);
   process.exit(1);
   //throw e;

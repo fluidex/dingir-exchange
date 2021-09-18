@@ -61,7 +61,7 @@ async function main() {
 
   let bot = new MMByPriceBot();
   bot.init(user_id, "bot1", defaultClient, baseCoin, quoteCoin, market, null, VERBOSE);
-  bot.priceFn = async function(coin: string) {
+  bot.priceFn = async function (coin: string) {
     return await getPriceOfCoin(coin, 5, "coinstats");
   };
   let count = 0;
