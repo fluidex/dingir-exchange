@@ -4,10 +4,7 @@ export class KafkaConsumer {
   verbose: boolean;
   consumer: any;
   messages: Map<string, Array<any>>;
-  async Init(
-    verbose = false,
-    topics = ["balances", "trades", "orders", "unifyevents"]
-  ) {
+  async Init(verbose = false, topics = ["balances", "trades", "orders", "unifyevents"]) {
     this.verbose = verbose;
     const brokers = process.env.KAFKA_BROKERS;
     const kafka = new Kafka.Kafka({

@@ -81,5 +81,5 @@ jobs:
         uses: creyD/prettier_action@v4.0
         with:
           dry: True
-          prettier_options: --check examples/js/*
+          prettier_options: --check examples/js/**/*.ts
           # github_token: ${{ secrets.GITHUB_TOKEN }}

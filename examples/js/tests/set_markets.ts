@@ -1,6 +1,6 @@
 import axios from "axios";
 import { strict as assert } from "assert";
-import "./config";
+import "../config";
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
@@ -37,20 +37,13 @@ async function main() {
   const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
   console.log("ci mode:", isCI);
   console.log("add asset");
-  const ret1 = (
-    await axios.post(`http://${server}/restapi/manage/market/assets`, new_asset)
-  ).data;
+  const ret1 = (await axios.post(`http://${server}/restapi/manage/market/assets`, new_asset)).data;
   console.log(ret1);
   if (isCI) {
     assert.equal(ret1, "done");
   }
   console.log("add market 1");
-  const ret2 = (
-    await axios.post(
-      `http://${server}/restapi/manage/market/tradepairs`,
-      new_market1
-    )
-  ).data;
+  const ret2 = (await axios.post(`http://${server}/restapi/manage/market/tradepairs`, new_market1)).data;
   console.log(ret2);
   if (isCI) {
     assert.equal(ret2, "done");
@@ -61,19 +54,12 @@ async function main() {
     assert.equal(markets.length, 2);
   }
   console.log("add market 2");
-  const ret3 = (
-    await axios.post(
-      `http://${server}/restapi/manage/market/tradepairs`,
-      new_market2
-    )
-  ).data;
+  const ret3 = (await axios.post(`http://${server}/restapi/manage/market/tradepairs`, new_market2)).data;
   console.log(ret3);
   if (isCI) {
     assert.equal(ret3, "done");
   }
-  const { markets: markets2 } = (
-    await axios.get(`http://${server}/api/markets`)
-  ).data;
+  const { markets: markets2 } = (await axios.get(`http://${server}/api/markets`)).data;
   console.log(markets2);
   if (isCI) {
     assert.equal(markets.length, 3);

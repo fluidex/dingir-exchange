@@ -1,25 +1,12 @@
 import { Account } from "fluidex.js";
 import { defaultRESTClient, RESTClient } from "../RESTClient";
-import {
-  defaultClient as defaultGrpcClient,
-  Client as grpcClient,
-  defaultClient,
-} from "../client";
+import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
 import { sleep, depositAssets, getPriceOfCoin } from "../util";
-import {
-  ORDER_SIDE_BID,
-  ORDER_SIDE_ASK,
-  ORDER_TYPE_LIMIT,
-  VERBOSE,
-} from "../config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
 // TODO: exclude my orders
-async function estimateMarketOrderSell(
-  client: grpcClient,
-  market,
-  baseAmount: number
-) {
+async function estimateMarketOrderSell(client: grpcClient, market, baseAmount: number) {
   const orderbook = await client.orderDepth(market, 20, "0.01");
   //console.log('depth', orderbook);
   //console.log(client.markets);
@@ -48,11 +35,7 @@ async function estimateMarketOrderSell(
   return estimateResult;
 }
 
-async function estimateMarketOrderBuy(
-  client: grpcClient,
-  market,
-  quoteAmount: number
-) {
+async function estimateMarketOrderBuy(client: grpcClient, market, quoteAmount: number) {
   //await client.connect();
   const orderbook = await client.orderDepth(market, 20, "0.01");
   //console.log('depth', orderbook);
@@ -83,12 +66,7 @@ async function estimateMarketOrderBuy(
   return estimateResult;
 }
 
-async function execMarketOrderAsLimit_Sell(
-  client: grpcClient,
-  market,
-  baseAmount: string,
-  uid
-) {
+async function execMarketOrderAsLimit_Sell(client: grpcClient, market, baseAmount: string, uid) {
   /*
     let estimateResult = await estimateMarketOrderBuy(
       client,
@@ -97,30 +75,12 @@ async function execMarketOrderAsLimit_Sell(
     );
     */
   const price = "0.01"; // low enough as a market order...
-  let order = await client.orderPut(
-    uid,
-    market,
-    ORDER_SIDE_ASK,
-    ORDER_TYPE_LIMIT,
-    baseAmount,
-    price,
-    "0",
-    "0"
-  );
+  let order = await client.orderPut(uid, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, baseAmount, price, "0", "0");
   //console.log("execMarketOrderAsLimit_Sell", order);
 }
 
-async function execMarketOrderAsLimit_Buy(
-  client: grpcClient,
-  market,
-  quoteAmount: string,
-  uid
-) {
-  let estimateResult = await estimateMarketOrderBuy(
-    client,
-    market,
-    Number(quoteAmount)
-  );
+async function execMarketOrderAsLimit_Buy(client: grpcClient, market, quoteAmount: string, uid) {
+  let estimateResult = await estimateMarketOrderBuy(client, market, Number(quoteAmount));
   let order = await client.orderPut(
     uid,
     market,
@@ -137,12 +97,8 @@ async function execMarketOrderAsLimit_Buy(
 async function rebalance(user_id, baseCoin, quoteCoin, market) {
   let rebalanced = false;
   const balance = await defaultGrpcClient.balanceQuery(user_id);
-  const allBase =
-    Number(balance.get(baseCoin).available) +
-    Number(balance.get(baseCoin).frozen);
-  const allQuote =
-    Number(balance.get(quoteCoin).available) +
-    Number(balance.get(quoteCoin).frozen);
+  const allBase = Number(balance.get(baseCoin).available) + Number(balance.get(baseCoin).frozen);
+  const allQuote = Number(balance.get(quoteCoin).available) + Number(balance.get(quoteCoin).frozen);
   //onsole.log("balance when start", { balance, allBase, allQuote });
 
   if (allBase < 0.1) {
@@ -155,12 +111,7 @@ async function rebalance(user_id, baseCoin, quoteCoin, market) {
     await defaultGrpcClient.orderCancelAll(user_id, market);
 
     // TODO: use quote amount rather than base amount
-    await execMarketOrderAsLimit_Sell(
-      defaultClient,
-      market,
-      "1.5" /*base*/,
-      user_id
-    );
+    await execMarketOrderAsLimit_Sell(defaultClient, market, "1.5" /*base*/, user_id);
     rebalanced = true;
   }
   return rebalanced;
@@ -170,12 +121,8 @@ async function printBalance(user_id, baseCoin, quoteCoin, market) {
   const externalPrice = await getPriceOfCoin(baseCoin);
   console.log("externalPrice:", externalPrice);
   const balance = await defaultGrpcClient.balanceQuery(user_id);
-  const allBase =
-    Number(balance.get(baseCoin).available) +
-    Number(balance.get(baseCoin).frozen);
-  const allQuote =
-    Number(balance.get(quoteCoin).available) +
-    Number(balance.get(quoteCoin).frozen);
+  const allBase = Number(balance.get(baseCoin).available) + Number(balance.get(baseCoin).frozen);
+  const allQuote = Number(balance.get(quoteCoin).available) + Number(balance.get(quoteCoin).frozen);
 
   let res = await estimateMarketOrderSell(defaultGrpcClient, market, allBase);
   console.log("external base price", externalPrice);

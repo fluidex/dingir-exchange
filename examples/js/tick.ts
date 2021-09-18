@@ -1,17 +1,10 @@
 import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "./config";
 import { defaultClient as client } from "./client";
-import {
-  sleep,
-  putLimitOrder,
-  getRandomFloatAround,
-  getRandomFloatAroundNormal,
-  getRandomElem,
-  depositAssets,
-  getPriceOfCoin,
-} from "./util";
+import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "./util";
 import { Account } from "fluidex.js";
 import { getTestAccount } from "./accounts";
 import { strict as assert } from "assert";
+import { depositAssets, getPriceOfCoin, putLimitOrder } from "./exchange_helper";
 
 const verbose = true;
 const botsIds = [1, 2, 3, 4, 5];
@@ -69,18 +62,9 @@ async function getPrice(token: string): Promise<number> {
 
 async function cancelAllForUser(user_id) {
   for (const [market, _] of client.markets) {
-    console.log(
-      "cancel all",
-      user_id,
-      market,
-      await client.orderCancelAll(user_id, market)
-    );
+    console.log("cancel all", user_id, market, await client.orderCancelAll(user_id, market));
   }
-  console.log(
-    "after cancel all, balance",
-    user_id,
-    await client.balanceQuery(user_id)
-  );
+  console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id));
 }
 
 async function cancelAll() {

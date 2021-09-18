@@ -2,18 +2,9 @@ import { MMByPriceBot } from "./mm_external_price_bot";
 
 import { Account } from "fluidex.js";
 import { defaultRESTClient, RESTClient } from "../RESTClient";
-import {
-  defaultClient as defaultGrpcClient,
-  Client as grpcClient,
-  defaultClient,
-} from "../client";
-import { sleep, depositAssets, getPriceOfCoin } from "../util";
-import {
-  ORDER_SIDE_BID,
-  ORDER_SIDE_ASK,
-  ORDER_TYPE_LIMIT,
-  VERBOSE,
-} from "../config";
+import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
+import { sleep } from "../util";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
 import {
   estimateMarketOrderSell,
   estimateMarketOrderBuy,
@@ -23,9 +14,9 @@ import {
   printBalance,
 } from "./utils";
 import { executeOrders } from "./executor";
+import { depositAssets, getPriceOfCoin } from "../exchange_helper";
 async function initUser(): Promise<number> {
-  const mnemonic1 =
-    "split logic consider degree smile field term style opera dad believe indoor item type beyond";
+  const mnemonic1 = "split logic consider degree smile field term style opera dad believe indoor item type beyond";
   const mnemonic2 =
     "camp awful sand include refuse cash reveal mystery pupil salad length plunge square admit vocal draft found side same clock hurt length say figure";
   const mnemonic3 =
@@ -69,16 +60,7 @@ async function main() {
   await rebalance(user_id, baseCoin, quoteCoin, market);
 
   let bot = new MMByPriceBot();
-  bot.init(
-    user_id,
-    "bot1",
-    defaultClient,
-    baseCoin,
-    quoteCoin,
-    market,
-    null,
-    VERBOSE
-  );
+  bot.init(user_id, "bot1", defaultClient, baseCoin, quoteCoin, market, null, VERBOSE);
   bot.priceFn = async function (coin: string) {
     return await getPriceOfCoin(coin, 5, "coinstats");
   };
@@ -109,15 +91,7 @@ async function main() {
       const balance = await this.client.balanceQuery(user_id);
       const { reset, orders } = await bot.tick(balance, oldOrders);
 
-      await executeOrders(
-        defaultClient,
-        market,
-        user_id,
-        reset,
-        orders,
-        0.001,
-        true
-      );
+      await executeOrders(defaultClient, market, user_id, reset, orders, 0.001, true);
     } catch (e) {
       console.log("err", e);
     }

@@ -1,4 +1,4 @@
-import { KafkaConsumer } from "./kafka_client";
+import { KafkaConsumer } from "../kafka_client";
 import * as Dotenv from "dotenv";
 
 async function main() {
