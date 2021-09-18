@@ -119,7 +119,7 @@ impl BalanceUpdateController {
                 business,
                 change,
                 balance: balance_available + balance_frozen,
-                balance_available: balance_available,
+                balance_available,
                 balance_frozen,
                 detail: params.detail.to_string(),
                 signature: params.signature,
