@@ -12,26 +12,32 @@ use ttl_cache::TtlCache;
 use std::time::Duration;
 
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
+const PERSIST_ZERO_BALANCE_UPDATE: bool = false;
 
 pub struct BalanceUpdateParams {
-    pub typ: BalanceUpdateType,
+    pub balance_type: BalanceType,
+    pub business_type: BusinessType,
     pub user_id: u32,
+    pub business_id: u64,
     pub asset: String,
     pub business: String,
-    pub business_id: u64,
     pub change: Decimal,
     pub detail: serde_json::Value,
     pub signature: Vec<u8>,
 }
 
-pub enum BalanceUpdateType {
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub enum BusinessType {
     Deposit,
-    Withdraw,
+    Trade,
     Transfer,
+    Withdraw,
 }
 
 #[derive(PartialEq, Eq, Hash)]
 struct BalanceUpdateKey {
+    pub balance_type: BalanceType,
+    pub business_type: BusinessType,
     pub user_id: u32,
     pub asset: String,
     pub business: String,
@@ -68,14 +74,18 @@ impl BalanceUpdateController {
     pub fn update_user_balance(
         &mut self,
         balance_manager: &mut BalanceManager,
-        mut persistor: impl PersistExector,
+        persistor: &mut impl PersistExector,
         mut params: BalanceUpdateParams,
     ) -> Result<()> {
         let asset = params.asset;
+        let balance_type = params.balance_type;
         let business = params.business;
+        let business_type = params.business_type;
         let business_id = params.business_id;
         let user_id = params.user_id;
         let cache_key = BalanceUpdateKey {
+            balance_type,
+            business_type,
             user_id,
             asset: asset.clone(),
             business: business.clone(),
@@ -84,41 +94,40 @@ impl BalanceUpdateController {
         if self.cache.contains_key(&cache_key) {
             bail!("duplicate request");
         }
-        let old_balance = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
+        let old_balance = balance_manager.get(user_id, balance_type, &asset);
         let change = params.change;
         let abs_change = change.abs();
-        let new_balance = if change.is_sign_positive() {
-            balance_manager.add(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
+        if change.is_sign_positive() {
+            balance_manager.add(user_id, balance_type, &asset, &abs_change);
         } else if change.is_sign_negative() {
             if old_balance < abs_change {
                 bail!("balance not enough");
             }
-            balance_manager.sub(user_id, BalanceType::AVAILABLE, &asset, &abs_change)
-        } else {
-            old_balance
-        };
+            balance_manager.sub(user_id, balance_type, &asset, &abs_change);
+        }
         log::debug!("change user balance: {} {} {}", user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
-
-        if persistor.real_persist() {
+        if persistor.real_persist() && (PERSIST_ZERO_BALANCE_UPDATE || !change.is_zero()) {
             params.detail["id"] = serde_json::Value::from(business_id);
+            let balance_available = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
             let balance_frozen = balance_manager.get(user_id, BalanceType::FREEZE, &asset);
             let balance_history = BalanceHistory {
                 time: FTimestamp(utils::current_timestamp()).into(),
                 user_id: user_id as i32,
+                business_id: business_id as i64,
                 asset,
                 business,
                 change,
-                balance: new_balance + balance_frozen,
-                balance_available: new_balance,
+                balance: balance_available + balance_frozen,
+                balance_available: balance_available,
                 balance_frozen,
                 detail: params.detail.to_string(),
                 signature: params.signature,
             };
             persistor.put_balance(&balance_history);
-            match params.typ {
-                BalanceUpdateType::Deposit => persistor.put_deposit(&balance_history),
-                BalanceUpdateType::Withdraw => persistor.put_withdraw(&balance_history),
+            match params.business_type {
+                BusinessType::Deposit => persistor.put_deposit(&balance_history),
+                BusinessType::Withdraw => persistor.put_withdraw(&balance_history),
                 _ => {}
             }
         }

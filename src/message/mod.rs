@@ -35,6 +35,7 @@ impl From<AccountDesc> for UserMessage {
 pub struct BalanceMessage {
     pub timestamp: f64,
     pub user_id: u32,
+    pub business_id: u64,
     pub asset: String,
     pub business: String,
     pub change: String,
@@ -50,6 +51,7 @@ impl From<&BalanceHistory> for BalanceMessage {
         Self {
             timestamp: balance.time.timestamp() as f64,
             user_id: balance.user_id as u32,
+            business_id: balance.business_id as u64,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
             change: balance.change.to_string(),

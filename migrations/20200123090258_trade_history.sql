@@ -2,6 +2,7 @@ CREATE TABLE balance_history (
     id SERIAL PRIMARY KEY,
     time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
+    business_id BIGINT CHECK (business_id >= 0) NOT NULL,
     asset VARCHAR(30) NOT NULL,
     business VARCHAR(30) NOT NULL,
     change DECIMAL(30, 8) NOT NULL,
@@ -14,7 +15,9 @@ CREATE TABLE balance_history (
 
 CREATE INDEX balance_history_idx_user_asset ON balance_history (user_id, asset);
 
-CREATE INDEX balance_history_idx_user_asset_business ON balance_history (user_id, asset, business);
+CREATE INDEX balance_history_idx_user_business ON balance_history (business_id, business);
+
+CREATE INDEX balance_history_idx_user_asset_business ON balance_history (user_id, business_id, asset, business);
 
 CREATE TYPE order_status AS ENUM('active','filled','cancelled', 'expired');
 
