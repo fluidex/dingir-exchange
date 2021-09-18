@@ -94,3 +94,8 @@ jobs:
         run: |
           cd examples/js/
           npx prettier --check "**/*.{js,ts}"
+
+      - name: Run eslint
+        run: |
+          cd examples/js/
+          npx eslint .
