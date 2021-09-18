@@ -1,12 +1,8 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
 import { Account, OrderInput, TransferTx, WithdrawTx } from "fluidex.js";
-import {
-  ORDER_SIDE_BID,
-  ORDER_SIDE_ASK,
-  ORDER_TYPE_LIMIT,
-  VERBOSE,
-} from "./config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "./config";
+import { assertDecimalEqual, decimalEqual } from "./util";
 
 const file = "../../orchestra/proto/exchange/matchengine.proto";
 const load = {
@@ -45,8 +41,7 @@ class Client {
   }
 
   async balanceQuery(user_id): Promise<Map<string, any>> {
-    const balances = (await this.client.BalanceQuery({ user_id: user_id }))
-      .balances;
+    const balances = (await this.client.BalanceQuery({ user_id: user_id })).balances;
     let result = new Map();
     for (const entry of balances) {
       result.set(entry.asset_id, entry);
@@ -54,10 +49,8 @@ class Client {
     return result;
   }
   async balanceQueryByAsset(user_id, asset) {
-    const allBalances = (
-      await this.client.BalanceQuery({ user_id: user_id, assets: [asset] })
-    ).balances;
-    const balance = allBalances.find((item) => item.asset_id == asset);
+    const allBalances = (await this.client.BalanceQuery({ user_id: user_id, assets: [asset] })).balances;
+    const balance = allBalances.find(item => item.asset_id == asset);
     let available = new Decimal(balance.available);
     let frozen = new Decimal(balance.frozen);
     let total = available.add(frozen);
@@ -85,16 +78,7 @@ class Client {
     let priceRounded = Number(price).toFixed(marketInfo.price_precision);
     return { amount: amountRounded, price: priceRounded };
   }
-  async createOrder(
-    user_id,
-    market,
-    order_side,
-    order_type,
-    amount,
-    price,
-    taker_fee,
-    maker_fee
-  ) {
+  async createOrder(user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee) {
     if (!this.markets || this.markets.size == 0) {
       await this.connect();
     }
@@ -103,38 +87,13 @@ class Client {
     }
     // TODO: round down? decimal?
     let marketInfo = this.markets.get(market);
+    let baseTokenInfo = this.assets.get(marketInfo.base);
+    let quoteTokenInfo = this.assets.get(marketInfo.quote);
     let amountRounded = Number(amount).toFixed(marketInfo.amount_precision);
     let priceRounded = Number(price).toFixed(marketInfo.price_precision);
 
     let signature = "";
-    if (this.accounts.has(user_id) && order_type == ORDER_TYPE_LIMIT) {
-      // add signature for this order
-      let tokenBuy, tokenSell, totalSell, totalBuy;
-      let baseTokenInfo = this.assets.get(marketInfo.base);
-      let quoteTokenInfo = this.assets.get(marketInfo.quote);
-      let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
-      let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
-      let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
-      if (order_side == ORDER_SIDE_BID) {
-        tokenBuy = baseTokenInfo.inner_id;
-        tokenSell = quoteTokenInfo.inner_id;
-        totalBuy = amountFullPrec;
-        totalSell = quoteFullPrec;
-      } else {
-        tokenSell = baseTokenInfo.inner_id;
-        tokenBuy = quoteTokenInfo.inner_id;
-        totalSell = amountFullPrec;
-        totalBuy = quoteFullPrec;
-      }
-      let orderInput = new OrderInput({
-        tokenSell,
-        tokenBuy,
-        totalSell,
-        totalBuy,
-      });
-      signature = this.accounts.get(user_id).signHashPacked(orderInput.hash());
-    }
-    return {
+    let order = {
       user_id,
       market,
       order_side,
@@ -145,27 +104,18 @@ class Client {
       maker_fee,
       signature,
     };
+    console.log(this.accounts.has(user_id));
+    console.log(order_type == ORDER_TYPE_LIMIT);
+    // TODO: better type check
+    if (this.accounts.has(user_id) && (order_type == ORDER_TYPE_LIMIT || order_type == "LIMIT")) {
+      // add signature for this order
+      let account = this.accounts.get(user_id);
+      order = signOrder(account, marketInfo, baseTokenInfo, quoteTokenInfo, order);
+    }
+    return order;
   }
-  async orderPut(
-    user_id,
-    market,
-    order_side,
-    order_type,
-    amount,
-    price,
-    taker_fee,
-    maker_fee
-  ) {
-    const order = await this.createOrder(
-      user_id,
-      market,
-      order_side,
-      order_type,
-      amount,
-      price,
-      taker_fee,
-      maker_fee
-    );
+  async orderPut(user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee) {
+    const order = await this.createOrder(user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee);
     if (VERBOSE) {
       const { user_id, market, order_side: side, amount, price } = order;
       console.log("putLimitOrder", { user_id, market, side, amount, price });
@@ -175,28 +125,8 @@ class Client {
   async batchOrderPut(market, reset, orders) {
     let order_reqs = [];
     for (const o of orders) {
-      const {
-        user_id,
-        market,
-        order_side,
-        order_type,
-        amount,
-        price,
-        taker_fee,
-        maker_fee,
-      } = o;
-      order_reqs.push(
-        await this.createOrder(
-          user_id,
-          market,
-          order_side,
-          order_type,
-          amount,
-          price,
-          taker_fee,
-          maker_fee
-        )
-      );
+      const { user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = o;
+      order_reqs.push(await this.createOrder(user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee));
     }
     return await this.client.batchOrderPut({
       market,
@@ -233,7 +163,7 @@ class Client {
     }
     let resp = (await this.client.MarketSummary({ markets })).market_summaries;
     if (typeof req === "string") {
-      return resp.find((item) => item.name === req);
+      return resp.find(item => item.name === req);
     }
     return resp;
   }
@@ -309,18 +239,9 @@ class Client {
 
   async withdraw(user_id, asset, business, business_id, delta, detail) {
     if (delta < 0) {
-      throw new Error(
-        "Parameter `delta` must be positive in `withdraw` function"
-      );
+      throw new Error("Parameter `delta` must be positive in `withdraw` function");
     }
-    let tx = this.createWithdrawTx(
-      user_id,
-      asset,
-      business,
-      business_id,
-      delta,
-      detail
-    );
+    let tx = this.createWithdrawTx(user_id, asset, business, business_id, delta, detail);
     return await this.client.BalanceUpdate(tx);
   }
 
@@ -343,6 +264,55 @@ class Client {
       l2_pubkey: user.l2_pubkey,
     });
   }
+}
+
+// TODO: move else where
+function signOrder(account, marketInfo, baseTokenInfo, quoteTokenInfo, order, checkPrec = true) {
+  let { user_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = order;
+
+  let amountRounded = Number(amount).toFixed(marketInfo.amount_precision);
+  let priceRounded = Number(price).toFixed(marketInfo.price_precision);
+  if (checkPrec && !decimalEqual(amountRounded, amount)) {
+    throw new Error("invalid amount precision");
+  }
+  if (checkPrec && !decimalEqual(priceRounded, price)) {
+    throw new Error("invalid price precision");
+  }
+
+  let tokenBuy, tokenSell, totalSell, totalBuy;
+  let amountFullPrec = fullPrec(amountRounded, marketInfo.amount_precision);
+  let priceFullPrec = fullPrec(priceRounded, marketInfo.price_precision);
+  let quoteFullPrec = amountFullPrec.mul(priceFullPrec);
+  if (order_side == ORDER_SIDE_BID || order_side == "BID") {
+    tokenBuy = baseTokenInfo.inner_id;
+    tokenSell = quoteTokenInfo.inner_id;
+    totalBuy = amountFullPrec;
+    totalSell = quoteFullPrec;
+  } else {
+    tokenSell = baseTokenInfo.inner_id;
+    tokenBuy = quoteTokenInfo.inner_id;
+    totalSell = amountFullPrec;
+    totalBuy = quoteFullPrec;
+  }
+  let orderInput = new OrderInput({
+    tokenSell,
+    tokenBuy,
+    totalSell,
+    totalBuy,
+  });
+  let signature = account.signHashPacked(orderInput.hash());
+
+  return {
+    user_id,
+    market,
+    order_side,
+    order_type,
+    amount: amountRounded,
+    price: priceRounded,
+    taker_fee,
+    maker_fee,
+    signature,
+  };
 }
 
 let defaultClient = new Client();

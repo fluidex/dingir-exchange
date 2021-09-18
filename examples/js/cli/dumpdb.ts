@@ -1,4 +1,4 @@
-import { defaultClient as client } from "./client";
+import { defaultClient as client } from "../client";
 
 async function main() {
   //    Dotenv.config()
