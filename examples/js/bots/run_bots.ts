@@ -88,7 +88,7 @@ async function main() {
         console.log("oldOrders", oldOrders);
       }
 
-      const balance = await this.client.balanceQuery(user_id);
+      const balance = await defaultClient.balanceQuery(user_id);
       const { reset, orders } = await bot.tick(balance, oldOrders);
 
       await executeOrders(defaultClient, market, user_id, reset, orders, 0.001, true);

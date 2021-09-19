@@ -104,8 +104,6 @@ class Client {
       maker_fee,
       signature,
     };
-    console.log(this.accounts.has(user_id));
-    console.log(order_type == ORDER_TYPE_LIMIT);
     // TODO: better type check
     if (this.accounts.has(user_id) && (order_type == ORDER_TYPE_LIMIT || order_type == "LIMIT")) {
       // add signature for this order
