@@ -118,25 +118,44 @@ async function rebalance(user_id, baseCoin, quoteCoin, market) {
   return rebalanced;
 }
 
+async function totalBalance(user_id, baseCoin, quoteCoin, externalPrice = null) {
+  if (externalPrice == null) {
+    externalPrice = await getPriceOfCoin(baseCoin);
+  }
+  const balance = await defaultGrpcClient.balanceQuery(user_id);
+  const allBase = Number(balance.get(baseCoin).available) + Number(balance.get(baseCoin).frozen);
+  const allQuote = Number(balance.get(quoteCoin).available) + Number(balance.get(quoteCoin).frozen);
+  return {
+    quote: allQuote,
+    base: allBase,
+    quoteValue: allQuote, // stable coin
+    baseValue: allBase * externalPrice,
+    totalValue: allQuote + allBase * externalPrice,
+    totalValueInBase: allQuote / externalPrice + allBase,
+  };
+}
+
 async function printBalance(user_id, baseCoin, quoteCoin, market) {
-  const externalPrice = await getPriceOfCoin(baseCoin);
-  console.log("externalPrice:", externalPrice);
   const balance = await defaultGrpcClient.balanceQuery(user_id);
   const allBase = Number(balance.get(baseCoin).available) + Number(balance.get(baseCoin).frozen);
   const allQuote = Number(balance.get(quoteCoin).available) + Number(balance.get(quoteCoin).frozen);
 
   let res = await estimateMarketOrderSell(defaultGrpcClient, market, allBase);
-  console.log("external base price", externalPrice);
   console.log("------- BALANCE1:", {
     quote: allQuote,
     base: res.quote,
     total: allQuote + res.quote,
   });
+
+  const externalPrice = await getPriceOfCoin(baseCoin);
+  console.log("external base price", externalPrice);
   console.log("------- BALANCE2:", {
     quote: allQuote,
-    base: allBase * externalPrice,
-    total: allQuote + allBase * externalPrice,
-    totalInB: allQuote / externalPrice + allBase,
+    base: allBase,
+    quoteValue: allQuote, // stable coin
+    baseValue: allBase * externalPrice,
+    totalValue: allQuote + allBase * externalPrice,
+    totalValueInBase: allQuote / externalPrice + allBase,
   });
 }
 
@@ -147,4 +166,5 @@ export {
   execMarketOrderAsLimit_Buy,
   rebalance,
   printBalance,
+  totalBalance,
 };
