@@ -1,10 +1,10 @@
 import axios from "axios";
 import { Account } from "fluidex.js";
 
-import { defaultClient as client } from "./client";
-import { getTestAccount } from "./accounts";
-import { fee, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "./config";
-import { depositAssets } from "./util";
+import { defaultClient as client } from "../client";
+import { getTestAccount } from "../accounts";
+import { fee, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "../config";
+import { depositAssets } from "../exchange_helper";
 import { strict as assert } from "assert";
 
 const userId = 1;
@@ -28,45 +28,24 @@ async function setupAsset() {
 }
 
 async function orderTest() {
-  const markets = Array.from([
-    "ETH_USDT",
-    "LINK_USDT",
-    "MATIC_USDT",
-    "UNI_USDT",
-  ]);
+  const markets = Array.from(["ETH_USDT", "LINK_USDT", "MATIC_USDT", "UNI_USDT"]);
   let orders = await Promise.all(
-    markets.map((market) =>
-      client
-        .orderPut(
-          userId,
-          market,
-          ORDER_SIDE_BID,
-          ORDER_TYPE_LIMIT,
-          /*amount*/ "1",
-          /*price*/ "1.1",
-          fee,
-          fee
-        )
-        .then((o) => [market, o.id])
+    markets.map(market =>
+      client.orderPut(userId, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, /*amount*/ "1", /*price*/ "1.1", fee, fee).then(o => [market, o.id])
     )
   );
   console.log(orders);
   assert.equal(orders.length, 4);
 
-  const openOrders = (await axios.get(`http://${server}/api/orders/all/1`))
-    .data;
+  const openOrders = (await axios.get(`http://${server}/api/orders/all/1`)).data;
   console.log(openOrders);
   if (isCI) {
     assert.equal(openOrders.orders.length, orders.length);
   }
 
-  await Promise.all(
-    orders.map(([market, id]) => client.orderCancel(1, market, Number(id)))
-  );
+  await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
 
-  const closedOrders = (
-    await axios.get(`http://${server}/restapi/closedorders/all/1`)
-  ).data;
+  const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/all/1`)).data;
   console.log(closedOrders);
   if (isCI) {
     assert.equal(closedOrders.orders.length, orders.length);

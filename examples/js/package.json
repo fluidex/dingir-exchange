@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "fmt": "npx prettier --write \"**/*.ts\" *.js *.mjs package.json"
+    "fmt": "npx prettier --write \"**/*.ts\" package.json"
   },
   "dependencies": {
     "@eeston/grpc-caller": "^0.20.2",
@@ -18,7 +18,7 @@
     "eslint-config-prettier": "^6.10.1",
     "eslint-plugin-prettier": "^3.1.3",
     "fluidex.js": "github:fluidex/fluidex.js",
-    "prettier": "^1.19.1",
+    "prettier": "^2.4.1",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2",
     "why-is-node-running": "^2.1.2"
