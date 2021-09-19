@@ -1,4 +1,4 @@
-use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
+use crate::asset::update_controller::{BalanceUpdateParams, BusinessType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
@@ -425,17 +425,18 @@ impl Controller {
         };
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let update_type = if change.is_sign_positive() {
-            BalanceUpdateType::Deposit
+        let business_type = if change.is_sign_positive() {
+            BusinessType::Deposit
         } else {
-            BalanceUpdateType::Withdraw
+            BusinessType::Withdraw
         };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: update_type,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type,
                     user_id: req.user_id,
                     asset: req.asset.to_string(),
                     business: req.business.clone(),
@@ -665,7 +666,8 @@ impl Controller {
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: BalanceUpdateType::Transfer,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type: BusinessType::Transfer,
                     user_id: from_user_id,
                     asset: asset_id.to_owned(),
                     business: business.to_owned(),
@@ -683,7 +685,8 @@ impl Controller {
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: BalanceUpdateType::Transfer,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type: BusinessType::Transfer,
                     user_id: to_user_id,
                     asset: asset_id.to_owned(),
                     business: business.to_owned(),
@@ -837,10 +840,17 @@ impl Controller {
         }
         let market = self.markets.get_mut(&req.market).unwrap();
         let balance_manager = &mut self.balance_manager;
+        let update_controller = &mut self.update_controller;
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
         market
-            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
+            .put_order(
+                &mut self.sequencer,
+                balance_manager.into(),
+                update_controller,
+                persistor,
+                order_input,
+            )
             .map_err(|e| Status::unknown(format!("{}", e)))
     }
     fn append_operation_log<Operation>(&mut self, method: &str, req: &Operation)

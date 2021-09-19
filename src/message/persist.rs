@@ -607,6 +607,7 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
         models::BalanceHistory {
             time: utils::FTimestamp::from(&origin.timestamp).into(),
             user_id: origin.user_id as i32,
+            business_id: origin.user_id as i64,
             asset: origin.asset.clone(),
             business: origin.business.clone(),
             change: DecimalDbType::from_str(&origin.change).unwrap_or_else(decimal_warning),

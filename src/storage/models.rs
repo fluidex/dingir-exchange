@@ -66,6 +66,7 @@ pub struct BalanceHistory {
     //pub id: i64,
     pub time: TimestampDbType,
     pub user_id: i32,
+    pub business_id: i64,
     pub asset: String,
     pub business: String,
     pub change: DecimalDbType,
@@ -262,7 +263,7 @@ impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
         BALANCEHISTORY
     }
-    const ARGN: i32 = 10;
+    const ARGN: i32 = 11;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
@@ -272,6 +273,7 @@ impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
         arg.add(self.user_id);
+        arg.add(self.business_id);
         arg.add(&self.asset);
         arg.add(&self.business);
         arg.add(&self.change);
