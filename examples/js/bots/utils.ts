@@ -1,7 +1,8 @@
 import { Account } from "fluidex.js";
 import { defaultRESTClient, RESTClient } from "../RESTClient";
 import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
-import { sleep, depositAssets, getPriceOfCoin } from "../util";
+import { sleep } from "../util";
+import { depositAssets, getPriceOfCoin } from "../exchange_helper";
 import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
