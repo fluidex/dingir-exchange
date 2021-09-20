@@ -33,6 +33,7 @@ pub struct Market {
     pub quote_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
+    pub price: Decimal,
 
     pub orders: BTreeMap<u64, OrderRc>,
     pub users: BTreeMap<u32, BTreeMap<u64, OrderRc>>,
@@ -116,6 +117,7 @@ impl Market {
             quote_prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
+            price: Decimal::zero(),
             orders: BTreeMap::new(),
             users: BTreeMap::new(),
             asks: BTreeMap::new(),
@@ -543,6 +545,9 @@ impl Market {
                 // So we don't need to send the finish message here.
                 persistor.put_order(&maker, OrderEventType::UPDATE);
             }
+
+            // Save this trade price to market.
+            self.price = price;
         }
 
         for item in finished_orders.iter() {
