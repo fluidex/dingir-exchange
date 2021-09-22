@@ -445,6 +445,7 @@ impl Market {
                         asset: self.base.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: if bid_fee.is_sign_positive() {
                             traded_base_amount - bid_fee
                         } else {
@@ -470,6 +471,7 @@ impl Market {
                         asset: self.base.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: -traded_base_amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
@@ -487,6 +489,7 @@ impl Market {
                         asset: self.quote.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: if ask_fee.is_sign_positive() {
                             traded_quote_amount - ask_fee
                         } else {
@@ -512,6 +515,7 @@ impl Market {
                         asset: self.quote.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: -traded_quote_amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
@@ -847,6 +851,7 @@ mod tests {
                         asset: asset.to_string(),
                         business: "deposit".to_owned(),
                         business_id: seq_id,
+                        market_price: Decimal::zero(),
                         change: amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],

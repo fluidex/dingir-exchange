@@ -5,6 +5,7 @@ CREATE TABLE balance_history (
     business_id BIGINT CHECK (business_id >= 0) NOT NULL,
     asset VARCHAR(30) NOT NULL,
     business VARCHAR(30) NOT NULL,
+    market_price DECIMAL(30, 8) NOT NULL,
     change DECIMAL(30, 8) NOT NULL,
     balance DECIMAL(30, 16) NOT NULL,
     balance_available DECIMAL(30, 16) NOT NULL,
