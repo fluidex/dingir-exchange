@@ -33,6 +33,7 @@ pub struct Market {
     pub quote_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
+    pub price: Decimal,
 
     pub orders: BTreeMap<u64, OrderRc>,
     pub users: BTreeMap<u32, BTreeMap<u64, OrderRc>>,
@@ -116,6 +117,7 @@ impl Market {
             quote_prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
+            price: Decimal::zero(),
             orders: BTreeMap::new(),
             users: BTreeMap::new(),
             asks: BTreeMap::new(),
@@ -443,6 +445,7 @@ impl Market {
                         asset: self.base.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: if bid_fee.is_sign_positive() {
                             traded_base_amount - bid_fee
                         } else {
@@ -468,6 +471,7 @@ impl Market {
                         asset: self.base.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: -traded_base_amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
@@ -485,6 +489,7 @@ impl Market {
                         asset: self.quote.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: if ask_fee.is_sign_positive() {
                             traded_quote_amount - ask_fee
                         } else {
@@ -510,6 +515,7 @@ impl Market {
                         asset: self.quote.to_string(),
                         business: "trade".to_string(),
                         business_id: trade_id,
+                        market_price: self.price,
                         change: -traded_quote_amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
@@ -543,6 +549,9 @@ impl Market {
                 // So we don't need to send the finish message here.
                 persistor.put_order(&maker, OrderEventType::UPDATE);
             }
+
+            // Save this trade price to market.
+            self.price = price;
         }
 
         for item in finished_orders.iter() {
@@ -842,6 +851,7 @@ mod tests {
                         asset: asset.to_string(),
                         business: "deposit".to_owned(),
                         business_id: seq_id,
+                        market_price: Decimal::zero(),
                         change: amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
