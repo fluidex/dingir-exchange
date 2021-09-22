@@ -118,7 +118,7 @@ async function rebalance(user_id, baseCoin, quoteCoin, market) {
   return rebalanced;
 }
 
-async function totalBalance(user_id, baseCoin, quoteCoin, externalPrice = null) {
+async function totalBalance(user_id, baseCoin, quoteCoin, market, externalPrice = null) {
   if (externalPrice == null) {
     externalPrice = await getPriceOfCoin(baseCoin);
   }
