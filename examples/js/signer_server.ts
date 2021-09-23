@@ -1,18 +1,18 @@
 import { Account } from "fluidex.js";
 import { userId, base, quote, market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT } from "./config"; // dotenv
 
-var PROTO_PATH = __dirname + "/ordersigner.proto";
+let PROTO_PATH = __dirname + "/ordersigner.proto";
 
-var grpc = require("@grpc/grpc-js");
-var protoLoader = require("@grpc/proto-loader");
-var packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+let grpc = require("@grpc/grpc-js");
+let protoLoader = require("@grpc/proto-loader");
+let packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
   enums: String,
   defaults: true,
   oneofs: true,
 });
-var ordersigner = grpc.loadPackageDefinition(packageDefinition).ordersigner;
+let ordersigner = grpc.loadPackageDefinition(packageDefinition).ordersigner;
 
 import { defaultClient as client } from "./client";
 
@@ -45,7 +45,7 @@ async function signOrder(call, callback) {
  * sample server port
  */
 function main() {
-  var server = new grpc.Server();
+  let server = new grpc.Server();
   server.addService(ordersigner.OrderSigner.service, { signOrder: signOrder });
   server.bindAsync("0.0.0.0:50061", grpc.ServerCredentials.createInsecure(), () => {
     server.start();

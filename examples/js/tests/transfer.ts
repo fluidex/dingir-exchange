@@ -18,7 +18,7 @@ async function setupAsset() {
 }
 
 async function registerUsers() {
-  for (var i = 1; i <= anotherUserId; i++) {
+  for (let i = 1; i <= anotherUserId; i++) {
     await client.registerUser({
       id: i,
       l1_address: "l1_address_" + i,
