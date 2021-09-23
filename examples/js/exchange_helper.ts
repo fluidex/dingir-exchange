@@ -2,7 +2,7 @@ import { userId, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_T
 import { defaultClient as client } from "./client";
 
 import Decimal from "decimal.js";
-var gaussian = require("gaussian");
+const gaussian = require("gaussian");
 import { strict as assert } from "assert";
 import axios from "axios";
 import { getRandomFloat, getRandomInt } from "./util";
@@ -29,7 +29,7 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
   //console.log('\n');
 }
 
-export async function depositAssets(assets: object, userId: number) {
+export async function depositAssets(assets: any, userId: number) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
     await client.balanceUpdate(userId, asset, "deposit", depositId(), amount, {
