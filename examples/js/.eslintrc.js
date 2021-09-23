@@ -18,4 +18,10 @@ module.exports = {
     "@typescript-eslint/no-inferrable-types": "off",
     "prefer-const": "off",
   },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "node": true,
+    "commonjs": true
+  },
 };
