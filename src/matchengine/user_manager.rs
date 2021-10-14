@@ -14,11 +14,15 @@ pub struct UserInfo {
 #[derive(Clone)]
 pub struct UserManager {
     pub users: HashMap<u32, UserInfo>,
+    pub pubkey_user_ids: HashMap<String, u32>,
 }
 
 impl UserManager {
     pub fn new() -> Self {
-        Self { users: HashMap::new() }
+        Self {
+            users: HashMap::new(),
+            pubkey_user_ids: HashMap::new(),
+        }
     }
     pub fn reset(&mut self) {
         self.users.clear();
@@ -28,13 +32,16 @@ impl UserManager {
         let users: Vec<AccountDesc> = sqlx::query_as::<_, AccountDesc>("SELECT * FROM account").fetch_all(conn).await?;
         // lock?
         for user in users {
+            let user_id = user.id as u32;
+            let l2_pubkey = user.l2_pubkey;
             self.users.insert(
-                user.id as u32,
+                user_id,
                 UserInfo {
                     l1_address: user.l1_address,
-                    l2_pubkey: user.l2_pubkey,
+                    l2_pubkey: l2_pubkey.clone(),
                 },
             );
+            self.pubkey_user_ids.insert(l2_pubkey, user_id);
         }
         Ok(())
     }

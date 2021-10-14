@@ -177,6 +177,24 @@ impl Controller {
         };
         Ok(result)
     }
+    pub fn user_query(&self, req: UserQueryRequest) -> Result<UserInfo, Status> {
+        let user_id = match self.user_manager.pubkey_user_ids.get(&req.l2_pubkey) {
+            Some(user_id) => user_id,
+            None => return Err(Status::invalid_argument("invalid l2_pubkey")),
+        };
+
+        let user_info = match self.user_manager.users.get(user_id) {
+            Some(user_info) => user_info,
+            None => return Err(Status::invalid_argument("invalid l2_pubkey")),
+        };
+
+        Ok(UserInfo {
+            user_id: *user_id,
+            l1_address: user_info.l1_address.clone(),
+            l2_pubkey: user_info.l2_pubkey.clone(),
+            log_metadata: None,
+        })
+    }
     pub fn balance_query(&self, req: BalanceQueryRequest) -> Result<BalanceQueryResponse, Status> {
         let all_asset_param_valid = req
             .assets
