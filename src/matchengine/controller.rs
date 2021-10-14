@@ -378,7 +378,8 @@ impl Controller {
         }
 
         let last_user_id = self.user_manager.users.len() as u32;
-        req.user_id = last_user_id + 1;
+        let user_id = last_user_id + 1;
+        req.user_id = user_id;
         // TODO: check user_id
         // if last_user_id + 1 != req.user_id {
         //     return Err(Status::invalid_argument("inconsist user_id"));
@@ -388,18 +389,20 @@ impl Controller {
         let l2_pubkey = req.l2_pubkey.to_lowercase();
 
         self.user_manager.users.insert(
-            req.user_id,
+            user_id,
             user_manager::UserInfo {
                 l1_address: l1_address.clone(),
                 l2_pubkey: l2_pubkey.clone(),
             },
         );
 
+        self.user_manager.pubkey_user_ids.insert(l2_pubkey.clone(), user_id);
+
         if real {
             let mut detail: serde_json::Value = json!({});
-            detail["id"] = serde_json::Value::from(req.user_id);
+            detail["id"] = serde_json::Value::from(user_id);
             self.persistor.register_user(models::AccountDesc {
-                id: req.user_id as i32,
+                id: user_id as i32,
                 l1_address: l1_address.clone(),
                 l2_pubkey: l2_pubkey.clone(),
             });
@@ -412,7 +415,7 @@ impl Controller {
         self.eth_guard.update_optional(meta);
 
         Ok(UserInfo {
-            user_id: req.user_id,
+            user_id: user_id,
             l1_address,
             l2_pubkey,
             log_metadata: req.log_metadata,

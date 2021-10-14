@@ -26,6 +26,7 @@ impl UserManager {
     }
     pub fn reset(&mut self) {
         self.users.clear();
+        self.pubkey_user_ids.clear();
     }
 
     pub async fn load_users_from_db(&mut self, conn: &mut ConnectionType) -> anyhow::Result<()> {
