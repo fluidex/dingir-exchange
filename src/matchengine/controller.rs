@@ -28,8 +28,8 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use std::sync::Arc;
 
+type MarketName = String;
 type BaseAsset = String;
 type QuoteAsset = String;
 
@@ -96,8 +96,8 @@ pub struct Controller {
     pub eth_guard: EthLogGuard,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
-    pub markets: HashMap<String, Arc<market::Market>>,
-    pub asset_markets: HashMap<(BaseAsset, QuoteAsset), Arc<market::Market>>,
+    pub markets: HashMap<MarketName, market::Market>,
+    pub asset_market_names: HashMap<(BaseAsset, QuoteAsset), MarketName>,
     // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
     pub persistor: Box<dyn PersistExector>,
@@ -126,11 +126,11 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
     let sequencer = Sequencer::default();
     let mut markets = HashMap::new();
-    let mut asset_markets = HashMap::new();
+    let mut asset_market_names = HashMap::new();
     for entry in &settings.markets {
-        let market = Arc::new(market::Market::new(entry, &settings, &balance_manager).unwrap());
-        markets.insert(entry.name.clone(), market.clone());
-        asset_markets.insert((entry.base.clone(), entry.quote.clone()), market);
+        let market = market::Market::new(entry, &settings, &balance_manager).unwrap();
+        markets.insert(entry.name.clone(), market);
+        asset_market_names.insert((entry.base.clone(), entry.quote.clone()), entry.name.clone());
     }
 
     let persistor = create_persistor(&settings);
@@ -150,7 +150,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         eth_guard: EthLogGuard::new(0),
         update_controller,
         markets,
-        asset_markets,
+        asset_market_names,
         log_handler: Box::<OperationLogSender>::new(log_handler),
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
@@ -440,10 +440,10 @@ impl Controller {
             BusinessType::Withdraw
         };
         // Get market price of requested base asset and quote asset of USDT.
-        let market_price = self
-            .asset_markets
-            .get(&(asset.to_owned(), "USDT".to_owned()))
-            .map_or(Decimal::zero(), |mk| mk.price);
+        let market_price = match self.asset_market_names.get(&(asset.to_owned(), "USDT".to_owned())) {
+            Some(market_name) => self.markets.get(market_name).unwrap().price,
+            None => Decimal::zero(),
+        };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
@@ -501,9 +501,7 @@ impl Controller {
                 }
                 let market = self.markets.get_mut(market_name).unwrap();
                 let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-                Arc::get_mut(market)
-                    .unwrap()
-                    .cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
+                market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
             }
         }
         let mut result_code = ResultCode::Success;
@@ -550,7 +548,7 @@ impl Controller {
         let balance_manager = &mut self.balance_manager;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        Arc::get_mut(market).unwrap().cancel(balance_manager.into(), persistor, order.id);
+        market.cancel(balance_manager.into(), persistor, order.id);
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
         }
@@ -567,9 +565,7 @@ impl Controller {
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let total = Arc::get_mut(market)
-            .unwrap()
-            .cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
+        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -589,7 +585,7 @@ impl Controller {
     fn reset_state(&mut self) {
         self.sequencer.reset();
         for market in self.markets.values_mut() {
-            Arc::get_mut(market).unwrap().reset();
+            market.reset();
         }
         //self.log_handler.reset();
         self.update_controller.reset();
@@ -622,9 +618,8 @@ impl Controller {
         for entry in new_markets.into_iter() {
             let handle_ret = if self.markets.get(&entry.name).is_none() {
                 market::Market::new(&entry, &self.settings, &self.balance_manager).map(|mk| {
-                    let mk = Arc::new(mk);
-                    self.markets.insert(entry.name, mk.clone());
-                    self.asset_markets.insert((entry.base, entry.quote), mk);
+                    self.markets.insert(entry.name.clone(), mk);
+                    self.asset_market_names.insert((entry.base, entry.quote), entry.name);
                 })
             } else {
                 Err(anyhow!("market {} is duplicated", entry.name))
@@ -682,9 +677,9 @@ impl Controller {
 
         // Get market price of requested base asset and quote asset of USDT.
         let market_price = self
-            .asset_markets
+            .asset_market_names
             .get(&(asset.to_owned(), "USDT".to_owned()))
-            .map_or(Decimal::zero(), |mk| mk.price);
+            .map_or(Decimal::zero(), |market_name| self.markets.get(market_name).unwrap().price);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
@@ -870,8 +865,7 @@ impl Controller {
         let update_controller = &mut self.update_controller;
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
-        Arc::get_mut(market)
-            .unwrap()
+        market
             .put_order(
                 &mut self.sequencer,
                 balance_manager.into(),
