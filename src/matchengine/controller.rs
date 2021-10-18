@@ -28,6 +28,10 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
+use std::sync::Arc;
+
+type BaseAsset = String;
+type QuoteAsset = String;
 
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;
@@ -92,7 +96,8 @@ pub struct Controller {
     pub eth_guard: EthLogGuard,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
-    pub markets: HashMap<String, market::Market>,
+    pub markets: HashMap<String, Arc<market::Market>>,
+    pub asset_markets: HashMap<(BaseAsset, QuoteAsset), Arc<market::Market>>,
     // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
     pub persistor: Box<dyn PersistExector>,
@@ -121,9 +126,11 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
     let sequencer = Sequencer::default();
     let mut markets = HashMap::new();
+    let mut asset_markets = HashMap::new();
     for entry in &settings.markets {
-        let market = market::Market::new(entry, &settings, &balance_manager).unwrap();
-        markets.insert(entry.name.clone(), market);
+        let market = Arc::new(market::Market::new(entry, &settings, &balance_manager).unwrap());
+        markets.insert(entry.name.clone(), market.clone());
+        asset_markets.insert((entry.base.clone(), entry.quote.clone()), market);
     }
 
     let persistor = create_persistor(&settings);
@@ -143,6 +150,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         eth_guard: EthLogGuard::new(0),
         update_controller,
         markets,
+        asset_markets,
         log_handler: Box::<OperationLogSender>::new(log_handler),
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
@@ -412,10 +420,11 @@ impl Controller {
             return Ok(BalanceUpdateResponse::default());
         }
 
-        if !self.balance_manager.asset_manager.asset_exist(&req.asset) {
+        let asset = &req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let prec = self.balance_manager.asset_manager.asset_prec_show(&req.asset);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
         let change = change_result.round_dp(prec);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
@@ -430,6 +439,11 @@ impl Controller {
         } else {
             BusinessType::Withdraw
         };
+        // Get market price of requested base asset and quote asset of USDT.
+        let market_price = self
+            .asset_markets
+            .get(&(asset.to_owned(), "USDT".to_owned()))
+            .map_or(Decimal::zero(), |mk| mk.price);
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
@@ -438,10 +452,10 @@ impl Controller {
                     balance_type: BalanceType::AVAILABLE,
                     business_type,
                     user_id: req.user_id,
-                    asset: req.asset.to_string(),
+                    asset: asset.to_owned(),
                     business: req.business.clone(),
                     business_id: req.business_id,
-                    market_price: Decimal::zero(),
+                    market_price,
                     change,
                     detail: detail_json,
                     signature: req.signature.clone().map_or_else(Vec::new, |sig| sig.as_bytes().to_vec()),
@@ -487,7 +501,9 @@ impl Controller {
                 }
                 let market = self.markets.get_mut(market_name).unwrap();
                 let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-                market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
+                Arc::get_mut(market)
+                    .unwrap()
+                    .cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
             }
         }
         let mut result_code = ResultCode::Success;
@@ -534,7 +550,7 @@ impl Controller {
         let balance_manager = &mut self.balance_manager;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        market.cancel(balance_manager.into(), persistor, order.id);
+        Arc::get_mut(market).unwrap().cancel(balance_manager.into(), persistor, order.id);
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL, &req);
         }
@@ -551,7 +567,9 @@ impl Controller {
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
+        let total = Arc::get_mut(market)
+            .unwrap()
+            .cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -571,7 +589,7 @@ impl Controller {
     fn reset_state(&mut self) {
         self.sequencer.reset();
         for market in self.markets.values_mut() {
-            market.reset();
+            Arc::get_mut(market).unwrap().reset();
         }
         //self.log_handler.reset();
         self.update_controller.reset();
@@ -604,7 +622,9 @@ impl Controller {
         for entry in new_markets.into_iter() {
             let handle_ret = if self.markets.get(&entry.name).is_none() {
                 market::Market::new(&entry, &self.settings, &self.balance_manager).map(|mk| {
-                    self.markets.insert(entry.name, mk);
+                    let mk = Arc::new(mk);
+                    self.markets.insert(entry.name, mk.clone());
+                    self.asset_markets.insert((entry.base, entry.quote), mk);
                 })
             } else {
                 Err(anyhow!("market {} is duplicated", entry.name))
@@ -623,8 +643,8 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
-        let asset_id = &req.asset;
-        if !self.balance_manager.asset_manager.asset_exist(asset_id) {
+        let asset = &req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
 
@@ -635,7 +655,7 @@ impl Controller {
         }
 
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset_id);
+        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
@@ -643,12 +663,12 @@ impl Controller {
         if delta <= zero || delta > balance_from {
             return Ok(TransferResponse {
                 success: false,
-                asset: asset_id.to_owned(),
+                asset: asset.to_owned(),
                 balance_from: balance_from.to_string(),
             });
         }
 
-        let prec = self.balance_manager.asset_manager.asset_prec_show(asset_id);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
         let change = delta.round_dp(prec);
 
         let business = "transfer";
@@ -660,7 +680,11 @@ impl Controller {
             serde_json::from_str(req.memo.as_str()).map_err(|_| Status::invalid_argument("invalid memo"))?
         };
 
-        //let persistor = self.get_persistor(real);
+        // Get market price of requested base asset and quote asset of USDT.
+        let market_price = self
+            .asset_markets
+            .get(&(asset.to_owned(), "USDT".to_owned()))
+            .map_or(Decimal::zero(), |mk| mk.price);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
@@ -670,10 +694,10 @@ impl Controller {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
                     user_id: from_user_id,
-                    asset: asset_id.to_owned(),
+                    asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
-                    market_price: Decimal::zero(),
+                    market_price,
                     change: -change,
                     detail: detail_json.clone(),
                     signature: vec![],
@@ -690,7 +714,7 @@ impl Controller {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
                     user_id: to_user_id,
-                    asset: asset_id.to_owned(),
+                    asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
                     market_price: Decimal::zero(),
@@ -706,7 +730,7 @@ impl Controller {
                 time: timestamp.into(),
                 user_from: from_user_id as i32, // TODO: will this overflow?
                 user_to: to_user_id as i32,     // TODO: will this overflow?
-                asset: asset_id.to_string(),
+                asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),
             });
@@ -716,7 +740,7 @@ impl Controller {
 
         Ok(TransferResponse {
             success: true,
-            asset: asset_id.to_owned(),
+            asset: asset.to_owned(),
             balance_from: (balance_from - change).to_string(),
         })
     }
@@ -846,7 +870,8 @@ impl Controller {
         let update_controller = &mut self.update_controller;
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
-        market
+        Arc::get_mut(market)
+            .unwrap()
             .put_order(
                 &mut self.sequencer,
                 balance_manager.into(),

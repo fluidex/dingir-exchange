@@ -12,6 +12,7 @@ use crate::{config, storage};
 use arrayref::array_ref;
 use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
 use std::convert::TryFrom;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::sqlxextend::*;
@@ -163,7 +164,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                     }
                 },
             };
-            market.insert_order_into_orderbook(order);
+            Arc::get_mut(market).unwrap().insert_order_into_orderbook(order);
         }
         if let Some(last_order) = orders.last() {
             order_id = last_order.id;
