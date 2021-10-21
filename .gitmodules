@@ -1,3 +1,4 @@
 [submodule "orchestra"]
 	path = orchestra
 	url = https://github.com/fluidex/orchestra.git
+	branch = change-grpc-and-rest-url-path
