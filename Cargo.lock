@@ -809,7 +809,7 @@ dependencies = [
 [[package]]
 name = "fluidex-common"
 version = "0.1.0"
-source = "git+https://github.com/fluidex/common-rs?branch=master#24293b3fb94d920170657ab379ce34eeeb2d1b7e"
+source = "git+https://github.com/fluidex/common-rs?branch=master#5195b8dcafbed4e08aa32b3c4306ca3e361c723a"
 dependencies = [
  "babyjubjub-rs",
  "backtrace",
@@ -1566,7 +1566,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "orchestra"
 version = "0.1.0"
-source = "git+https://github.com/fluidex/orchestra.git?branch=master#3938acc11e605cb381b62467a9b9cd23abed86b7"
+source = "git+https://github.com/fluidex/orchestra.git?branch=master#ed3dfe48dde36de349fac28d8e714a4641b567f6"
 dependencies = [
  "prost",
  "serde 1.0.124",
