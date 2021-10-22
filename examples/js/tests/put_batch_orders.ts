@@ -133,7 +133,7 @@ async function putAndResetOrdersTest() {
 }
 
 async function openOrderNum(userId) {
-  return (await axios.get(`http://${apiServer}/exchange/api/action/orders/ETH_USDT/${userId}`)).data.orders.length;
+  return (await axios.get(`http://${apiServer}/api/exchange/action/orders/ETH_USDT/${userId}`)).data.orders.length;
 }
 
 async function main() {

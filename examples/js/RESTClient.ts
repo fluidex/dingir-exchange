@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import * as _ from "lodash";
 
-const REST_API_SERVER = "http://localhost:50053/exchange/api/panel";
+const REST_API_SERVER = "http://localhost:50053/api/exchange/panel";
 
 class UserInfo {
   id: number;

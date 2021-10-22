@@ -1566,7 +1566,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "orchestra"
 version = "0.1.0"
-source = "git+https://github.com/fluidex/orchestra.git?branch=change-grpc-and-rest-url-path#eb9ec6a68792841ec43b2831403fb08fef395ce5"
+source = "git+https://github.com/fluidex/orchestra.git?branch=change-grpc-and-rest-url-path#3036fdb97963b9eb59324e8816ebf48e4a163009"
 dependencies = [
  "prost",
  "serde 1.0.124",

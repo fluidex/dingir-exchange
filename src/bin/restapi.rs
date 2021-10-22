@@ -52,7 +52,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(AppCache::new())
             .wrap_api()
             .service(
-                web::scope("/exchange/api/panel")
+                web::scope("/api/exchange/panel")
                     .route("/ping", web::get().to(ping))
                     .route("/user/{l1addr_or_l2pubkey}", web::get().to(get_user))
                     .route("/recenttrades/{market}", web::get().to(recent_trades))
