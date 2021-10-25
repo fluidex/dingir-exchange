@@ -37,7 +37,7 @@ async function orderTest() {
   console.log(orders);
   assert.equal(orders.length, 4);
 
-  const openOrders = (await axios.get(`http://${server}/api/orders/all/1`)).data;
+  const openOrders = (await axios.get(`http://${server}/api/exchange/action/orders/all/1`)).data;
   console.log(openOrders);
   if (isCI) {
     assert.equal(openOrders.orders.length, orders.length);
@@ -45,7 +45,7 @@ async function orderTest() {
 
   await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
 
-  const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/all/1`)).data;
+  const closedOrders = (await axios.get(`http://${server}/api/exchange/panel/closedorders/all/1`)).data;
   console.log(closedOrders);
   if (isCI) {
     assert.equal(closedOrders.orders.length, orders.length);
