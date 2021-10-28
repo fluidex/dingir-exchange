@@ -103,7 +103,7 @@ pub struct Controller {
     pub persistor: Box<dyn PersistExector>,
     // TODO: is this needed?
     pub dummy_persistor: Box<dyn PersistExector>,
-    dbg_pool: sqlx::Pool<DbType>,
+    db_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
 
@@ -154,7 +154,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         log_handler: Box::<OperationLogSender>::new(log_handler),
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
-        dbg_pool: main_pool,
+        db_pool: main_pool,
         market_load_cfg: cfgs.1,
     }
 }
@@ -603,7 +603,7 @@ impl Controller {
         //after another
         let new_assets = self
             .market_load_cfg
-            .load_asset_from_db(&self.dbg_pool)
+            .load_asset_from_db(&self.db_pool)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
@@ -611,7 +611,7 @@ impl Controller {
 
         let new_markets = self
             .market_load_cfg
-            .load_market_from_db(&self.dbg_pool)
+            .load_market_from_db(&self.db_pool)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
