@@ -151,7 +151,7 @@ async function simpleTest() {
 function checkMessages(messages) {
   // TODO: more careful check
   assert.equal(messages.get("orders").length, 5);
-  assert.equal(messages.get("balances").length, 4);
+  assert.equal(messages.get("balances").length, 8);
   assert.equal(messages.get("trades").length, 1);
 }
 
