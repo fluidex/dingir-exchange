@@ -178,7 +178,7 @@ where
 {
     type BaseMsgType = NXC::BaseMsgType;
     fn topic_name(&self) -> &str {
-        &self.next_config.topic_name()
+        self.next_config.topic_name()
     }
 }
 
@@ -219,7 +219,7 @@ where
 {
     type HandlerType = consumer::Typed<<Self as TypedTopicHandlerData<C>>::HandlerType>;
     fn topic_name(&self) -> &str {
-        <Self as TypedTopicConfig>::topic_name(&self)
+        <Self as TypedTopicConfig>::topic_name(self)
     }
     fn topic_handler(&self) -> Self::HandlerType {
         consumer::Typed::from(<<Self as TypedTopicHandlerData<C>>::HandlerType>::from(self))

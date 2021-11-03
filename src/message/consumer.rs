@@ -28,7 +28,7 @@ impl<C: ConsumerContext + 'static> RdConsumerExt for stream_consumer::StreamCons
     type CTXType = stream_consumer::StreamConsumerContext<C>;
     type SelfType = stream_consumer::StreamConsumer<C>;
     fn to_self(&self) -> &Self::SelfType {
-        &self
+        self
     }
 }
 
@@ -36,7 +36,7 @@ impl<C: ConsumerContext> RdConsumerExt for base_consumer::BaseConsumer<C> {
     type CTXType = C;
     type SelfType = base_consumer::BaseConsumer<C>;
     fn to_self(&self) -> &Self::SelfType {
-        &self
+        self
     }
 }
 
