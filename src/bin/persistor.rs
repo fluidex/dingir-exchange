@@ -41,6 +41,8 @@ fn main() {
 
         let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
+        // db_history has already run `dingir_exchange::persist::MIGRATOR` using '/migrations'
+        // here we use `message::persist::MIGRATOR` with  '/migrations/ts' for kline additionally
         MIGRATOR.run(&pool).await.ok();
 
         let write_config = DatabaseWriterConfig {
