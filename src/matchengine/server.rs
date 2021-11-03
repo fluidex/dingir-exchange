@@ -145,7 +145,7 @@ impl GrpcHandler {
             let order = stub
                 .balance_manager
                 .asset_manager
-                .commit_order(&req, &market)
+                .commit_order(req, market)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {

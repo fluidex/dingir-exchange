@@ -512,7 +512,7 @@ impl Controller {
                 return Err(Status::invalid_argument("inconsistent order markets"));
             }
 
-            match self.put_order(real, &order_req) {
+            match self.put_order(real, order_req) {
                 Ok(order) => order_ids.push(order.id),
                 Err(error) => {
                     result_code = ResultCode::InternalError;

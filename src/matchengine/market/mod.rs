@@ -195,13 +195,13 @@ impl Market {
 
         if order_input.side == OrderSide::ASK {
             if balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, self.base)
                 .lt(&order_input.amount)
             {
                 bail!("balance not enough");
             }
         } else {
-            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, self.quote);
 
             if order_input.type_ == OrderType::LIMIT {
                 if balance.lt(&(order_input.amount * order_input.price)) {
@@ -228,7 +228,7 @@ impl Market {
             }
         }
         let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
-            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, self.quote);
             if order_input.quote_limit.is_zero() {
                 // quote_limit == 0 means no extra limit
                 balance
@@ -411,7 +411,7 @@ impl Market {
                 state_after: Default::default(),
             };
             #[cfg(feature = "emit_state_diff")]
-            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
             self.trade_count += 1;
             if self.disable_self_trade {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
@@ -523,7 +523,7 @@ impl Market {
                 )
                 .unwrap();
             #[cfg(feature = "emit_state_diff")]
-            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
 
             // Step7: persist trade and order
             //if true persistor.real_persist() {
