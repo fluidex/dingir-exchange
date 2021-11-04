@@ -33,6 +33,7 @@ startall:
 	mkdir -p logs
 	`pwd`/target/$(BUILD_MODE)/persistor 1>logs/persistor.$(CURRENTDATE).log 2>&1 &
 	`pwd`/target/$(BUILD_MODE)/matchengine 1>logs/matchengine.$(CURRENTDATE).log 2>&1 &
+	sleep 3;
 	`pwd`/target/$(BUILD_MODE)/restapi 1>logs/restapi.$(CURRENTDATE).log 2>&1 &
 list:
 	pgrep -l $(PROCESSES) || true
