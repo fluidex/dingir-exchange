@@ -15,7 +15,7 @@ config_rs = { package = "config", version = "0.10.1" }
 const_format = "0.2.15"
 crossbeam-channel = "0.5.0"
 dotenv = "0.15.0"
-fluidex-common = { git = "https://github.com/fluidex/common-rs", branch = "master", features = [ "kafka", "non-blocking-tracing", "rust-decimal-dingir-exchange" ] }
+fluidex-common = { git = "https://github.com/fluidex/common-rs", branch = "support-convert-timestamp-to-seconds-and-milliseconds", features = [ "kafka", "non-blocking-tracing", "rust-decimal-dingir-exchange" ] }
 futures = "0.3.13"
 futures-channel = "0.3.13"
 futures-core = { version = "0.3.13", default-features = false }
@@ -29,7 +29,7 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 nix = "0.20.0"
 num_enum = "0.5.1"
-orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "master", features = [ "exchange" ] }
+orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "update-time-fields-to-unit-millisecond", features = [ "exchange" ] }
 paperclip = { git = "https://github.com/fluidex/paperclip.git", features = [ "actix", "chrono", "rust_decimal" ] }
 qstring = "0.7.2"
 rand = "0.8.3"

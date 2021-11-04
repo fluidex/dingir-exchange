@@ -1,12 +1,29 @@
 use crate::types::OrderSide;
 use chrono::NaiveDateTime;
 use paperclip::actix::Apiv2Schema;
+use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 
 pub type DecimalDbType = fluidex_common::rust_decimal::Decimal;
 // https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
 // pub type TimestampDbType = DateTime<Utc>;
 pub type TimestampDbType = NaiveDateTime;
+
+/// Helper trait add serde support to `TimestampDbType` using milliseconds.
+pub trait DateTimeMilliseconds: Sized {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer;
+}
+
+impl DateTimeMilliseconds for TimestampDbType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(self.timestamp_millis())
+    }
+}
 
 pub mod tablenames {
     pub const ASSET: &str = "asset";
@@ -88,10 +105,12 @@ pub enum OrderStatus {
     Expired,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize, Apiv2Schema)]
 pub struct OrderHistory {
     pub id: i64,
+    #[serde(with = "DateTimeMilliseconds")]
     pub create_time: TimestampDbType,
+    #[serde(with = "DateTimeMilliseconds")]
     pub finish_time: TimestampDbType,
     pub status: OrderStatus,
     pub user_id: i32,
@@ -191,8 +210,9 @@ pub struct SliceHistory {
     pub end_trade_id: i64,
 }
 
-#[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
+#[derive(sqlx::FromRow, Debug, Clone, Serialize, Apiv2Schema)]
 pub struct MarketTrade {
+    #[serde(with = "DateTimeMilliseconds")]
     pub time: TimestampDbType,
     pub market: String,
     pub trade_id: i64,
