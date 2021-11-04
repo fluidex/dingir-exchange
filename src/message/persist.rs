@@ -1,5 +1,5 @@
 use super::consumer::{self, RdConsumerExt, SyncTyped, TypedMessageHandler, TypedMessageHandlerAsync}; //crate::message::consumer
-use crate::{database, models, types, utils};
+use crate::{database, models, types};
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -555,12 +555,12 @@ impl AutoCommitRet {
 
 /*------ Mixed some transform here -------- */
 use crate::market;
-use crate::utils::FTimestamp;
+use fluidex_common::utils::timeutil::FTimestamp;
 
 impl<'r> From<&'r super::Trade> for models::MarketTrade {
     fn from(origin: &'r super::Trade) -> Self {
         models::MarketTrade {
-            time: utils::FTimestamp(origin.timestamp).into(),
+            time: FTimestamp(origin.timestamp).into(),
             market: origin.market.clone(),
             trade_id: origin.id as i64,
             price: origin.price,
@@ -605,7 +605,7 @@ fn decimal_warning<E: std::error::Error>(e: E) -> DecimalDbType {
 impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
     fn from(origin: &'r super::BalanceMessage) -> Self {
         models::BalanceHistory {
-            time: utils::FTimestamp::from(&origin.timestamp).into(),
+            time: FTimestamp::from(&origin.timestamp).into(),
             user_id: origin.user_id as i32,
             business_id: origin.business_id as i64,
             asset: origin.asset.clone(),
