@@ -4,7 +4,6 @@ use crate::config::{self, OrderSignatrueCheck};
 use crate::persist::PersistExector;
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType};
-use crate::utils;
 
 use std::cmp::min;
 use std::collections::BTreeMap;
@@ -13,6 +12,7 @@ use std::iter::Iterator;
 use anyhow::{bail, Result};
 use fluidex_common::rust_decimal::prelude::Zero;
 use fluidex_common::rust_decimal::{Decimal, RoundingStrategy};
+use fluidex_common::utils::timeutil::current_timestamp;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -245,7 +245,7 @@ impl Market {
             Decimal::zero()
         };
 
-        let t = utils::current_timestamp();
+        let t = current_timestamp();
         let order = Order {
             id: sequencer.next_order_id(),
             type_: order_input.type_,
@@ -379,7 +379,7 @@ impl Market {
             let bid_fee = (traded_base_amount * bid_fee_rate).round_dp_with_strategy(self.base_prec, RoundingStrategy::ToZero);
             let ask_fee = (traded_quote_amount * ask_fee_rate).round_dp_with_strategy(self.quote_prec, RoundingStrategy::ToZero);
 
-            let timestamp = utils::current_timestamp();
+            let timestamp = current_timestamp();
             ask_order.update_time = timestamp;
             bid_order.update_time = timestamp;
 
@@ -387,7 +387,7 @@ impl Market {
             let trade_id = sequencer.next_trade_id();
             let trade = Trade {
                 id: trade_id,
-                timestamp: utils::current_timestamp(),
+                timestamp: current_timestamp(),
                 market: self.name.to_string(),
                 base: self.base.into(),
                 quote: self.quote.into(),

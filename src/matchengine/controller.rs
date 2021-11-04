@@ -12,12 +12,12 @@ use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
 use crate::user_manager::{self, UserManager};
-use crate::utils::{self, FTimestamp};
 
 use anyhow::{anyhow, bail};
 use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
 use fluidex_common::rust_decimal::prelude::Zero;
 use fluidex_common::rust_decimal::Decimal;
+use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
 use orchestra::rpc::exchange::*;
 use serde::Serialize;
 use serde_json::json;
@@ -575,7 +575,7 @@ impl Controller {
     pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
         async {
             let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
-            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await
+            crate::persist::dump_to_db(&mut connection, current_timestamp() as i64, self).await
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
@@ -667,7 +667,7 @@ impl Controller {
         let change = delta.round_dp(prec);
 
         let business = "transfer";
-        let timestamp = FTimestamp(utils::current_timestamp());
+        let timestamp = FTimestamp(current_timestamp());
         let business_id = (timestamp.0 * 1_000_f64) as u64; // milli-seconds
         let detail_json: serde_json::Value = if req.memo.is_empty() {
             json!({})
@@ -882,7 +882,7 @@ impl Controller {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
             id: self.sequencer.next_operation_log_id() as i64,
-            time: FTimestamp(utils::current_timestamp()).into(),
+            time: FTimestamp(current_timestamp()).into(),
             method: method.to_owned(),
             params,
         };

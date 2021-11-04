@@ -3,8 +3,8 @@ use crate::market;
 use crate::models;
 use market::Trade;
 
-use crate::utils::FTimestamp;
 use anyhow::Result;
+use fluidex_common::utils::timeutil::FTimestamp;
 
 type BalanceWriter = DatabaseWriter<models::BalanceHistory>;
 type TransferWriter = DatabaseWriter<models::InternalTx>;

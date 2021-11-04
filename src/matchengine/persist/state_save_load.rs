@@ -4,19 +4,17 @@ use crate::controller::Controller;
 use crate::database;
 use crate::market::Order;
 use crate::models;
+use crate::sqlxextend::*;
 use crate::types;
 use crate::types::SimpleResult;
-use crate::utils;
-use crate::utils::FTimestamp;
 use crate::{config, storage};
 use arrayref::array_ref;
+use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
 use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
-use std::convert::TryFrom;
-use std::time::{Duration, Instant};
-
-use crate::sqlxextend::*;
 use sqlx::migrate::Migrator;
 use sqlx::Connection;
+use std::convert::TryFrom;
+use std::time::{Duration, Instant};
 use types::{ConnectionType, DbType};
 
 //migration
@@ -446,7 +444,7 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     //let url = "postgres://exchange:exchange_AA9944@127.0.0.1/exchange";
     let url = &controller.settings.db_log;
     let mut conn = ConnectionType::connect(url).await?;
-    let slice_id = utils::current_timestamp() as i64;
+    let slice_id = current_timestamp() as i64;
     let timing = Instant::now();
     dump_to_db(&mut conn, slice_id, controller).await?;
     clear_slice(&mut conn, slice_id).await?;

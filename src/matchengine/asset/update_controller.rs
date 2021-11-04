@@ -1,8 +1,7 @@
 use super::balance_manager::{BalanceManager, BalanceType};
 use crate::models;
 use crate::persist::PersistExector;
-use crate::utils;
-use crate::utils::FTimestamp;
+use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
 pub use models::BalanceHistory;
 
 use anyhow::{bail, Result};
@@ -113,7 +112,7 @@ impl BalanceUpdateController {
             let balance_available = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
             let balance_frozen = balance_manager.get(user_id, BalanceType::FREEZE, &asset);
             let balance_history = BalanceHistory {
-                time: FTimestamp(utils::current_timestamp()).into(),
+                time: FTimestamp(current_timestamp()).into(),
                 user_id: user_id as i32,
                 business_id: business_id as i64,
                 asset,

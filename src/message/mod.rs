@@ -2,8 +2,8 @@ use crate::market::Order;
 pub use crate::models::{AccountDesc, BalanceHistory, InternalTx};
 use crate::types::OrderEventType;
 
-use crate::utils::FTimestamp;
 use anyhow::Result;
+use fluidex_common::utils::timeutil::FTimestamp;
 use serde::{Deserialize, Serialize};
 
 pub mod consumer;
