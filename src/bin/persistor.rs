@@ -12,7 +12,7 @@ use types::DbType;
 
 use fluidex_common::rdkafka::consumer::StreamConsumer;
 
-use message::persist::{self, TopicConfig, MIGRATOR};
+use message::persist::{self, TopicConfig};
 
 fn main() {
     dotenv::dotenv().ok();
@@ -41,7 +41,10 @@ fn main() {
 
         let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
-        MIGRATOR.run(&pool).await.ok();
+        // migrate using `dingir_exchange::persist::MIGRATOR` with '/migrations' for db_history (state_changes and kline)
+        dingir_exchange::persist::MIGRATOR.run(&pool).await.ok();
+        // migrate using `message::persist::MIGRATOR` with '/migrations/ts' for kline additionally
+        message::persist::MIGRATOR.run(&pool).await.ok();
 
         let write_config = DatabaseWriterConfig {
             spawn_limit: 4,
