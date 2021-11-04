@@ -41,7 +41,7 @@ fn main() {
 
         let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
-        // migrate using `dingir_exchange::persist::MIGRATOR` with '/migrations' for db_history (state_changes and kline)
+        // migrate using `dingir_exchange::persist::MIGRATOR` with '/migrations' for db_history (state_changes)
         dingir_exchange::persist::MIGRATOR.run(&pool).await.ok();
         // migrate using `message::persist::MIGRATOR` with '/migrations/ts' for kline additionally
         message::persist::MIGRATOR.run(&pool).await.ok();
