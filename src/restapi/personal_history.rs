@@ -1,5 +1,5 @@
 use crate::models::tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY};
-use crate::models::{DecimalDbType, OrderHistory, TimestampDbType};
+use crate::models::{DateTimeMilliseconds, DecimalDbType, OrderHistory, TimestampDbType};
 use crate::restapi::errors::RpcError;
 use crate::restapi::state::AppState;
 use core::cmp::min;
@@ -7,7 +7,7 @@ use paperclip::actix::web::{self, HttpRequest, Json};
 use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::{Deserialize, Deserializer, Serialize};
 
-#[derive(Serialize, Deserialize, Apiv2Schema)]
+#[derive(Serialize, Apiv2Schema)]
 pub struct OrderResponse {
     total: i64,
     orders: Vec<OrderHistory>,
@@ -57,8 +57,9 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
     Ok(Json(OrderResponse { total, orders }))
 }
 
-#[derive(sqlx::FromRow, Serialize, Deserialize, Apiv2Schema)]
+#[derive(sqlx::FromRow, Serialize, Apiv2Schema)]
 pub struct InternalTxResponse {
+    #[serde(with = "DateTimeMilliseconds")]
     time: TimestampDbType,
     user_from: String,
     user_to: String,

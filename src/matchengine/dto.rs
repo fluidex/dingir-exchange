@@ -3,6 +3,7 @@ use crate::market;
 use anyhow::{anyhow, bail, Result};
 use arrayref::array_ref;
 use fluidex_common::rust_decimal::{self, prelude::Zero, Decimal};
+use fluidex_common::utils::timeutil::FTimestamp;
 use orchestra::rpc::exchange::*;
 
 use std::convert::TryFrom;
@@ -32,8 +33,8 @@ impl From<market::Order> for OrderInfo {
                 OrderSide::Bid as i32
             },
             user_id: o.user,
-            create_time: o.create_time,
-            update_time: o.update_time,
+            create_time: FTimestamp::from(&o.create_time).as_milliseconds(),
+            update_time: FTimestamp::from(&o.update_time).as_milliseconds(),
             price: o.price.to_string(),
             amount: o.amount.to_string(),
             taker_fee: o.taker_fee.to_string(),
