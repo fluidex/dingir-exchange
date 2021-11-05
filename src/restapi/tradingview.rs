@@ -574,7 +574,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
             .fetch_optional(&app_state.db)
             .await
             .map_err(TradeViewError::from)?
-            .map(|x: NaiveDateTime| x.timestamp() as i32);
+            .map(|x: NaiveDateTime| x.timestamp_millis());
 
         return Ok(Json(KlineResult {
             s: String::from("no_data"),
