@@ -26,7 +26,7 @@ pub struct KlineResult {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub v: Vec<f32>, // trading volume
     #[serde(rename = "nextTime", skip_serializing_if = "Option::is_none")]
-    pub nxt: Option<i64>,
+    pub nxt: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Apiv2Schema)]
