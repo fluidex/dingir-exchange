@@ -5,6 +5,7 @@ import { Account } from "fluidex.js";
 import { getTestAccount } from "./accounts";
 import { strict as assert } from "assert";
 import { depositAssets, getPriceOfCoin, putLimitOrder } from "./exchange_helper";
+import Decimal from "decimal.js";
 
 const verbose = true;
 const botsIds = [1, 2, 3, 4, 5];
@@ -26,28 +27,43 @@ async function loadAccounts() {
     client.addAccount(user_id, acc);
   }
 }
-async function registerAccounts() {
-  for (const user_id of botsIds) {
-    // TODO: clean codes here
-    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-    await client.registerUser({
-      user_id,
-      l1_address: acc.ethAddr,
-      l2_pubkey: acc.bjjPubKey,
-    });
-  }
-}
-async function initAssets() {
-  for (const user_id of botsIds) {
-    await depositAssets({ USDT: "500000.0" }, user_id);
-    for (const [name, info] of client.markets) {
-      const base = info.base;
-      const depositReq = {};
-      depositReq[base] = "10";
-      await depositAssets(depositReq, user_id);
+// async function registerAccounts() {
+//   for (const user_id of botsIds) {
+//     // TODO: clean codes here
+//     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+//     await client.registerUser({
+//       user_id,
+//       l1_address: acc.ethAddr,
+//       l2_pubkey: acc.bjjPubKey,
+//     });
+//   }
+// }
+// async function initAssets() {
+//   for (const user_id of botsIds) {
+//     await depositAssets({ USDT: "500000.0" }, user_id);
+//     for (const [name, info] of client.markets) {
+//       const base = info.base;
+//       const depositReq = {};
+//       depositReq[base] = "10";
+//       await depositAssets(depositReq, user_id);
+//     }
+//   }
+// }
+
+async function waitingAssetsReady() {
+  outer:
+  while (true) {
+    await sleep(1000);
+    for (const user_id of botsIds) {
+      const balance = await client.balanceQueryByAsset(user_id, "USDT");
+      if ((new Decimal(balance.available)).lt(new Decimal("500000.0"))) {
+        continue outer;
+      }
     }
+    break;
   }
 }
+
 function randUser() {
   return getRandomElem(botsIds);
 }
@@ -145,9 +161,10 @@ async function main() {
   await initClient();
   //await cancelAll();
   if (reset) {
-    await client.debugReset();
-    await registerAccounts();
-    await initAssets();
+    // await client.debugReset();
+    // await registerAccounts();
+    // await initAssets();
+    await waitingAssetsReady();
     await transferTest();
     await withdrawTest();
   }
