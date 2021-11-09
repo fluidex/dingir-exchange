@@ -20,8 +20,8 @@ class RESTClient {
     });
   }
 
-  async get_user(user_id_l1_addr_or_l2_pubkey: string): Promise<UserInfo> {
-    let resp = await this.client.get(`/user/${user_id_l1_addr_or_l2_pubkey}`);
+  async get_user_by_addr(addr: string): Promise<UserInfo> {
+    let resp = await this.client.get(`/user/${addr}`);
     //console.log('user info', resp.data);
     if (resp.data.error) {
       console.log("error:", resp.data);

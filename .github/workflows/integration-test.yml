@@ -118,7 +118,6 @@ jobs:
       - name: Run trading tests
         run: |
           cd ./examples/js/
-          npx ts-node rest_get_user.ts
           npx ts-node trade.ts
           sleep 5
           npx ts-node print_orders.ts
