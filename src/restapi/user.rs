@@ -18,11 +18,16 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> Result<Jso
         return Ok(Json(user_info.clone()));
     }
 
-    let sql_query = format!("select * from {} where id = $1 OR l1_address = $1 OR l2_pubkey = $1", ACCOUNT);
-    let user: AccountDesc = sqlx::query_as(&sql_query).bind(user_id).fetch_one(&data.db).await.map_err(|e| {
-        log::error!("{:?}", e);
-        RpcError::bad_request("invalid user ID, l1 address or l2 public key")
-    })?;
+    let sql_query = format!("select * from {} where id = $1 OR l1_address = $2 OR l2_pubkey = $2", ACCOUNT);
+    let user: AccountDesc = sqlx::query_as(&sql_query)
+        .bind(user_id.parse::<i32>().unwrap_or(-1))
+        .bind(user_id)
+        .fetch_one(&data.db)
+        .await
+        .map_err(|e| {
+            log::error!("{:?}", e);
+            RpcError::bad_request("invalid user ID, l1 address or l2 public key")
+        })?;
 
     let user_info = AccountDesc {
         id: user.id,
