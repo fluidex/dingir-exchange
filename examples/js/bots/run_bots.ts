@@ -29,7 +29,7 @@ async function initUser(): Promise<number> {
   const acc = Account.fromMnemonic(mnemonic3);
   //console.log('acc is', acc);
   const restClient = defaultRESTClient;
-  let userInfo = await restClient.get_user_by_addr(acc.ethAddr);
+  let userInfo = await restClient.get_user(acc.ethAddr);
   if (userInfo == null) {
     // register
     console.log("register new user");
@@ -41,7 +41,7 @@ async function initUser(): Promise<number> {
     const t = Date.now();
     console.log("register resp", resp);
     await sleep(2000); // FIXME
-    userInfo = await restClient.get_user_by_addr(acc.ethAddr);
+    userInfo = await restClient.get_user(acc.ethAddr);
     await sleep(2000); // FIXME
     await depositAssets({ USDT: "10000.0" }, userInfo.id);
   } else {

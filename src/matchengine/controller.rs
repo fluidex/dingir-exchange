@@ -51,7 +51,7 @@ impl OperationLogConsumer for OperationLogSender {
 fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let persist_to_mq = true;
     let persist_to_mq_full_order = true;
-    let persist_to_db = false;
+    let persist_to_db = true;
     let persist_to_file = false;
     let mut persistor = Box::new(CompositePersistor::default());
     if !settings.brokers.is_empty() && persist_to_mq {
