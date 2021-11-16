@@ -1,9 +1,9 @@
-import { userId, base, quote, market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT } from "./config"; // dotenv
-import { getTestAccount } from "./accounts";
-import { defaultClient as client } from "./client";
-import { sleep, assertDecimalEqual } from "./util";
-import { depositAssets } from "./exchange_helper";
-import { KafkaConsumer } from "./kafka_client";
+import { userId, base, quote, market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT } from "../config"; // dotenv
+import { getTestAccount } from "../accounts";
+import { defaultClient as client } from "../client";
+import { sleep, assertDecimalEqual } from "../util";
+import { depositAssets } from "../exchange_helper";
+import { KafkaConsumer } from "../kafka_client";
 
 import { Account } from "fluidex.js";
 import Decimal from "decimal.js";
