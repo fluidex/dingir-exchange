@@ -1,9 +1,9 @@
-import { market, userId } from "./config"; // dotenv
-import { defaultClient as client } from "./client";
+import { market, userId } from "../config"; // dotenv
+import { defaultClient as client } from "../client";
 
-import { sleep, decimalAdd, assertDecimalEqual } from "./util";
+import { sleep, decimalAdd, assertDecimalEqual } from "../util";
 
-import { depositAssets, printBalance, putRandOrder } from "./exchange_helper";
+import { depositAssets, printBalance, putRandOrder } from "../exchange_helper";
 
 async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await client.marketSummary(market)).trade_count;

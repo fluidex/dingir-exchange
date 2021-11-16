@@ -1,10 +1,10 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "./config";
-import { defaultClient as client } from "./client";
-import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "./util";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "../config";
+import { defaultClient as client } from "../client";
+import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "../util";
 import { Account } from "fluidex.js";
-import { getTestAccount } from "./accounts";
+import { getTestAccount } from "../accounts";
 import { strict as assert } from "assert";
-import { depositAssets, getPriceOfCoin, putLimitOrder } from "./exchange_helper";
+import { depositAssets, getPriceOfCoin, putLimitOrder } from "../exchange_helper";
 
 const verbose = true;
 const botsIds = [1, 2, 3, 4, 5];
