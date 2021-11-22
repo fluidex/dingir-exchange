@@ -164,6 +164,11 @@ impl matchengine_server::Matchengine for GrpcHandler {
         Ok(Response::new(stub.asset_list(request.into_inner())?))
     }
 
+    async fn user_query(&self, request: Request<UserQueryRequest>) -> Result<Response<UserInfo>, Status> {
+        let stub = self.stub.read().await;
+        Ok(Response::new(stub.user_query(request.into_inner())?))
+    }
+
     async fn balance_query(&self, request: Request<BalanceQueryRequest>) -> Result<Response<BalanceQueryResponse>, Status> {
         let stub = self.stub.read().await;
         Ok(Response::new(stub.balance_query(request.into_inner())?))

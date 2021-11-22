@@ -11,7 +11,7 @@ use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileB
 use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
-use crate::user_manager::{self, UserManager};
+use crate::user_manager::UserManager;
 
 use anyhow::{anyhow, bail};
 use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
@@ -185,6 +185,20 @@ impl Controller {
         };
         Ok(result)
     }
+    pub fn user_query(&self, req: UserQueryRequest) -> Result<UserInfo, Status> {
+        self.user_manager.get_user(req.user_id, req.l1_address, req.l2_pubkey).map_or_else(
+            || Err(Status::not_found("no user")),
+            |user_info| {
+                Ok(UserInfo {
+                    user_id: user_info.id as u32,
+                    l1_address: user_info.l1_address.clone(),
+                    l2_pubkey: user_info.l2_pubkey.clone(),
+                    log_metadata: None,
+                })
+            },
+        )
+    }
+
     pub fn balance_query(&self, req: BalanceQueryRequest) -> Result<BalanceQueryResponse, Status> {
         let all_asset_param_valid = req
             .assets
@@ -356,7 +370,7 @@ impl Controller {
         self.persistor.service_available()
     }
 
-    pub fn register_user(&mut self, real: bool, mut req: UserInfo) -> std::result::Result<UserInfo, Status> {
+    pub fn register_user(&mut self, real: bool, req: UserInfo) -> std::result::Result<UserInfo, Status> {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
@@ -367,32 +381,12 @@ impl Controller {
             return Ok(req);
         }
 
-        let last_user_id = self.user_manager.users.len() as u32;
-        req.user_id = last_user_id + 1;
-        // TODO: check user_id
-        // if last_user_id + 1 != req.user_id {
-        //     return Err(Status::invalid_argument("inconsist user_id"));
-        // }
-
-        let l1_address = req.l1_address.to_lowercase();
-        let l2_pubkey = req.l2_pubkey.to_lowercase();
-
-        self.user_manager.users.insert(
-            req.user_id,
-            user_manager::UserInfo {
-                l1_address: l1_address.clone(),
-                l2_pubkey: l2_pubkey.clone(),
-            },
-        );
+        let user_info = self.user_manager.add_user(req.l1_address.clone(), req.l2_pubkey.clone());
 
         if real {
             let mut detail: serde_json::Value = json!({});
             detail["id"] = serde_json::Value::from(req.user_id);
-            self.persistor.register_user(models::AccountDesc {
-                id: req.user_id as i32,
-                l1_address: l1_address.clone(),
-                l2_pubkey: l2_pubkey.clone(),
-            });
+            self.persistor.register_user(user_info.clone());
         }
 
         if real {
@@ -402,9 +396,9 @@ impl Controller {
         self.eth_guard.update_optional(meta);
 
         Ok(UserInfo {
-            user_id: req.user_id,
-            l1_address,
-            l2_pubkey,
+            user_id: user_info.id as u32,
+            l1_address: user_info.l1_address,
+            l2_pubkey: user_info.l2_pubkey,
             log_metadata: req.log_metadata,
         })
     }
@@ -645,7 +639,7 @@ impl Controller {
 
         let from_user_id = req.from;
         let to_user_id = req.to;
-        if !self.user_manager.users.contains_key(&to_user_id) {
+        if !self.user_manager.contains(to_user_id) {
             return Err(Status::invalid_argument("invalid to_user"));
         }
 
