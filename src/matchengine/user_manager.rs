@@ -19,6 +19,7 @@ impl UserManager {
         }
     }
     pub fn reset(&mut self) {
+        self.max_user_id = 0;
         self.users.clear();
     }
 
