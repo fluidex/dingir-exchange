@@ -26,8 +26,11 @@ impl UserManager {
         self.users.contains_key(&format_user_id_key(user_id))
     }
 
-    pub fn add_user(&mut self, l1_address: String, l2_pubkey: String) -> AccountDesc {
+    pub fn add_user(&mut self, l1_address: &str, l2_pubkey: &str) -> AccountDesc {
         let user_id = self.max_user_id + 1;
+        let l1_address = l1_address.to_lowercase();
+        let l2_pubkey = l2_pubkey.to_lowercase();
+
         let l1_address_key = format_l1_address_key(&l1_address);
         let l2_pubkey_key = format_l2_pubkey_key(&l2_pubkey);
 

@@ -381,7 +381,7 @@ impl Controller {
             return Ok(req);
         }
 
-        let user_info = self.user_manager.add_user(req.l1_address.clone(), req.l2_pubkey.clone());
+        let user_info = self.user_manager.add_user(&req.l1_address, &req.l2_pubkey);
 
         if real {
             let mut detail: serde_json::Value = json!({});
