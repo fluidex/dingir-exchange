@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 actix-rt = "2.1.0"
-actix-web = "4.0.0-beta.4"
+actix-web = "4.0.0-beta.12"
 anyhow = "1.0.38"
 arrayref = "0.3.6"
 bytes = "1.0.1"
