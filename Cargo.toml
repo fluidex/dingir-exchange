@@ -30,7 +30,7 @@ log = "0.4.14"
 nix = "0.20.0"
 num_enum = "0.5.1"
 orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "master", features = [ "exchange" ] }
-paperclip = { git = "https://github.com/fluidex/paperclip.git", branch = "fix-issues-when-upgrading-to-actix-web-4-beta-12", features = [ "actix", "chrono", "rust_decimal" ] }
+paperclip = { git = "https://github.com/fluidex/paperclip.git", features = [ "actix", "chrono", "rust_decimal" ] }
 qstring = "0.7.2"
 rand = "0.8.3"
 serde = { version = "1.0.124", features = [ "derive" ] }
