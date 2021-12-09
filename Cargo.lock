@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "paperclip"
 version = "0.5.0"
-source = "git+https://github.com/fluidex/paperclip.git#4522e3436ee7235d4ea81c503cd42b3b09d45a58"
+source = "git+https://github.com/fluidex/paperclip.git?branch=fix-issues-when-upgrading-to-actix-web-4-beta-12#0ad12a772b10bf396de6b1cd5bf002d9b430cf90"
 dependencies = [
  "anyhow",
  "itertools",
@@ -1596,7 +1596,7 @@ dependencies = [
 [[package]]
 name = "paperclip-actix"
 version = "0.3.0"
-source = "git+https://github.com/fluidex/paperclip.git#4522e3436ee7235d4ea81c503cd42b3b09d45a58"
+source = "git+https://github.com/fluidex/paperclip.git?branch=fix-issues-when-upgrading-to-actix-web-4-beta-12#0ad12a772b10bf396de6b1cd5bf002d9b430cf90"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -1611,7 +1611,7 @@ dependencies = [
 [[package]]
 name = "paperclip-core"
 version = "0.3.0"
-source = "git+https://github.com/fluidex/paperclip.git#4522e3436ee7235d4ea81c503cd42b3b09d45a58"
+source = "git+https://github.com/fluidex/paperclip.git?branch=fix-issues-when-upgrading-to-actix-web-4-beta-12#0ad12a772b10bf396de6b1cd5bf002d9b430cf90"
 dependencies = [
  "actix-web",
  "chrono",
@@ -1631,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "paperclip-macros"
 version = "0.4.0"
-source = "git+https://github.com/fluidex/paperclip.git#4522e3436ee7235d4ea81c503cd42b3b09d45a58"
+source = "git+https://github.com/fluidex/paperclip.git?branch=fix-issues-when-upgrading-to-actix-web-4-beta-12#0ad12a772b10bf396de6b1cd5bf002d9b430cf90"
 dependencies = [
  "heck",
  "http",

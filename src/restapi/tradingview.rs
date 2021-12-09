@@ -3,7 +3,6 @@ use crate::models::MarketDesc;
 use crate::restapi::errors::RpcError;
 use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
 use crate::restapi::{mock, state};
-use actix_web::Responder;
 use humantime::parse_duration;
 use paperclip::actix::web::{self, HttpRequest, Json};
 use paperclip::actix::{api_v2_operation, Apiv2Schema};
@@ -14,7 +13,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
 #[api_v2_operation]
-pub async fn unix_timestamp(_req: HttpRequest) -> impl Responder {
+pub async fn unix_timestamp(_req: HttpRequest) -> String {
     format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
 }
 
@@ -23,7 +22,7 @@ static DEFAULT_SYMBOL: &str = "tradepair";
 static DEFAULT_SESSION: &str = "24x7";
 
 #[api_v2_operation]
-pub async fn chart_config(_req: HttpRequest) -> impl Responder {
+pub async fn chart_config(_req: HttpRequest) -> String {
     log::debug!("request config");
     let value = json!({
         "supports_search": true,
