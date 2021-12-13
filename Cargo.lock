@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "paperclip"
 version = "0.6.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "anyhow",
  "itertools",
@@ -1596,7 +1596,7 @@ dependencies = [
 [[package]]
 name = "paperclip-actix"
 version = "0.4.2"
-source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -1611,7 +1611,7 @@ dependencies = [
 [[package]]
 name = "paperclip-core"
 version = "0.4.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "actix-web",
  "chrono",
@@ -1631,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "paperclip-macros"
 version = "0.5.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "heck",
  "http",
