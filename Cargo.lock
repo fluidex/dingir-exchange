@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "paperclip"
 version = "0.6.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=merge-from-upstream#1c3f058e8516dfb3cc61c4d269f41df86fbee8e1"
+source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
 dependencies = [
  "anyhow",
  "itertools",
@@ -1596,7 +1596,7 @@ dependencies = [
 [[package]]
 name = "paperclip-actix"
 version = "0.4.2"
-source = "git+https://github.com/fluidex/paperclip.git?branch=merge-from-upstream#1c3f058e8516dfb3cc61c4d269f41df86fbee8e1"
+source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -1611,7 +1611,7 @@ dependencies = [
 [[package]]
 name = "paperclip-core"
 version = "0.4.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=merge-from-upstream#1c3f058e8516dfb3cc61c4d269f41df86fbee8e1"
+source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
 dependencies = [
  "actix-web",
  "chrono",
@@ -1631,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "paperclip-macros"
 version = "0.5.1"
-source = "git+https://github.com/fluidex/paperclip.git?branch=merge-from-upstream#1c3f058e8516dfb3cc61c4d269f41df86fbee8e1"
+source = "git+https://github.com/fluidex/paperclip.git?branch=rebase-on-upstream#15f233741347f8c69b03be196b45fc35e6e28ce5"
 dependencies = [
  "heck",
  "http",
