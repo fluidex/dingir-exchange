@@ -71,7 +71,7 @@ async fn main() -> std::io::Result<()> {
                     .service(if user_map.manage_channel.is_some() {
                         web::scope("/manage").service(
                             web::scope("/market")
-                                .route("/reload", web::post().to(market::reload))
+                                .route("/reload", web::get().to(market::reload))
                                 .route("/tradepairs", web::post().to(market::add_pair))
                                 .route("/assets", web::post().to(market::add_assets)),
                         )
