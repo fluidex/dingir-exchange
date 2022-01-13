@@ -15,7 +15,7 @@ use crate::user_manager::{self, UserManager};
 
 use anyhow::{anyhow, bail};
 use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
-use fluidex_common::rust_decimal::prelude::Zero;
+use fluidex_common::rust_decimal::prelude::{RoundingStrategy, Zero};
 use fluidex_common::rust_decimal::Decimal;
 use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
 use orchestra::rpc::exchange::*;
@@ -426,7 +426,7 @@ impl Controller {
         }
         let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
-        let change = change_result.round_dp(prec);
+        let change = change_result.round_dp_with_strategy(prec, RoundingStrategy::ToNegativeInfinity);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
             json!({})
         } else {
@@ -664,7 +664,7 @@ impl Controller {
         }
 
         let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
-        let change = delta.round_dp(prec);
+        let change = delta.round_dp_with_strategy(prec, RoundingStrategy::ToNegativeInfinity);
 
         let business = "transfer";
         let timestamp = FTimestamp(current_timestamp());
