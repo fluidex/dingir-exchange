@@ -146,8 +146,8 @@ async function main() {
   //await cancelAll();
   if (reset) {
     await client.debugReset();
-//    await registerAccounts();
-//    await initAssets();
+    //    await registerAccounts();
+    //    await initAssets();
     await transferTest();
     await withdrawTest();
   }
