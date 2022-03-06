@@ -5,7 +5,7 @@ async function main() {
   try {
     await client.reloadMarkets();
   } catch (error) {
-    console.error("Catched error:", error);
+    console.error("Caught error:", error);
   }
 }
 
