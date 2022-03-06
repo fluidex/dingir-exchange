@@ -1574,8 +1574,8 @@ dependencies = [
 
 [[package]]
 name = "paperclip"
-version = "0.5.0"
-source = "git+https://github.com/fluidex/paperclip.git#0679e494bda71bb4681b720c7032d93036d2ea11"
+version = "0.6.1"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "anyhow",
  "itertools",
@@ -1595,8 +1595,8 @@ dependencies = [
 
 [[package]]
 name = "paperclip-actix"
-version = "0.3.0"
-source = "git+https://github.com/fluidex/paperclip.git#0679e494bda71bb4681b720c7032d93036d2ea11"
+version = "0.4.2"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -1610,8 +1610,8 @@ dependencies = [
 
 [[package]]
 name = "paperclip-core"
-version = "0.3.0"
-source = "git+https://github.com/fluidex/paperclip.git#0679e494bda71bb4681b720c7032d93036d2ea11"
+version = "0.4.1"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "actix-web",
  "chrono",
@@ -1630,8 +1630,8 @@ dependencies = [
 
 [[package]]
 name = "paperclip-macros"
-version = "0.4.0"
-source = "git+https://github.com/fluidex/paperclip.git#0679e494bda71bb4681b720c7032d93036d2ea11"
+version = "0.5.1"
+source = "git+https://github.com/fluidex/paperclip.git#f0fa21eab2042feca1679978ec7d08f8f4baa2c4"
 dependencies = [
  "heck",
  "http",
@@ -2566,15 +2566,15 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.19.5"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b89a286a7e3b5720b9a477b23253bc50debac207c8d21505f8e70b36792f11b5"
+checksum = "f7ac893c7d471c8a21f31cfe213ec4f6d9afeed25537c772e08ef3f005f8729e"
 
 [[package]]
 name = "strum_macros"
-version = "0.19.4"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e61bb0be289045cb80bfce000512e32d09f8337e54c186725da381377ad1f8d5"
+checksum = "339f799d8b549e3744c7ac7feb216383e4005d94bdb22561b3ab8f3b808ae9fb"
 dependencies = [
  "heck",
  "proc-macro2",
