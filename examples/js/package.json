@@ -9,7 +9,6 @@
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
     "gaussian": "^1.2.0",
-    "grpc": "^1.24.2",
     "kafkajs": "^1.11.0",
     "lodash": "^4.17.21",
     "regression": "^2.0.1"
