@@ -23,7 +23,7 @@ futures-util = { version = "0.3.13", default-features = false }
 hex = "0.4.3"
 humantime = "2.1.0"
 humantime-serde = "1.0.1"
-hyper = "0.14.4"
+hyper = "0.14.10"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
