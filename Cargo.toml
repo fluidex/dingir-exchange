@@ -27,7 +27,7 @@ hyper = "0.14.4"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-nix = "0.20.0"
+nix = "0.20.2"
 num_enum = "0.5.1"
 orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "master", features = [ "exchange" ] }
 paperclip = { git = "https://github.com/fluidex/paperclip.git", features = [ "actix", "chrono", "rust_decimal" ] }
