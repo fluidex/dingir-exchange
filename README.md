@@ -1,4 +1,4 @@
-# Dingir Exchange
+# Coryptex Matching Engine
 Dingir Exchange is a high performance exchange trading server.   
 The core matching engine is a fully async, single threaded, memory based matching engine with thousands of TPS. 
 
