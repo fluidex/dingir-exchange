@@ -20,14 +20,11 @@ async function loadAccounts() {
 }
 
 async function initClient() {
-  console.log("client initiated")
   await client.connect();
-  console.log("client initiated")
 }
 
 async function registerAccounts() {
   for (const user_id of botsIds) {
-    console.log(`register account ${user_id}`)
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
     await client.client.RegisterUser({
       user_id,

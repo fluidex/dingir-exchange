@@ -9,3 +9,4 @@ output.txt
 *.log
 persistor_output.txt
 unify_msgs_output.txt
+market_test_output.txt
