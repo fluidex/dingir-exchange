@@ -9,6 +9,7 @@ use fluidex_common::rust_decimal::Decimal;
 use ttl_cache::TtlCache;
 
 use std::time::Duration;
+use crate::dto::UserIdentifier;
 
 const BALANCE_MAP_INIT_SIZE_ASSET: usize = 64;
 const PERSIST_ZERO_BALANCE_UPDATE: bool = false;
@@ -17,6 +18,8 @@ pub struct BalanceUpdateParams {
     pub balance_type: BalanceType,
     pub business_type: BusinessType,
     pub user_id: u32,
+    pub broker_id: String,
+    pub account_id: String,
     pub business_id: u64,
     pub asset: String,
     pub business: String,
@@ -82,11 +85,11 @@ impl BalanceUpdateController {
         let business = params.business;
         let business_type = params.business_type;
         let business_id = params.business_id;
-        let user_id = params.user_id;
+        let user_info = UserIdentifier{user_id: params.user_id, broker_id:params.broker_id.clone(), account_id: params.account_id.clone()};
         let cache_key = BalanceUpdateKey {
             balance_type,
             business_type,
-            user_id,
+            user_id:params.user_id,
             asset: asset.clone(),
             business: business.clone(),
             business_id,
@@ -94,26 +97,28 @@ impl BalanceUpdateController {
         if self.cache.contains_key(&cache_key) {
             bail!("duplicate request");
         }
-        let old_balance = balance_manager.get(user_id, balance_type, &asset);
+        let old_balance = balance_manager.get(user_info.clone(), balance_type, &asset);
         let change = params.change;
         let abs_change = change.abs();
         if change.is_sign_positive() {
-            balance_manager.add(user_id, balance_type, &asset, &abs_change);
+            balance_manager.add(user_info.clone(), balance_type, &asset, &abs_change);
         } else if change.is_sign_negative() {
             if old_balance < abs_change {
                 bail!("balance not enough");
             }
-            balance_manager.sub(user_id, balance_type, &asset, &abs_change);
+            balance_manager.sub(user_info.clone(), balance_type, &asset, &abs_change);
         }
-        log::debug!("change user balance: {} {} {}", user_id, asset, change);
+        log::debug!("change user balance: {} {} {}", user_info.user_id, asset, change);
         self.cache.insert(cache_key, true, Duration::from_secs(3600));
         if persistor.real_persist() && (PERSIST_ZERO_BALANCE_UPDATE || !change.is_zero()) {
             params.detail["id"] = serde_json::Value::from(business_id);
-            let balance_available = balance_manager.get(user_id, BalanceType::AVAILABLE, &asset);
-            let balance_frozen = balance_manager.get(user_id, BalanceType::FREEZE, &asset);
+            let balance_available = balance_manager.get(user_info.clone(),BalanceType::AVAILABLE, &asset);
+            let balance_frozen = balance_manager.get(user_info, BalanceType::FREEZE, &asset);
             let balance_history = BalanceHistory {
                 time: FTimestamp(current_timestamp()).into(),
-                user_id: user_id as i32,
+                user_id: params.user_id as i32,
+                broker_id: params.broker_id,
+                account_id: params.account_id,
                 business_id: business_id as i64,
                 asset,
                 business,

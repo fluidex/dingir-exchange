@@ -607,6 +607,8 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
         models::BalanceHistory {
             time: FTimestamp::from(&origin.timestamp).into(),
             user_id: origin.user_id as i32,
+            broker_id: origin.broker_id.clone(),
+            account_id: origin.account_id.clone(),
             business_id: origin.business_id as i64,
             asset: origin.asset.clone(),
             business: origin.business.clone(),
@@ -629,6 +631,8 @@ impl MsgDataTransformer<models::UserTrade> for AskTrade {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
+            broker_id: trade.ask_broker_id.clone(),
+            account_id: trade.ask_account_id.clone(),
             market: trade.market.clone(),
             trade_id: trade.id as i64,
             order_id: trade.ask_order_id as i64,
@@ -652,6 +656,8 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
+            broker_id: trade.bid_broker_id.clone(),
+            account_id: trade.bid_account_id.clone(),
             market: trade.market.clone(),
             trade_id: trade.id as i64,
             order_id: trade.bid_order_id as i64,
@@ -682,7 +688,11 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
         Self {
             time: FTimestamp(origin.time).into(),
             user_from: origin.user_from as i32, // TODO: will this overflow?
+            from_broker_id: origin.broker_from.clone(),
+            from_account_id: origin.account_from.clone(),
             user_to: origin.user_to as i32,     // TODO: will this overflow?
+            to_broker_id: origin.broker_to.clone(),
+            to_account_id: origin.account_to.clone(),
             asset: origin.asset.clone(),
             amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
             signature: origin.signature.as_bytes().to_vec(),

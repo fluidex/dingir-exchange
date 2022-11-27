@@ -47,11 +47,15 @@ pub struct Trade {
     pub quote_amount: Decimal,
 
     pub ask_user_id: u32,
+    pub ask_broker_id: String,
+    pub ask_account_id: String,
     pub ask_order_id: u64,
     pub ask_role: MarketRole, // take/make
     pub ask_fee: Decimal,
 
     pub bid_user_id: u32,
+    pub bid_broker_id: String,
+    pub bid_account_id: String,
     pub bid_order_id: u64,
     pub bid_role: MarketRole,
     pub bid_fee: Decimal,

@@ -29,24 +29,24 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
   //console.log('\n');
 }
 
-export async function depositAssets(assets: any, userId: number) {
+export async function depositAssets(assets: any, userId: number, broker_id: string, account_id: string) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
-    await client.balanceUpdate(userId, asset, "deposit", depositId(), amount, {
+    await client.balanceUpdate(userId, broker_id, account_id, asset, "deposit", depositId(), amount, {
       key: "value",
     });
   }
 }
 
-export async function putLimitOrder(userId, market, side, amount, price) {
-  return await client.orderPut(userId, market, side, ORDER_TYPE_LIMIT, amount, price, fee, fee);
+export async function putLimitOrder(userId,broker_id, account_id, market, side, amount, price) {
+  return await client.orderPut(userId,broker_id, account_id, market, side, ORDER_TYPE_LIMIT, amount, price, fee, fee);
 }
-export async function putRandOrder(userId, market) {
+export async function putRandOrder(userId,broker_id, account_id, market) {
   // TODO: market order?
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
   const price = getRandomFloat(1350, 1450);
   const amount = getRandomFloat(0.5, 1.5);
-  const order = await putLimitOrder(userId, market, side, amount, price);
+  const order = await putLimitOrder(userId,broker_id, account_id, market, side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }
 

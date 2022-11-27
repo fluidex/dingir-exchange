@@ -9,6 +9,14 @@ use orchestra::rpc::exchange::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+pub struct UserIdentifier {
+    pub user_id: u32,
+    pub broker_id: String,
+    pub account_id: String,
+}
+
+
 pub fn str_to_decimal(s: &str, allow_empty: bool) -> Result<Decimal, rust_decimal::Error> {
     if allow_empty && s.is_empty() {
         Ok(Decimal::zero())
@@ -54,6 +62,8 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
     fn try_from(req: OrderPutRequest) -> std::result::Result<Self, Self::Error> {
         Ok(market::OrderInput {
             user_id: req.user_id,
+            broker_id: req.broker_id,
+            account_id: req.account_id,
             side: if req.order_side == OrderSide::Ask as i32 {
                 market::OrderSide::ASK
             } else {

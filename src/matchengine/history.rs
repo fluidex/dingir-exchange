@@ -70,6 +70,8 @@ impl<'r> From<&'r market::Order> for models::OrderHistory {
             finish_time: FTimestamp(order.update_time).into(),
             status,
             user_id: order.user as i32,
+            broker_id: order.broker_id.clone(),
+            account_id: order.account_id.clone(),
             market: order.market.to_string(),
             order_type: order.type_,
             order_side: order.side,
@@ -112,6 +114,8 @@ impl HistoryWriter for DatabaseHistoryWriter {
         let ask_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
+            broker_id: trade.ask_broker_id.clone(),
+            account_id: trade.ask_account_id.clone(),
             market: trade.market.clone(),
             trade_id: trade.id as i64,
             order_id: trade.ask_order_id as i64,
@@ -127,6 +131,8 @@ impl HistoryWriter for DatabaseHistoryWriter {
         let bid_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
+            broker_id: trade.bid_broker_id.clone(),
+            account_id: trade.bid_account_id.clone(),
             market: trade.market.clone(),
             trade_id: trade.id as i64,
             order_id: trade.bid_order_id as i64,

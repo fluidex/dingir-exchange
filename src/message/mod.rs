@@ -35,6 +35,8 @@ impl From<AccountDesc> for UserMessage {
 pub struct BalanceMessage {
     pub timestamp: f64,
     pub user_id: u32,
+    pub broker_id: String,
+    pub account_id: String,
     pub business_id: u64,
     pub asset: String,
     pub business: String,
@@ -52,6 +54,8 @@ impl From<&BalanceHistory> for BalanceMessage {
         Self {
             timestamp: balance.time.timestamp() as f64,
             user_id: balance.user_id as u32,
+            broker_id: balance.broker_id.clone(),
+            account_id: balance.account_id.clone(),
             business_id: balance.business_id as u64,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -130,7 +134,11 @@ impl From<&BalanceHistory> for WithdrawMessage {
 pub struct TransferMessage {
     pub time: f64,
     pub user_from: u32,
+    pub broker_from: String,
+    pub account_from: String,
     pub user_to: u32,
+    pub broker_to: String,
+    pub account_to: String,
     pub asset: String,
     pub amount: String,
     pub signature: String,
@@ -141,7 +149,11 @@ impl From<InternalTx> for TransferMessage {
         Self {
             time: FTimestamp::from(&tx.time).into(),
             user_from: tx.user_from as u32,
+            broker_from: tx.from_broker_id,
+            account_from: tx.from_account_id,
             user_to: tx.user_to as u32,
+            broker_to: tx.to_broker_id,
+            account_to: tx.to_account_id,
             asset: tx.asset,
             amount: tx.amount.to_string(),
             signature: String::from_utf8(tx.signature).unwrap(),
@@ -161,7 +173,7 @@ impl OrderMessage {
     pub fn from_order(order: &Order, at_step: OrderEventType) -> Self {
         Self {
             event: at_step,
-            order: *order,
+            order: order.clone(),
             base: order.base.to_string(),
             quote: order.quote.to_string(),
         }

@@ -74,7 +74,7 @@ impl PartialOrd for MarketKeyBid {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Order {
     // Order can be seen as two part:
     // first, const part, these fields cannot be updated
@@ -87,6 +87,8 @@ pub struct Order {
     pub type_: OrderType, // enum
     pub side: OrderSide,
     pub user: u32,
+    pub broker_id: String,
+    pub account_id: String,
     pub post_only: bool,
     #[serde(with = "crate::utils::serde::HexArray")]
     pub signature: [u8; 64],
@@ -155,12 +157,14 @@ impl OrderRc {
     }
 
     pub fn deep(&self) -> Order {
-        *self.borrow()
+        self.borrow().clone()
     }
 }
 
 pub struct OrderInput {
     pub user_id: u32,
+    pub broker_id: String,
+    pub account_id: String,
     pub side: OrderSide,
     pub type_: OrderType,
     pub amount: Decimal,
