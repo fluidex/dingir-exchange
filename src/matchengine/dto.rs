@@ -16,7 +16,6 @@ pub struct UserIdentifier {
     pub account_id: String,
 }
 
-
 pub fn str_to_decimal(s: &str, allow_empty: bool) -> Result<Decimal, rust_decimal::Error> {
     if allow_empty && s.is_empty() {
         Ok(Decimal::zero())

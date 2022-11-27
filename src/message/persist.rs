@@ -690,7 +690,7 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
             user_from: origin.user_from as i32, // TODO: will this overflow?
             from_broker_id: origin.broker_from.clone(),
             from_account_id: origin.account_from.clone(),
-            user_to: origin.user_to as i32,     // TODO: will this overflow?
+            user_to: origin.user_to as i32, // TODO: will this overflow?
             to_broker_id: origin.broker_to.clone(),
             to_account_id: origin.account_to.clone(),
             asset: origin.asset.clone(),

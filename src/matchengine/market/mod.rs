@@ -22,8 +22,8 @@ pub use types::{OrderSide, OrderType};
 mod order;
 pub use order::*;
 mod trade;
-pub use trade::*;
 use crate::dto::UserIdentifier;
+pub use trade::*;
 
 pub struct Market {
     pub name: &'static str,
@@ -65,19 +65,18 @@ impl BalanceManagerWrapper<'_> {
         self.inner.add(user_info, balance_type, asset, amount);
     }
     pub fn balance_get(&mut self, user_info: UserIdentifier, balance_type: BalanceType, asset: &str) -> Decimal {
-        self.inner.get(user_info,  balance_type, asset)
+        self.inner.get(user_info, balance_type, asset)
     }
-    pub fn balance_total(&mut self,user_info: UserIdentifier, asset: &str) -> Decimal {
-        self.inner.get(user_info.clone(), BalanceType::FREEZE, asset)
-            + self.inner.get(user_info,  BalanceType::AVAILABLE, asset)
+    pub fn balance_total(&mut self, user_info: UserIdentifier, asset: &str) -> Decimal {
+        self.inner.get(user_info.clone(), BalanceType::FREEZE, asset) + self.inner.get(user_info, BalanceType::AVAILABLE, asset)
     }
     pub fn balance_sub(&mut self, user_info: UserIdentifier, balance_type: BalanceType, asset: &str, amount: &Decimal) {
         self.inner.sub(user_info, balance_type, asset, amount);
     }
-    pub fn balance_frozen(&mut self,  user_info: UserIdentifier, asset: &str, amount: &Decimal) {
+    pub fn balance_frozen(&mut self, user_info: UserIdentifier, asset: &str, amount: &Decimal) {
         self.inner.frozen(user_info, asset, amount)
     }
-    pub fn balance_unfrozen(&mut self,  user_info: UserIdentifier, asset: &str, amount: &Decimal) {
+    pub fn balance_unfrozen(&mut self, user_info: UserIdentifier, asset: &str, amount: &Decimal) {
         self.inner.unfrozen(user_info, asset, amount)
     }
     pub fn asset_prec(&mut self, asset: &str) -> u32 {
@@ -143,11 +142,15 @@ impl Market {
     pub fn frozen_balance(&self, balance_manager: &mut BalanceManagerWrapper<'_>, order: &Order) {
         let asset = if order.is_ask() { &self.base } else { &self.quote };
 
-        balance_manager.balance_frozen(UserIdentifier{
-            user_id: order.user,
-            broker_id: order.broker_id.clone(),
-            account_id: order.account_id.clone()
-        }, asset, &order.frozen);
+        balance_manager.balance_frozen(
+            UserIdentifier {
+                user_id: order.user,
+                broker_id: order.broker_id.clone(),
+                account_id: order.account_id.clone(),
+            },
+            asset,
+            &order.frozen,
+        );
     }
     pub fn unfrozen_balance(&self, balance_manager: &mut BalanceManagerWrapper<'_>, order: &Order) {
         debug_assert!(order.remain.is_sign_positive());
@@ -155,11 +158,15 @@ impl Market {
             return;
         }
         let asset = if order.is_ask() { &self.base } else { &self.quote };
-        balance_manager.balance_unfrozen(UserIdentifier{
-            user_id: order.user,
-            broker_id: order.broker_id.clone(),
-            account_id: order.account_id.clone()
-        }, asset, &order.frozen);
+        balance_manager.balance_unfrozen(
+            UserIdentifier {
+                user_id: order.user,
+                broker_id: order.broker_id.clone(),
+                account_id: order.account_id.clone(),
+            },
+            asset,
+            &order.frozen,
+        );
     }
 
     pub fn put_order(
@@ -203,10 +210,10 @@ impl Market {
         } else if order_input.price.is_zero() {
             bail!("invalid price for limit order");
         }
-        let user_info = UserIdentifier{
-            user_id:order_input.user_id,
-            broker_id:order_input.broker_id.clone(),
-            account_id:order_input.account_id.clone(),
+        let user_info = UserIdentifier {
+            user_id: order_input.user_id,
+            broker_id: order_input.broker_id.clone(),
+            account_id: order_input.account_id.clone(),
         };
         if order_input.side == OrderSide::ASK {
             if balance_manager
@@ -328,7 +335,7 @@ impl Market {
 
         let mut finished_orders = Vec::new();
 
-        let counter_orders: Box<dyn Iterator<Item=&mut OrderRc>> = if maker_is_bid {
+        let counter_orders: Box<dyn Iterator<Item = &mut OrderRc>> = if maker_is_bid {
             Box::new(self.bids.values_mut())
         } else {
             Box::new(self.asks.values_mut())
@@ -432,7 +439,7 @@ impl Market {
                 state_after: Default::default(),
             };
             #[cfg(feature = "emit_state_diff")]
-                let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
+            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
             self.trade_count += 1;
             if self.disable_self_trade {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
@@ -463,7 +470,7 @@ impl Market {
                         balance_type: BalanceType::AVAILABLE,
                         business_type: BusinessType::Trade,
                         user_id: bid_order.user,
-                        broker_id:bid_order.broker_id.clone(),
+                        broker_id: bid_order.broker_id.clone(),
                         account_id: bid_order.account_id.clone(),
                         asset: self.base.to_string(),
                         business: "trade".to_string(),
@@ -552,7 +559,7 @@ impl Market {
                 )
                 .unwrap();
             #[cfg(feature = "emit_state_diff")]
-                let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
+            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
 
             // Step7: persist trade and order
             //if true persistor.real_persist() {
@@ -624,7 +631,14 @@ impl Market {
         let order_rc = OrderRc::new(order);
         let order = order_rc.borrow();
         self.orders.insert(order.id, order_rc.clone());
-        let user_map = self.users.entry(UserIdentifier{user_id: order.user, broker_id: order.broker_id.clone(), account_id: order.account_id.clone()}).or_insert_with(BTreeMap::new);
+        let user_map = self
+            .users
+            .entry(UserIdentifier {
+                user_id: order.user,
+                broker_id: order.broker_id.clone(),
+                account_id: order.account_id.clone(),
+            })
+            .or_insert_with(BTreeMap::new);
         debug_assert!(!user_map.contains_key(&order.id));
         user_map.insert(order.id, order_rc.clone());
         if order.side == OrderSide::ASK {
@@ -653,7 +667,14 @@ impl Market {
         debug_assert!(self.orders.contains_key(&order.id));
         // log::debug!("order finish {}", &order.id);
         self.orders.remove(&order.id);
-        let user_map = self.users.get_mut(&UserIdentifier{user_id: order.user, broker_id: order.broker_id.clone(), account_id: order.account_id.clone()}).unwrap();
+        let user_map = self
+            .users
+            .get_mut(&UserIdentifier {
+                user_id: order.user,
+                broker_id: order.broker_id.clone(),
+                account_id: order.account_id.clone(),
+            })
+            .unwrap();
         debug_assert!(user_map.contains_key(&order.id));
         user_map.remove(&order.id);
 
@@ -684,15 +705,15 @@ impl Market {
             finished_quote: bid.finished_quote,
             finished_fee: bid.finished_fee,
         };
-        let ask_user_info = UserIdentifier{
+        let ask_user_info = UserIdentifier {
             user_id: ask.user,
             broker_id: ask.broker_id.clone(),
-            account_id: ask.account_id.clone()
+            account_id: ask.account_id.clone(),
         };
-        let bid_user_info = UserIdentifier{
+        let bid_user_info = UserIdentifier {
             user_id: bid.user,
             broker_id: bid.broker_id.clone(),
-            account_id: bid.account_id.clone()
+            account_id: bid.account_id.clone(),
         };
         let ask_user_base = balance_manager.balance_total(ask_user_info.clone(), base);
         let ask_user_quote = balance_manager.balance_total(ask_user_info, quote);
@@ -749,12 +770,23 @@ impl Market {
     pub fn get(&self, order_id: u64) -> Option<Order> {
         self.orders.get(&order_id).map(OrderRc::deep)
     }
-    pub fn get_order_num_of_user(&self, user_id: u32, broker_id:String, account_id: String) -> usize {
-        self.users.get(&UserIdentifier { user_id, broker_id, account_id }).map(|m| m.len()).unwrap_or(0)
-    }
-    pub fn get_order_of_user(&self, user_id: u32, broker_id:String, account_id: String) -> Vec<Order> {
+    pub fn get_order_num_of_user(&self, user_id: u32, broker_id: String, account_id: String) -> usize {
         self.users
-            .get(&UserIdentifier { user_id, broker_id, account_id })
+            .get(&UserIdentifier {
+                user_id,
+                broker_id,
+                account_id,
+            })
+            .map(|m| m.len())
+            .unwrap_or(0)
+    }
+    pub fn get_order_of_user(&self, user_id: u32, broker_id: String, account_id: String) -> Vec<Order> {
+        self.users
+            .get(&UserIdentifier {
+                user_id,
+                broker_id,
+                account_id,
+            })
             .unwrap_or(&BTreeMap::new())
             .values()
             .map(OrderRc::deep)
@@ -794,8 +826,8 @@ impl Market {
     }
 
     fn group_ordebook_by_fn<K, F>(orderbook: &BTreeMap<K, OrderRc>, limit: usize, f: F) -> Vec<PriceInfo>
-        where
-            F: Fn(&Order) -> Decimal,
+    where
+        F: Fn(&Order) -> Decimal,
     {
         orderbook
             .values()
@@ -878,7 +910,7 @@ mod tests {
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(if only_int { 0 } else { 6 }));
         let uid0 = 0;
         let uid1 = 1;
-        let mut update_balance_fn = |seq_id, user_id,broker_id, account_id, asset: &str, amount| {
+        let mut update_balance_fn = |seq_id, user_id, broker_id, account_id, asset: &str, amount| {
             update_controller
                 .update_user_balance(
                     balance_manager,
@@ -900,10 +932,38 @@ mod tests {
                 )
                 .unwrap();
         };
-        update_balance_fn(0, uid0,format!("{}", uid0), format!("{}", uid0), &MockAsset::USDT.id(), dec!(1_000_000));
-        update_balance_fn(1, uid0,format!("{}", uid0), format!("{}", uid0), &MockAsset::ETH.id(), dec!(1_000_000));
-        update_balance_fn(2, uid1,format!("{}", uid1), format!("{}", uid1), &MockAsset::USDT.id(), dec!(1_000_000));
-        update_balance_fn(3, uid1,format!("{}", uid1), format!("{}", uid1), &MockAsset::ETH.id(), dec!(1_000_000));
+        update_balance_fn(
+            0,
+            uid0,
+            format!("{}", uid0),
+            format!("{}", uid0),
+            &MockAsset::USDT.id(),
+            dec!(1_000_000),
+        );
+        update_balance_fn(
+            1,
+            uid0,
+            format!("{}", uid0),
+            format!("{}", uid0),
+            &MockAsset::ETH.id(),
+            dec!(1_000_000),
+        );
+        update_balance_fn(
+            2,
+            uid1,
+            format!("{}", uid1),
+            format!("{}", uid1),
+            &MockAsset::USDT.id(),
+            dec!(1_000_000),
+        );
+        update_balance_fn(
+            3,
+            uid1,
+            format!("{}", uid1),
+            format!("{}", uid1),
+            &MockAsset::ETH.id(),
+            dec!(1_000_000),
+        );
 
         let sequencer = &mut Sequencer::default();
         let market_conf = if only_int {
@@ -953,16 +1013,16 @@ mod tests {
     fn test_market_taker_is_bid() {
         let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
-        let ask_user_info =UserIdentifier{
+        let ask_user_info = UserIdentifier {
             user_id: 101,
             broker_id: String::from("101"),
-            account_id: String::from("101")
+            account_id: String::from("101"),
         };
 
-        let bid_user_info =UserIdentifier{
+        let bid_user_info = UserIdentifier {
             user_id: 102,
             broker_id: String::from("102"),
-            account_id: String::from("102")
+            account_id: String::from("102"),
         };
         balance_manager.add(ask_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
         balance_manager.add(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
@@ -1061,7 +1121,10 @@ mod tests {
             balance_manager.get(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::ETH.id()),
             dec!(1009.99)
         );
-        assert_eq!(balance_manager.get(bid_user_info.clone(), BalanceType::FREEZE, &MockAsset::ETH.id()), dec!(0));
+        assert_eq!(
+            balance_manager.get(bid_user_info.clone(), BalanceType::FREEZE, &MockAsset::ETH.id()),
+            dec!(0)
+        );
 
         assert_eq!(
             balance_manager.get(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id()),
@@ -1081,16 +1144,16 @@ mod tests {
         let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
-        let ask_user_info =UserIdentifier{
+        let ask_user_info = UserIdentifier {
             user_id: 201,
             broker_id: String::from("201"),
-            account_id: String::from("201")
+            account_id: String::from("201"),
         };
 
-        let bid_user_info =UserIdentifier{
+        let bid_user_info = UserIdentifier {
             user_id: 202,
             broker_id: String::from("202"),
-            account_id: String::from("202")
+            account_id: String::from("202"),
         };
         balance_manager.add(ask_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
         balance_manager.add(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
@@ -1201,7 +1264,10 @@ mod tests {
             balance_manager.get(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::ETH.id()),
             dec!(1000)
         );
-        assert_eq!(balance_manager.get(bid_user_info.clone(), BalanceType::FREEZE, &MockAsset::ETH.id()), dec!(0));
+        assert_eq!(
+            balance_manager.get(bid_user_info.clone(), BalanceType::FREEZE, &MockAsset::ETH.id()),
+            dec!(0)
+        );
         assert_eq!(
             balance_manager.get(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id()),
             dec!(300)

@@ -105,11 +105,16 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
         for balance in &balances {
             let balance_type = asset::BalanceType::try_from(balance.t).unwrap();
             let amount = balance.balance;
-            controller
-                .balance_manager
-                .set(UserIdentifier{
-                    user_id:balance.user_id as u32,broker_id:balance.broker_id.clone(), account_id: balance.account_id.clone()
-                },  balance_type, &balance.asset, &amount);
+            controller.balance_manager.set(
+                UserIdentifier {
+                    user_id: balance.user_id as u32,
+                    broker_id: balance.broker_id.clone(),
+                    account_id: balance.account_id.clone(),
+                },
+                balance_type,
+                &balance.asset,
+                &amount,
+            );
         }
         if let Some(slice_balance) = balances.last() {
             last_balance_id = slice_balance.id;
@@ -465,8 +470,8 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     Ok(())
 }
 
-use std::panic;
 use crate::dto::UserIdentifier;
+use std::panic;
 
 #[cfg(target_family = "windows")]
 pub fn do_forking() -> bool {

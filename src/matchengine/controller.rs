@@ -25,10 +25,10 @@ use sqlx::Connection;
 use sqlx::Executor;
 use tonic::{self, Status};
 
+use crate::dto::UserIdentifier;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use crate::dto::UserIdentifier;
 
 type MarketName = String;
 type BaseAsset = String;
@@ -77,7 +77,7 @@ fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
                 },
                 &pool,
             )
-                .unwrap(),
+            .unwrap(),
         ))));
     }
     if settings.brokers.is_empty() || persist_to_file {
@@ -140,8 +140,8 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         apply_benchmark: true,
         capability_limit: 8192,
     })
-        .start_schedule(&main_pool)
-        .unwrap();
+    .start_schedule(&main_pool)
+    .unwrap();
     Controller {
         settings,
         sequencer,
@@ -199,10 +199,10 @@ impl Controller {
         } else {
             req.assets
         };
-        let user_info =UserIdentifier{
+        let user_info = UserIdentifier {
             user_id: req.user_id,
             broker_id: req.broker_id.clone(),
-            account_id:req.account_id,
+            account_id: req.account_id,
         };
         let balance_manager = &self.balance_manager;
         let balances = query_assets
@@ -211,7 +211,9 @@ impl Controller {
                 let available = balance_manager
                     .get_with_round(user_info.clone(), BalanceType::AVAILABLE, &asset_id)
                     .to_string();
-                let frozen = balance_manager.get_with_round(user_info.clone(), BalanceType::FREEZE, &asset_id).to_string();
+                let frozen = balance_manager
+                    .get_with_round(user_info.clone(), BalanceType::FREEZE, &asset_id)
+                    .to_string();
                 balance_query_response::AssetBalance {
                     asset_id,
                     available,
@@ -245,16 +247,27 @@ impl Controller {
             .map(|(_key, market)| market);
         let total_order_count: usize = markets
             .clone()
-            .map(|m| m.users.get(&UserIdentifier { user_id: req.user_id, broker_id: req.broker_id.clone(), account_id: req.account_id.clone() }).map(|order_map| order_map.len()).unwrap_or(0))
-            .sum();
-        let orders_by_market: Vec<Box<dyn Iterator<Item=Order>>> = markets
             .map(|m| {
                 m.users
-                    .get(
-                        &UserIdentifier { user_id: req.user_id, broker_id: req.broker_id.clone(), account_id: req.account_id.clone()
-                        })
-                    .map(|order_map| Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item=Order>>)
-                    .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item=Order>>)
+                    .get(&UserIdentifier {
+                        user_id: req.user_id,
+                        broker_id: req.broker_id.clone(),
+                        account_id: req.account_id.clone(),
+                    })
+                    .map(|order_map| order_map.len())
+                    .unwrap_or(0)
+            })
+            .sum();
+        let orders_by_market: Vec<Box<dyn Iterator<Item = Order>>> = markets
+            .map(|m| {
+                m.users
+                    .get(&UserIdentifier {
+                        user_id: req.user_id,
+                        broker_id: req.broker_id.clone(),
+                        account_id: req.account_id.clone(),
+                    })
+                    .map(|order_map| Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item = Order>>)
+                    .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
             .collect();
         // TODO: support ASC in the API
@@ -510,11 +523,15 @@ impl Controller {
                 }
                 let market = self.markets.get_mut(market_name).unwrap();
                 let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-                market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, UserIdentifier {
-                    user_id: order_req.user_id,
-                    broker_id: order_req.broker_id.clone(),
-                    account_id: order_req.account_id.clone(),
-                });
+                market.cancel_all_for_user(
+                    (&mut self.balance_manager).into(),
+                    persistor,
+                    UserIdentifier {
+                        user_id: order_req.user_id,
+                        broker_id: order_req.broker_id.clone(),
+                        account_id: order_req.account_id.clone(),
+                    },
+                );
             }
         }
         let mut result_code = ResultCode::Success;
@@ -578,12 +595,15 @@ impl Controller {
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), persistor,
-       UserIdentifier {
-           user_id: req.user_id,
-           broker_id: req.broker_id.clone(),
-           account_id: req.account_id.clone()
-       }) as u32;
+        let total = market.cancel_all_for_user(
+            (&mut self.balance_manager).into(),
+            persistor,
+            UserIdentifier {
+                user_id: req.user_id,
+                broker_id: req.broker_id.clone(),
+                account_id: req.account_id.clone(),
+            },
+        ) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -595,8 +615,8 @@ impl Controller {
             let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
             crate::persist::dump_to_db(&mut connection, current_timestamp() as i64, self).await
         }
-            .await
-            .map_err(|err| Status::unknown(format!("{}", err)))?;
+        .await
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugDumpResponse {})
     }
 
@@ -668,8 +688,10 @@ impl Controller {
             return Err(Status::invalid_argument("invalid to_user"));
         }
 
-        let user_info = UserIdentifier{
-            user_id: req.from, broker_id: req.from_broker_id.clone(), account_id: req.from_account_id.clone()
+        let user_info = UserIdentifier {
+            user_id: req.from,
+            broker_id: req.from_broker_id.clone(),
+            account_id: req.from_account_id.clone(),
         };
         let balance_manager = &self.balance_manager;
         let balance_from = balance_manager.get(user_info, BalanceType::AVAILABLE, asset);
@@ -752,7 +774,7 @@ impl Controller {
                 user_from: req.from as i32, // TODO: will this overflow?
                 from_broker_id: req.from_broker_id.clone(),
                 from_account_id: req.from_account_id.clone(),
-                user_to: to_user_id as i32,     // TODO: will this overflow?
+                user_to: to_user_id as i32, // TODO: will this overflow?
                 to_broker_id,
                 to_account_id,
                 asset: asset.to_owned(),
@@ -832,8 +854,8 @@ impl Controller {
 
             tokio::task::spawn_blocking(move || thr_handle.join().unwrap()).await.unwrap()
         }
-            .await
-            .map_err(|err| Status::unknown(format!("{}", err)))?;
+        .await
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugResetResponse {})
     }
 
@@ -844,8 +866,8 @@ impl Controller {
             let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
             crate::persist::init_from_db(&mut connection, self).await
         }
-            .await
-            .map_err(|err| Status::unknown(format!("{}", err)))?;
+        .await
+        .map_err(|err| Status::unknown(format!("{}", err)))?;
         Ok(DebugReloadResponse {})
     }
 
@@ -906,8 +928,8 @@ impl Controller {
             .map_err(|e| Status::unknown(format!("{}", e)))
     }
     fn append_operation_log<Operation>(&mut self, method: &str, req: &Operation)
-        where
-            Operation: Serialize,
+    where
+        Operation: Serialize,
     {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
