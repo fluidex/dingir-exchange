@@ -31,7 +31,6 @@ fn main() {
     })
     .unwrap();
 }
-
 async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);

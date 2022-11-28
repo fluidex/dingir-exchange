@@ -2,6 +2,8 @@ CREATE TABLE balance_history (
     id SERIAL PRIMARY KEY,
     time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
+    broker_id VARCHAR(64) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
     business_id BIGINT CHECK (business_id >= 0) NOT NULL,
     asset VARCHAR(30) NOT NULL,
     business VARCHAR(30) NOT NULL,
@@ -14,6 +16,7 @@ CREATE TABLE balance_history (
     signature BYTEA NOT NULL
 );
 
+CREATE INDEX balance_history_idx_user_broker_account ON balance_history (user_id, account_id, broker_id);
 CREATE INDEX balance_history_idx_user_asset ON balance_history (user_id, asset);
 
 CREATE INDEX balance_history_idx_user_business ON balance_history (business_id, business);
@@ -27,6 +30,8 @@ CREATE TABLE order_history (
     create_time TIMESTAMP(0) NOT NULL,
     finish_time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
+    broker_id VARCHAR(64) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
     market VARCHAR(30) NOT NULL,
     order_type VARCHAR(30) NOT NULL,
     order_side VARCHAR(30) NOT NULL,
@@ -42,12 +47,14 @@ CREATE TABLE order_history (
     signature BYTEA NOT NULL
 );
 
-CREATE INDEX order_history_idx_user_market ON order_history (user_id, market);
+CREATE INDEX order_history_idx_user_market ON order_history (user_id, account_id, broker_id, market);
 
 CREATE TABLE user_trade (
     id SERIAL PRIMARY KEY,
     time TIMESTAMP(0) NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
+    broker_id VARCHAR(64) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
     market VARCHAR(30) NOT NULL,
     trade_id BIGINT CHECK (trade_id >= 0) NOT NULL,
     order_id BIGINT CHECK (order_id >= 0) NOT NULL,
@@ -61,5 +68,6 @@ CREATE TABLE user_trade (
     counter_order_fee DECIMAL(30, 16) NOT NULL
 );
 
-CREATE INDEX user_trade_idx_user_market ON user_trade (user_id, market);
+CREATE INDEX user_trade_idx_user_account_market ON user_trade (user_id,account_id, market);
+CREATE INDEX user_trade_idx_user_account_broker ON user_trade (user_id,account_id, broker_id);
 

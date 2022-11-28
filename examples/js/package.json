@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "batch": "npx ts-node tests/put_batch_orders.ts",
     "fmt": "npx prettier --write \"**/*.ts\" package.json"
   },
   "dependencies": {

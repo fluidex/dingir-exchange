@@ -83,6 +83,8 @@ pub struct BalanceHistory {
     //pub id: i64,
     pub time: TimestampDbType,
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub business_id: i64,
     pub asset: String,
     pub business: String,
@@ -114,6 +116,8 @@ pub struct OrderHistory {
     pub finish_time: TimestampDbType,
     pub status: OrderStatus,
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub market: String,
     pub order_type: types::OrderType,
     pub order_side: types::OrderSide,
@@ -132,6 +136,8 @@ pub struct OrderHistory {
 pub struct UserTrade {
     pub time: TimestampDbType,
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub market: String,
     pub trade_id: i64,
     pub order_id: i64,
@@ -161,6 +167,8 @@ pub struct BalanceSlice {
     pub id: i32,
     pub slice_id: i64, // Unix timestamp
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub asset: String,
     pub t: i16, // Enum: AVAILABLE or FREEZE
     pub balance: DecimalDbType,
@@ -171,6 +179,8 @@ pub struct BalanceSliceInsert {
     //pub id: i32,
     pub slice_id: i64, // Unix timestamp
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub asset: String,
     pub t: i16, // Enum: AVAILABLE or FREEZE
     pub balance: DecimalDbType,
@@ -186,6 +196,8 @@ pub struct OrderSlice {
     pub create_time: TimestampDbType,
     pub update_time: TimestampDbType,
     pub user_id: i32,
+    pub broker_id: String,
+    pub account_id: String,
     pub market: String,
     //pub source: String,
     pub price: DecimalDbType,
@@ -226,7 +238,11 @@ pub struct MarketTrade {
 pub struct InternalTx {
     pub time: TimestampDbType,
     pub user_from: i32,
+    pub from_broker_id: String,
+    pub from_account_id: String,
     pub user_to: i32,
+    pub to_broker_id: String,
+    pub to_account_id: String,
     pub asset: String,
     pub amount: DecimalDbType,
     pub signature: Vec<u8>,

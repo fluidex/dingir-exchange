@@ -25,6 +25,7 @@ use sqlx::Connection;
 use sqlx::Executor;
 use tonic::{self, Status};
 
+use crate::dto::UserIdentifier;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -198,15 +199,21 @@ impl Controller {
         } else {
             req.assets
         };
-        let user_id = req.user_id;
+        let user_info = UserIdentifier {
+            user_id: req.user_id,
+            broker_id: req.broker_id,
+            account_id: req.account_id,
+        };
         let balance_manager = &self.balance_manager;
         let balances = query_assets
             .into_iter()
             .map(|asset_id| {
                 let available = balance_manager
-                    .get_with_round(user_id, BalanceType::AVAILABLE, &asset_id)
+                    .get_with_round(user_info.clone(), BalanceType::AVAILABLE, &asset_id)
                     .to_string();
-                let frozen = balance_manager.get_with_round(user_id, BalanceType::FREEZE, &asset_id).to_string();
+                let frozen = balance_manager
+                    .get_with_round(user_info.clone(), BalanceType::FREEZE, &asset_id)
+                    .to_string();
                 balance_query_response::AssetBalance {
                     asset_id,
                     available,
@@ -240,12 +247,25 @@ impl Controller {
             .map(|(_key, market)| market);
         let total_order_count: usize = markets
             .clone()
-            .map(|m| m.users.get(&req.user_id).map(|order_map| order_map.len()).unwrap_or(0))
+            .map(|m| {
+                m.users
+                    .get(&UserIdentifier {
+                        user_id: req.user_id,
+                        broker_id: req.broker_id.clone(),
+                        account_id: req.account_id.clone(),
+                    })
+                    .map(|order_map| order_map.len())
+                    .unwrap_or(0)
+            })
             .sum();
         let orders_by_market: Vec<Box<dyn Iterator<Item = Order>>> = markets
             .map(|m| {
                 m.users
-                    .get(&req.user_id)
+                    .get(&UserIdentifier {
+                        user_id: req.user_id,
+                        broker_id: req.broker_id.clone(),
+                        account_id: req.account_id.clone(),
+                    })
                     .map(|order_map| Box::new(order_map.values().rev().map(|order_rc| order_rc.deep())) as Box<dyn Iterator<Item = Order>>)
                     .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
@@ -452,6 +472,8 @@ impl Controller {
                     balance_type: BalanceType::AVAILABLE,
                     business_type,
                     user_id: req.user_id,
+                    broker_id: req.broker_id.clone(),
+                    account_id: req.account_id.clone(),
                     asset: asset.to_owned(),
                     business: req.business.clone(),
                     business_id: req.business_id,
@@ -501,7 +523,15 @@ impl Controller {
                 }
                 let market = self.markets.get_mut(market_name).unwrap();
                 let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-                market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, order_req.user_id);
+                market.cancel_all_for_user(
+                    (&mut self.balance_manager).into(),
+                    persistor,
+                    UserIdentifier {
+                        user_id: order_req.user_id,
+                        broker_id: order_req.broker_id.clone(),
+                        account_id: order_req.account_id.clone(),
+                    },
+                );
             }
         }
         let mut result_code = ResultCode::Success;
@@ -565,7 +595,15 @@ impl Controller {
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let total = market.cancel_all_for_user((&mut self.balance_manager).into(), persistor, req.user_id) as u32;
+        let total = market.cancel_all_for_user(
+            (&mut self.balance_manager).into(),
+            persistor,
+            UserIdentifier {
+                user_id: req.user_id,
+                broker_id: req.broker_id.clone(),
+                account_id: req.account_id.clone(),
+            },
+        ) as u32;
         if real {
             self.append_operation_log(OPERATION_ORDER_CANCEL_ALL, &req);
         }
@@ -643,14 +681,20 @@ impl Controller {
             return Err(Status::invalid_argument("invalid asset"));
         }
 
-        let from_user_id = req.from;
         let to_user_id = req.to;
+        let to_account_id = req.to_account_id.clone();
+        let to_broker_id = req.to_broker_id.clone();
         if !self.user_manager.users.contains_key(&to_user_id) {
             return Err(Status::invalid_argument("invalid to_user"));
         }
 
+        let user_info = UserIdentifier {
+            user_id: req.from,
+            broker_id: req.from_broker_id.clone(),
+            account_id: req.from_account_id.clone(),
+        };
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset);
+        let balance_from = balance_manager.get(user_info, BalanceType::AVAILABLE, asset);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
@@ -688,7 +732,9 @@ impl Controller {
                 BalanceUpdateParams {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
-                    user_id: from_user_id,
+                    user_id: req.from,
+                    broker_id: req.from_broker_id.clone(),
+                    account_id: req.from_account_id.clone(),
                     asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
@@ -709,6 +755,8 @@ impl Controller {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
                     user_id: to_user_id,
+                    broker_id: to_broker_id.clone(),
+                    account_id: to_account_id.clone(),
                     asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
@@ -723,8 +771,12 @@ impl Controller {
         if real {
             self.persistor.put_transfer(models::InternalTx {
                 time: timestamp.into(),
-                user_from: from_user_id as i32, // TODO: will this overflow?
-                user_to: to_user_id as i32,     // TODO: will this overflow?
+                user_from: req.from as i32, // TODO: will this overflow?
+                from_broker_id: req.from_broker_id.clone(),
+                from_account_id: req.from_account_id.clone(),
+                user_to: to_user_id as i32, // TODO: will this overflow?
+                to_broker_id,
+                to_account_id,
                 asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),
@@ -854,7 +906,7 @@ impl Controller {
         let total_order_num: usize = self
             .markets
             .iter()
-            .map(|(_, market)| market.get_order_num_of_user(req.user_id))
+            .map(|(_, market)| market.get_order_num_of_user(req.user_id, req.broker_id.clone(), req.account_id.clone()))
             .sum();
         debug_assert!(total_order_num <= self.settings.user_order_num_limit);
         if total_order_num == self.settings.user_order_num_limit {

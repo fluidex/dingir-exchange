@@ -105,9 +105,16 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
         for balance in &balances {
             let balance_type = asset::BalanceType::try_from(balance.t).unwrap();
             let amount = balance.balance;
-            controller
-                .balance_manager
-                .set(balance.user_id as u32, balance_type, &balance.asset, &amount);
+            controller.balance_manager.set(
+                UserIdentifier {
+                    user_id: balance.user_id as u32,
+                    broker_id: balance.broker_id.clone(),
+                    account_id: balance.account_id.clone(),
+                },
+                balance_type,
+                &balance.asset,
+                &amount,
+            );
         }
         if let Some(slice_balance) = balances.last() {
             last_balance_id = slice_balance.id;
@@ -143,6 +150,8 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 base: market.base.into(),
                 quote: market.quote.into(),
                 user: order.user_id as u32,
+                broker_id: order.broker_id.clone(),
+                account_id: order.account_id.clone(),
                 price: order.price,
                 amount: order.amount,
                 taker_fee: order.taker_fee,
@@ -301,6 +310,8 @@ pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_mana
         BalanceSliceInsert {
             slice_id,
             user_id: k.user_id as i32,
+            broker_id: k.broker_id.clone(),
+            account_id: k.account_id.clone(),
             asset: k.asset.clone(),
             t: k.balance_type as i16,
             balance: *v,
@@ -328,6 +339,8 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 create_time: FTimestamp(order.create_time).into(),
                 update_time: FTimestamp(order.update_time).into(),
                 user_id: order.user as i32,
+                broker_id: order.broker_id.clone(),
+                account_id: order.broker_id.clone(),
                 market: order.market.to_string(),
                 price: order.price,
                 amount: order.amount,
@@ -457,6 +470,7 @@ pub async fn make_slice(controller: &Controller) -> SimpleResult {
     Ok(())
 }
 
+use crate::dto::UserIdentifier;
 use std::panic;
 
 #[cfg(target_family = "windows")]

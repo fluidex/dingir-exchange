@@ -1,4 +1,4 @@
-import { market, userId } from "../config"; // dotenv
+import { market, userId, accountId, brokerId } from "../config"; // dotenv
 import { defaultClient as client } from "../client";
 
 import { sleep, decimalAdd, assertDecimalEqual } from "../util";
@@ -9,7 +9,7 @@ async function stressTest({ parallel, interval, repeat }) {
   const tradeCountBefore = (await client.marketSummary(market)).trade_count;
   console.log("cancel", tradeCountBefore, "trades");
   console.log(await client.orderCancelAll(userId, market));
-  await depositAssets({ USDT: "10000000", ETH: "10000" }, userId);
+  await depositAssets({ USDT: "10000000", ETH: "10000" }, userId, brokerId, accountId);
   const USDTBefore = await client.balanceQueryByAsset(userId, "USDT");
   const ETHBefore = await client.balanceQueryByAsset(userId, "ETH");
   await printBalance();
@@ -21,7 +21,7 @@ async function stressTest({ parallel, interval, repeat }) {
   for (;;) {
     let promises = [];
     for (let i = 0; i < parallel; i++) {
-      promises.push(putRandOrder(userId, market));
+      promises.push(putRandOrder(userId, brokerId, accountId, market));
     }
     await Promise.all(promises);
     if (interval > 0) {
