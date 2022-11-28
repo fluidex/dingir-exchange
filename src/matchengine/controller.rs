@@ -201,7 +201,7 @@ impl Controller {
         };
         let user_info = UserIdentifier {
             user_id: req.user_id,
-            broker_id: req.broker_id.clone(),
+            broker_id: req.broker_id,
             account_id: req.account_id,
         };
         let balance_manager = &self.balance_manager;
