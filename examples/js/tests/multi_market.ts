@@ -8,8 +8,8 @@ import { depositAssets } from "../exchange_helper";
 import { strict as assert } from "assert";
 
 const userId = 1;
-const brokerId = '1';
-const accountId = '1';
+const brokerId = "1";
+const accountId = "1";
 const isCI = !!process.env.GITHUB_ACTIONS;
 const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
 
@@ -26,14 +26,16 @@ async function initAccounts() {
 }
 
 async function setupAsset() {
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, userId,brokerId, accountId);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, userId, brokerId, accountId);
 }
 
 async function orderTest() {
   const markets = Array.from(["ETH_USDT", "LINK_USDT", "MATIC_USDT", "UNI_USDT"]);
   let orders = await Promise.all(
     markets.map(market =>
-      client.orderPut(userId, brokerId, accountId, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, /*amount*/ "1", /*price*/ "1.1", fee, fee).then(o => [market, o.id])
+      client
+        .orderPut(userId, brokerId, accountId, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, /*amount*/ "1", /*price*/ "1.1", fee, fee)
+        .then(o => [market, o.id])
     )
   );
   console.log(orders);

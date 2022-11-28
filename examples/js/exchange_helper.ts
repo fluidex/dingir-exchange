@@ -38,15 +38,15 @@ export async function depositAssets(assets: any, userId: number, broker_id: stri
   }
 }
 
-export async function putLimitOrder(userId,broker_id, account_id, market, side, amount, price) {
-  return await client.orderPut(userId,broker_id, account_id, market, side, ORDER_TYPE_LIMIT, amount, price, fee, fee);
+export async function putLimitOrder(userId, broker_id, account_id, market, side, amount, price) {
+  return await client.orderPut(userId, broker_id, account_id, market, side, ORDER_TYPE_LIMIT, amount, price, fee, fee);
 }
-export async function putRandOrder(userId,broker_id, account_id, market) {
+export async function putRandOrder(userId, broker_id, account_id, market) {
   // TODO: market order?
   const side = [ORDER_SIDE_ASK, ORDER_SIDE_BID][getRandomInt(0, 10000) % 2];
   const price = getRandomFloat(1350, 1450);
   const amount = getRandomFloat(0.5, 1.5);
-  const order = await putLimitOrder(userId,broker_id, account_id, market, side, amount, price);
+  const order = await putLimitOrder(userId, broker_id, account_id, market, side, amount, price);
   //console.log("order put", order.id.toString(), { side, price, amount });
 }
 

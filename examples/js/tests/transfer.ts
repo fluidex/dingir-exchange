@@ -6,10 +6,12 @@ import { assertDecimalEqual, sleep } from "../util";
 import { strict as assert } from "assert";
 import { depositAssets } from "../exchange_helper";
 
-const anotherUserId = userId + 10;
+const anotherUserId = +10;
+const brokerId = `${anotherUserId}`;
+const accountId = `${anotherUserId}`;
 
 async function setupAsset() {
-  await depositAssets({ ETH: "100.0" }, userId);
+  await depositAssets({ ETH: "100.0" }, userId, brokerId, accountId);
 
   const balance1 = await client.balanceQueryByAsset(userId, "ETH");
   assertDecimalEqual(balance1.available, "100");

@@ -12,4 +12,6 @@ CREATE TABLE market_trade (
 
 CREATE INDEX market_trade_idx_market ON market_trade (market, time DESC);
 
-SELECT create_hypertable('market_trade', 'time');
+SELECT
+    create_hypertable ('market_trade', 'time');
+

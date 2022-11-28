@@ -11,8 +11,8 @@ export const ORDER_TYPE_MARKET = 1;
 
 // fake data
 export const userId = 3;
-export const brokerId = '3';
-export const accountId = '3';
+export const brokerId = "3";
+export const accountId = "3";
 export const base = "ETH";
 export const quote = "USDT";
 export const market = `${base}_${quote}`;
