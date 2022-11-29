@@ -43,7 +43,7 @@ stopall:
 
 # logs related
 taillogs:
-	tail -n 15 logs/*
+	tail -n 105 logs/*
 viewlogs:
 	watch -n 0.5 tail -n 4 logs/*
 rmlogs:
