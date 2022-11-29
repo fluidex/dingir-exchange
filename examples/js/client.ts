@@ -61,7 +61,7 @@ class Client {
     return await this.client.OrderQuery({ user_id, market });
   }
 
-  async balanceUpdate(user_id,broker_id, account_id, asset, business, business_id, delta, detail) {
+  async balanceUpdate(user_id, broker_id, account_id, asset, business, business_id, delta, detail) {
     return await this.client.BalanceUpdate({
       user_id,
       broker_id,
@@ -80,7 +80,7 @@ class Client {
     let priceRounded = Number(price).toFixed(marketInfo.price_precision);
     return { amount: amountRounded, price: priceRounded };
   }
-  async createOrder(user_id,broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee) {
+  async createOrder(user_id, broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee) {
     if (!this.markets || this.markets.size == 0) {
       await this.connect();
     }
@@ -117,7 +117,18 @@ class Client {
     return order;
   }
   async orderPut(user_id, broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee) {
-    const order = await this.createOrder(user_id,broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee);
+    const order = await this.createOrder(
+      user_id,
+      broker_id,
+      account_id,
+      market,
+      order_side,
+      order_type,
+      amount,
+      price,
+      taker_fee,
+      maker_fee
+    );
     if (VERBOSE) {
       const { user_id, market, order_side: side, amount, price } = order;
       console.log("putLimitOrder", { user_id, market, side, amount, price });
@@ -128,7 +139,9 @@ class Client {
     let order_reqs = [];
     for (const o of orders) {
       const { user_id, broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = o;
-      order_reqs.push(await this.createOrder(user_id,broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee));
+      order_reqs.push(
+        await this.createOrder(user_id, broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee)
+      );
     }
     return await this.client.batchOrderPut({
       market,
@@ -270,7 +283,7 @@ class Client {
 
 // TODO: move else where
 function signOrder(account, marketInfo, baseTokenInfo, quoteTokenInfo, order, checkPrec = true) {
-  let { user_id,broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = order;
+  let { user_id, broker_id, account_id, market, order_side, order_type, amount, price, taker_fee, maker_fee } = order;
 
   let amountRounded = Number(amount).toFixed(marketInfo.amount_precision);
   let priceRounded = Number(price).toFixed(marketInfo.price_precision);

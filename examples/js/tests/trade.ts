@@ -11,7 +11,11 @@ import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
 
 const askUser = userId;
+const askBrokerId = `${userId}`;
+const askAccountId = `${userId}`;
 const bidUser = userId + 1;
+const bidBrokerId = `${bidUser}`;
+const bidAccountId = `${bidUser}`;
 
 async function infoList() {
   console.log(await client.assetList());
@@ -42,7 +46,7 @@ async function setupAsset() {
   assertDecimalEqual(ethBalance.available, "0");
   assertDecimalEqual(ethBalance.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser, askBrokerId, askAccountId);
 
   // check deposit success
   const balance2 = await client.balanceQuery(askUser);
@@ -54,12 +58,23 @@ async function setupAsset() {
   assertDecimalEqual(ethBalance.available, "50");
   assertDecimalEqual(ethBalance.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser, bidBrokerId, bidAccountId);
 }
 
 // Test order put and cancel
 async function orderTest() {
-  const order = await client.orderPut(askUser, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, /*amount*/ "10", /*price*/ "1.1", fee, fee);
+  const order = await client.orderPut(
+    askUser,
+    askBrokerId,
+    askAccountId,
+    market,
+    ORDER_SIDE_BID,
+    ORDER_TYPE_LIMIT,
+    /*amount*/ "10",
+    /*price*/ "1.1",
+    fee,
+    fee
+  );
   console.log(order);
   const balance3 = await client.balanceQueryByAsset(askUser, "USDT");
   assertDecimalEqual(balance3.available, "89");
@@ -88,8 +103,30 @@ async function orderTest() {
 
 // Test order trading
 async function tradeTest() {
-  const askOrder = await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, /*amount*/ "4", /*price*/ "1.1", fee, fee);
-  const bidOrder = await client.orderPut(bidUser, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, /*amount*/ "10", /*price*/ "1.1", fee, fee);
+  const askOrder = await client.orderPut(
+    askUser,
+    askBrokerId,
+    askAccountId,
+    market,
+    ORDER_SIDE_ASK,
+    ORDER_TYPE_LIMIT,
+    /*amount*/ "4",
+    /*price*/ "1.1",
+    fee,
+    fee
+  );
+  const bidOrder = await client.orderPut(
+    bidUser,
+    bidBrokerId,
+    bidAccountId,
+    market,
+    ORDER_SIDE_BID,
+    ORDER_TYPE_LIMIT,
+    /*amount*/ "10",
+    /*price*/ "1.1",
+    fee,
+    fee
+  );
   console.log("ask order id", askOrder.id);
   console.log("bid order id", bidOrder.id);
   await testStatusAfterTrade(askOrder.id, bidOrder.id);

@@ -2,8 +2,8 @@ CREATE TABLE balance_slice (
     id SERIAL PRIMARY KEY,
     slice_id BIGINT NOT NULL,
     user_id INT CHECK (user_id >= 0) NOT NULL,
-    broker_id VARCHAR(64) not null ,
-    account_id VARCHAR(64) not null ,
+    broker_id VARCHAR(64) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
     asset VARCHAR(30) NOT NULL,
     t SMALLINT CHECK (t >= 0) NOT NULL,
     balance DECIMAL(30, 16) NOT NULL

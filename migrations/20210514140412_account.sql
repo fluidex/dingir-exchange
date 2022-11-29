@@ -1,5 +1,4 @@
 -- Add migration script here
-
 CREATE TABLE account (
     id INT CHECK (id >= 1) NOT NULL PRIMARY KEY, -- need to be consistent with rollup account_id
     l1_address VARCHAR(42) NOT NULL DEFAULT '',
@@ -7,4 +6,6 @@ CREATE TABLE account (
 );
 
 CREATE INDEX account_l1_address ON account (l1_address);
+
 CREATE INDEX account_l2_pubkey ON account (l2_pubkey);
+

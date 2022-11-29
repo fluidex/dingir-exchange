@@ -17,13 +17,19 @@ CREATE TABLE balance_history (
 );
 
 CREATE INDEX balance_history_idx_user_broker_account ON balance_history (user_id, account_id, broker_id);
+
 CREATE INDEX balance_history_idx_user_asset ON balance_history (user_id, asset);
 
 CREATE INDEX balance_history_idx_user_business ON balance_history (business_id, business);
 
 CREATE INDEX balance_history_idx_user_asset_business ON balance_history (user_id, asset, business, business_id);
 
-CREATE TYPE order_status AS ENUM('active','filled','cancelled', 'expired');
+CREATE TYPE order_status AS ENUM (
+    'active',
+    'filled',
+    'cancelled',
+    'expired'
+);
 
 CREATE TABLE order_history (
     id BIGINT CHECK (id >= 0) NOT NULL PRIMARY KEY,
@@ -68,6 +74,7 @@ CREATE TABLE user_trade (
     counter_order_fee DECIMAL(30, 16) NOT NULL
 );
 
-CREATE INDEX user_trade_idx_user_account_market ON user_trade (user_id,account_id, market);
-CREATE INDEX user_trade_idx_user_account_broker ON user_trade (user_id,account_id, broker_id);
+CREATE INDEX user_trade_idx_user_account_market ON user_trade (user_id, account_id, market);
+
+CREATE INDEX user_trade_idx_user_account_broker ON user_trade (user_id, account_id, broker_id);
 

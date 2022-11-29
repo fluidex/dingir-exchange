@@ -1,3 +1,6 @@
 CREATE SCHEMA public;
+
 GRANT ALL ON SCHEMA public TO public;
+
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+
