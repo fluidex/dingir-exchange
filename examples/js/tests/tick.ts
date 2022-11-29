@@ -39,12 +39,12 @@ async function registerAccounts() {
 }
 async function initAssets() {
   for (const user_id of botsIds) {
-    await depositAssets({ USDT: "500000.0" }, user_id);
+    await depositAssets({ USDT: "500000.0" }, user_id, `${user_id}`, `${user_id}`);
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
       depositReq[base] = "10";
-      await depositAssets(depositReq, user_id);
+      await depositAssets(depositReq, user_id, `${user_id}`, `${user_id}`);
     }
   }
 }
@@ -125,6 +125,8 @@ async function run() {
           const price = await getPrice(market.split("_")[0]);
           await putLimitOrder(
             user,
+            `${user}`,
+            `${user}`,
             market,
             getRandomElem([ORDER_SIDE_BID, ORDER_SIDE_ASK]),
             getRandomFloatAround(0.3, 0.3),
