@@ -1,6 +1,14 @@
 {
   "scripts": {
+    "multi_market": "npx ts-node tests/multi_market.ts",
+    "print_orders": "npx ts-node tests/print_orders.ts",
     "batch": "npx ts-node tests/put_batch_orders.ts",
+    "set_markets": "npx ts-node tests/set_markets.ts",
+    "stress": "npx ts-node tests/stress.ts",
+    "tick": "npx ts-node tests/tick.ts",
+    "tick_no_deploy": "npx ts-node tests/tick_no_deploy.ts",
+    "trade": "npx ts-node tests/trade.ts",
+    "transfer": "npx ts-node tests/transfer.ts",
     "fmt": "npx prettier --write \"**/*.ts\" package.json"
   },
   "dependencies": {
@@ -12,7 +20,8 @@
     "gaussian": "^1.2.0",
     "kafkajs": "^1.11.0",
     "lodash": "^4.17.21",
-    "regression": "^2.0.1"
+    "regression": "^2.0.1",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^4.31.1",

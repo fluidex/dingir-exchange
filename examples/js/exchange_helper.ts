@@ -29,7 +29,7 @@ export async function printBalance(printList = ["USDT", "ETH"]) {
   //console.log('\n');
 }
 
-export async function depositAssets(assets: any, userId: number, broker_id: string, account_id: string) {
+export async function depositAssets(assets: any, userId: string, broker_id: string, account_id: string) {
   for (const [asset, amount] of Object.entries(assets)) {
     console.log("deposit", amount, asset);
     await client.balanceUpdate(userId, broker_id, account_id, asset, "deposit", depositId(), amount, {

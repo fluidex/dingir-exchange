@@ -606,7 +606,7 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
     fn from(origin: &'r super::BalanceMessage) -> Self {
         models::BalanceHistory {
             time: FTimestamp::from(&origin.timestamp).into(),
-            user_id: origin.user_id as i32,
+            user_id: origin.user_id.clone(),
             broker_id: origin.broker_id.clone(),
             account_id: origin.account_id.clone(),
             business_id: origin.business_id as i64,
@@ -630,7 +630,7 @@ impl MsgDataTransformer<models::UserTrade> for AskTrade {
     fn into(trade: &Self::MsgType) -> Option<models::UserTrade> {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
-            user_id: trade.ask_user_id as i32,
+            user_id: trade.ask_user_id.clone(),
             broker_id: trade.ask_broker_id.clone(),
             account_id: trade.ask_account_id.clone(),
             market: trade.market.clone(),
@@ -655,7 +655,7 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
     fn into(trade: &Self::MsgType) -> Option<models::UserTrade> {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
-            user_id: trade.bid_user_id as i32,
+            user_id: trade.bid_user_id.clone(),
             broker_id: trade.bid_broker_id.clone(),
             account_id: trade.bid_account_id.clone(),
             market: trade.market.clone(),
@@ -676,7 +676,9 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
 impl<'r> From<&'r super::UserMessage> for models::AccountDesc {
     fn from(origin: &'r super::UserMessage) -> Self {
         Self {
-            id: origin.user_id as i32, // TODO: will this overflow?
+            id: origin.user_id.clone(),
+            broker_id: origin.broker_id.clone(),
+            account_id: origin.account_id.clone(),
             l1_address: origin.l1_address.clone(),
             l2_pubkey: origin.l2_pubkey.clone(),
         }
@@ -687,12 +689,12 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
     fn from(origin: &'r super::TransferMessage) -> Self {
         Self {
             time: FTimestamp(origin.time).into(),
-            user_from: origin.user_from as i32, // TODO: will this overflow?
-            from_broker_id: origin.broker_from.clone(),
-            from_account_id: origin.account_from.clone(),
-            user_to: origin.user_to as i32, // TODO: will this overflow?
-            to_broker_id: origin.broker_to.clone(),
-            to_account_id: origin.account_to.clone(),
+            user_from: origin.user_from.clone(),
+            broker_id_from: origin.broker_from.clone(),
+            account_id_from: origin.account_from.clone(),
+            user_to: origin.user_to.clone(),
+            broker_id_to: origin.broker_to.clone(),
+            account_id_to: origin.account_to.clone(),
             asset: origin.asset.clone(),
             amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
             signature: origin.signature.as_bytes().to_vec(),

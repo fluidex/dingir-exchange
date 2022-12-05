@@ -21,13 +21,13 @@ class Client {
   client: any;
   markets: Map<string, any> = new Map();
   assets: Map<string, any> = new Map();
-  accounts: Map<number, Account> = new Map();
+  accounts: Map<string, Account> = new Map();
   constructor(server = process.env.GRPC_SERVER || "localhost:50051") {
     console.log("using grpc", server);
     this.client = caller(`${server}`, { file, load }, "Matchengine");
   }
 
-  addAccount(account_id: number, acc: Account) {
+  addAccount(account_id: string, acc: Account) {
     this.accounts.set(account_id, acc);
   }
 

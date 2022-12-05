@@ -681,6 +681,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "ttl_cache",
+ "uuid 1.2.2",
 ]
 
 [[package]]
@@ -1564,7 +1565,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "orchestra"
 version = "0.1.0"
-source = "git+https://github.com/coryptex/orchestra.git#d556255450286cf6ecd639e1a0c0561e8ce09dd0"
+source = "git+https://github.com/coryptex/orchestra.git#445837a7216ad408baa0d3f95721675630d12284"
 dependencies = [
  "prost",
  "serde 1.0.124",
@@ -2455,6 +2456,7 @@ dependencies = [
  "thiserror",
  "tokio-stream",
  "url",
+ "uuid 0.8.2",
  "webpki",
  "webpki-roots",
  "whoami",
@@ -3085,6 +3087,21 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+
+[[package]]
+name = "uuid"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
+dependencies = [
+ "getrandom 0.2.2",
 ]
 
 [[package]]

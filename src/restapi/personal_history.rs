@@ -16,7 +16,7 @@ pub struct OrderResponse {
 #[api_v2_operation]
 pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Json<OrderResponse>, actix_web::Error> {
     let market = req.match_info().get("market").unwrap();
-    let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<i32>();
+    let user_id = req.match_info().get("user_id").unwrap_or_default().parse::<String>();
     let user_id = match user_id {
         Err(_) => {
             return Err(RpcError::bad_request("invalid user_id").into());
@@ -38,9 +38,9 @@ pub async fn my_orders(req: HttpRequest, data: web::Data<AppState>) -> Result<Js
         table, condition, limit, offset
     );
     let orders: Vec<OrderHistory> = if market == "all" {
-        sqlx::query_as(&order_query).bind(user_id)
+        sqlx::query_as(&order_query).bind(user_id.clone())
     } else {
-        sqlx::query_as(&order_query).bind(market).bind(user_id)
+        sqlx::query_as(&order_query).bind(market).bind(user_id.clone())
     }
     .fetch_all(&data.db)
     .await

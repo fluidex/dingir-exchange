@@ -107,7 +107,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
             let amount = balance.balance;
             controller.balance_manager.set(
                 UserIdentifier {
-                    user_id: balance.user_id as u32,
+                    user_id: balance.user_id.clone(),
                     broker_id: balance.broker_id.clone(),
                     account_id: balance.account_id.clone(),
                 },
@@ -149,7 +149,7 @@ pub async fn load_slice_from_db(conn: &mut ConnectionType, slice_id: i64, contro
                 market: market.name.into(),
                 base: market.base.into(),
                 quote: market.quote.into(),
-                user: order.user_id as u32,
+                user: order.user_id.clone(),
                 broker_id: order.broker_id.clone(),
                 account_id: order.account_id.clone(),
                 price: order.price,
@@ -309,7 +309,7 @@ pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_mana
         let (k, v) = item;
         BalanceSliceInsert {
             slice_id,
-            user_id: k.user_id as i32,
+            user_id: k.user_id.clone(),
             broker_id: k.broker_id.clone(),
             account_id: k.account_id.clone(),
             asset: k.asset.clone(),
@@ -338,7 +338,7 @@ pub async fn dump_orders(conn: &mut ConnectionType, slice_id: i64, controller: &
                 order_side: order.side,
                 create_time: FTimestamp(order.create_time).into(),
                 update_time: FTimestamp(order.update_time).into(),
-                user_id: order.user as i32,
+                user_id: order.user.clone(),
                 broker_id: order.broker_id.clone(),
                 account_id: order.broker_id.clone(),
                 market: order.market.to_string(),

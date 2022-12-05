@@ -17,7 +17,7 @@ const PERSIST_ZERO_BALANCE_UPDATE: bool = false;
 pub struct BalanceUpdateParams {
     pub balance_type: BalanceType,
     pub business_type: BusinessType,
-    pub user_id: u32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub business_id: u64,
@@ -41,7 +41,7 @@ pub enum BusinessType {
 struct BalanceUpdateKey {
     pub balance_type: BalanceType,
     pub business_type: BusinessType,
-    pub user_id: u32,
+    pub user_id: String,
     pub asset: String,
     pub business: String,
     pub business_id: u64,
@@ -86,14 +86,14 @@ impl BalanceUpdateController {
         let business_type = params.business_type;
         let business_id = params.business_id;
         let user_info = UserIdentifier {
-            user_id: params.user_id,
+            user_id: params.user_id.clone(),
             broker_id: params.broker_id.clone(),
             account_id: params.account_id.clone(),
         };
         let cache_key = BalanceUpdateKey {
             balance_type,
             business_type,
-            user_id: params.user_id,
+            user_id: params.user_id.clone(),
             asset: asset.clone(),
             business: business.clone(),
             business_id,
@@ -120,7 +120,7 @@ impl BalanceUpdateController {
             let balance_frozen = balance_manager.get(user_info, BalanceType::FREEZE, &asset);
             let balance_history = BalanceHistory {
                 time: FTimestamp(current_timestamp()).into(),
-                user_id: params.user_id as i32,
+                user_id: params.user_id.clone(),
                 broker_id: params.broker_id,
                 account_id: params.account_id,
                 business_id: business_id as i64,

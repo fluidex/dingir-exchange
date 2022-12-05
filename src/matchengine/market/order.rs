@@ -86,7 +86,7 @@ pub struct Order {
     #[serde(rename = "type")]
     pub type_: OrderType, // enum
     pub side: OrderSide,
-    pub user: u32,
+    pub user: String,
     pub broker_id: String,
     pub account_id: String,
     pub post_only: bool,
@@ -162,7 +162,7 @@ impl OrderRc {
 }
 
 pub struct OrderInput {
-    pub user_id: u32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub side: OrderSide,

@@ -4,6 +4,7 @@ use fluidex_common::babyjubjub_rs;
 use fluidex_common::types::{BigInt, PubkeyExt, SignatureExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::dto::UserIdentifier;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -13,7 +14,7 @@ pub struct UserInfo {
 
 #[derive(Clone)]
 pub struct UserManager {
-    pub users: HashMap<u32, UserInfo>,
+    pub users: HashMap<UserIdentifier, UserInfo>,
 }
 
 impl UserManager {
@@ -29,7 +30,11 @@ impl UserManager {
         // lock?
         for user in users {
             self.users.insert(
-                user.id as u32,
+                UserIdentifier{
+                    user_id: user.id,
+                    broker_id: user.broker_id,
+                    account_id: user.account_id
+                },
                 UserInfo {
                     l1_address: user.l1_address,
                     l2_pubkey: user.l2_pubkey,
@@ -39,8 +44,8 @@ impl UserManager {
         Ok(())
     }
 
-    pub fn verify_signature(&self, user_id: u32, msg: BigInt, signature: &str) -> bool {
-        match self.users.get(&user_id) {
+    pub fn verify_signature(&self, user_info: UserIdentifier, msg: BigInt, signature: &str) -> bool {
+        match self.users.get(&user_info) {
             None => false,
             Some(user) => {
                 let pubkey = match PubkeyExt::from_str(&user.l2_pubkey) {

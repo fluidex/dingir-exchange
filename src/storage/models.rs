@@ -71,7 +71,9 @@ pub struct MarketDesc {
 
 #[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct AccountDesc {
-    pub id: i32, // TODO: i32 or i64?
+    pub id: String,
+    pub broker_id: String,
+    pub account_id: String,
     pub l1_address: String,
     pub l2_pubkey: String,
 }
@@ -82,7 +84,7 @@ pub struct BalanceHistory {
     //field (not like diesel imply within the derive macro)
     //pub id: i64,
     pub time: TimestampDbType,
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub business_id: i64,
@@ -115,7 +117,7 @@ pub struct OrderHistory {
     #[serde(with = "DateTimeMilliseconds")]
     pub finish_time: TimestampDbType,
     pub status: OrderStatus,
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub market: String,
@@ -135,7 +137,7 @@ pub struct OrderHistory {
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct UserTrade {
     pub time: TimestampDbType,
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub market: String,
@@ -166,7 +168,7 @@ pub struct OperationLog {
 pub struct BalanceSlice {
     pub id: i32,
     pub slice_id: i64, // Unix timestamp
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub asset: String,
@@ -178,7 +180,7 @@ pub struct BalanceSlice {
 pub struct BalanceSliceInsert {
     //pub id: i32,
     pub slice_id: i64, // Unix timestamp
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub asset: String,
@@ -195,7 +197,7 @@ pub struct OrderSlice {
     pub order_side: types::OrderSide,
     pub create_time: TimestampDbType,
     pub update_time: TimestampDbType,
-    pub user_id: i32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub market: String,
@@ -237,12 +239,12 @@ pub struct MarketTrade {
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct InternalTx {
     pub time: TimestampDbType,
-    pub user_from: i32,
-    pub from_broker_id: String,
-    pub from_account_id: String,
-    pub user_to: i32,
-    pub to_broker_id: String,
-    pub to_account_id: String,
+    pub user_from: String,
+    pub broker_id_from: String,
+    pub account_id_from: String,
+    pub user_to: String,
+    pub broker_id_to: String,
+    pub account_id_to: String,
     pub asset: String,
     pub amount: DecimalDbType,
     pub signature: Vec<u8>,
@@ -261,14 +263,18 @@ impl sqlxextend::TableSchemas for InternalTx {
     fn table_name() -> &'static str {
         INTERNALTX
     }
-    const ARGN: i32 = 6;
+    const ARGN: i32 = 10;
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
-        arg.add(self.user_from);
-        arg.add(self.user_to);
+        arg.add(self.user_from.clone());
+        arg.add(self.broker_id_from.clone());
+        arg.add(self.account_id_from.clone());
+        arg.add(self.user_to.clone());
+        arg.add(self.broker_id_to.clone());
+        arg.add(self.account_id_to.clone());
         arg.add(&self.asset);
         arg.add(self.amount);
         arg.add(&self.signature);
@@ -282,12 +288,14 @@ impl sqlxextend::TableSchemas for AccountDesc {
     fn table_name() -> &'static str {
         ACCOUNT
     }
-    const ARGN: i32 = 3;
+    const ARGN: i32 = 5;
 }
 
 impl sqlxextend::BindQueryArg<'_, DbType> for AccountDesc {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
+        arg.add(self.id.clone());
+        arg.add(self.broker_id.clone());
+        arg.add(self.account_id.clone());
         arg.add(&self.l1_address);
         arg.add(&self.l2_pubkey);
     }
@@ -300,7 +308,7 @@ impl sqlxextend::TableSchemas for BalanceHistory {
     fn table_name() -> &'static str {
         BALANCEHISTORY
     }
-    const ARGN: i32 = 12;
+    const ARGN: i32 = 14;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
@@ -309,7 +317,9 @@ impl sqlxextend::TableSchemas for BalanceHistory {
 impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
-        arg.add(self.user_id);
+        arg.add(&self.user_id);
+        arg.add(&self.broker_id);
+        arg.add(&self.account_id);
         arg.add(self.business_id);
         arg.add(&self.asset);
         arg.add(&self.business);
@@ -330,7 +340,7 @@ impl sqlxextend::TableSchemas for UserTrade {
     fn table_name() -> &'static str {
         USERTRADE
     }
-    const ARGN: i32 = 13;
+    const ARGN: i32 = 15;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
@@ -339,7 +349,9 @@ impl sqlxextend::TableSchemas for UserTrade {
 impl sqlxextend::BindQueryArg<'_, DbType> for UserTrade {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.time);
-        arg.add(self.user_id);
+        arg.add(self.user_id.clone());
+        arg.add(self.broker_id.clone());
+        arg.add(self.account_id.clone());
         arg.add(&self.market);
         arg.add(self.trade_id);
         arg.add(self.order_id);
@@ -361,7 +373,7 @@ impl sqlxextend::TableSchemas for OrderHistory {
     fn table_name() -> &'static str {
         ORDERHISTORY
     }
-    const ARGN: i32 = 17;
+    const ARGN: i32 = 19;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -370,7 +382,9 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
         arg.add(self.id);
         arg.add(self.create_time);
         arg.add(self.finish_time);
-        arg.add(self.user_id);
+        arg.add(self.user_id.clone());
+        arg.add(self.broker_id.clone());
+        arg.add(self.account_id.clone());
         arg.add(&self.market);
         arg.add(self.order_type);
         arg.add(self.order_side);
@@ -414,7 +428,7 @@ impl sqlxextend::TableSchemas for OrderSlice {
     fn table_name() -> &'static str {
         ORDERSLICE
     }
-    const ARGN: i32 = 19;
+    const ARGN: i32 = 21;
     //fn default_argsn() -> Vec<i32>{ vec![1] }
 }
 
@@ -426,7 +440,9 @@ impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
         arg.add(self.order_side);
         arg.add(self.create_time);
         arg.add(self.update_time);
-        arg.add(self.user_id);
+        arg.add(self.user_id.clone());
+        arg.add(self.broker_id.clone());
+        arg.add(self.account_id.clone());
         arg.add(&self.market);
         arg.add(&self.price);
         arg.add(&self.amount);
@@ -450,7 +466,7 @@ impl sqlxextend::TableSchemas for BalanceSliceInsert {
     fn table_name() -> &'static str {
         BALANCESLICE
     }
-    const ARGN: i32 = 5;
+    const ARGN: i32 = 7;
     fn default_argsn() -> Vec<i32> {
         vec![1]
     }
@@ -459,7 +475,9 @@ impl sqlxextend::TableSchemas for BalanceSliceInsert {
 impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
         arg.add(self.slice_id);
-        arg.add(self.user_id);
+        arg.add(self.user_id.clone());
+        arg.add(self.broker_id.clone());
+        arg.add(self.account_id.clone());
         arg.add(&self.asset);
         arg.add(self.t);
         arg.add(&self.balance);

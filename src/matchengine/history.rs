@@ -69,7 +69,7 @@ impl<'r> From<&'r market::Order> for models::OrderHistory {
             create_time: FTimestamp(order.create_time).into(),
             finish_time: FTimestamp(order.update_time).into(),
             status,
-            user_id: order.user as i32,
+            user_id: order.user.clone(),
             broker_id: order.broker_id.clone(),
             account_id: order.account_id.clone(),
             market: order.market.to_string(),
@@ -113,7 +113,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
     fn append_pair_user_trade(&mut self, trade: &Trade) {
         let ask_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
-            user_id: trade.ask_user_id as i32,
+            user_id: trade.ask_user_id.clone(),
             broker_id: trade.ask_broker_id.clone(),
             account_id: trade.ask_account_id.clone(),
             market: trade.market.clone(),
@@ -130,7 +130,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         };
         let bid_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
-            user_id: trade.bid_user_id as i32,
+            user_id: trade.bid_user_id.clone(),
             broker_id: trade.bid_broker_id.clone(),
             account_id: trade.bid_account_id.clone(),
             market: trade.market.clone(),

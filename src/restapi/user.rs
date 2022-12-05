@@ -30,18 +30,28 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> Result<Jso
         })?;
 
     let user_info = AccountDesc {
-        id: user.id,
+        id: user.id.clone(),
+        broker_id: user.broker_id.clone(),
+        account_id: user.account_id.clone(),
         l1_address: user.l1_address.clone(),
         l2_pubkey: user.l2_pubkey.clone(),
     };
 
-    user_map.insert(format_user_id_key(&user.id), user_info.clone());
-    user_map.insert(format_l1_address_key(&user.l1_address), user_info.clone());
-    user_map.insert(format_l2_pubkey_key(&user.l2_pubkey), user_info);
+    user_map.insert(format_user_id_key(&user_info.id), user_info.clone());
+    user_map.insert(format_account_id_key(&user_info.account_id), user_info.clone());
+    user_map.insert(format_broker_id_key(&user_info.broker_id), user_info.clone());
+    user_map.insert(format_l1_address_key(&user_info.l1_address), user_info.clone());
+    user_map.insert(format_l2_pubkey_key(&user_info.l2_pubkey), user_info.clone());
 
     Ok(Json(user))
 }
 
+fn format_broker_id_key<T: Display>(val: T) -> String {
+    format!("broker_id:{}", val)
+}
+fn format_account_id_key<T: Display>(val: T) -> String {
+    format!("account_id:{}", val)
+}
 fn format_user_id_key<T: Display>(val: T) -> String {
     format!("id:{}", val)
 }

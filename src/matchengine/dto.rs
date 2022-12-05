@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct UserIdentifier {
-    pub user_id: u32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
 }

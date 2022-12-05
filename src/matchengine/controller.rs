@@ -227,7 +227,7 @@ impl Controller {
         if req.market != "all" && !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
-        if req.user_id == 0 {
+        if req.user_id.is_empty(){
             return Err(Status::invalid_argument("invalid user_id"));
         }
         // TODO: magic number
@@ -250,7 +250,7 @@ impl Controller {
             .map(|m| {
                 m.users
                     .get(&UserIdentifier {
-                        user_id: req.user_id,
+                        user_id: req.user_id.clone(),
                         broker_id: req.broker_id.clone(),
                         account_id: req.account_id.clone(),
                     })
@@ -262,7 +262,7 @@ impl Controller {
             .map(|m| {
                 m.users
                     .get(&UserIdentifier {
-                        user_id: req.user_id,
+                        user_id: req.user_id.clone(),
                         broker_id: req.broker_id.clone(),
                         account_id: req.account_id.clone(),
                     })
@@ -376,7 +376,7 @@ impl Controller {
         self.persistor.service_available()
     }
 
-    pub fn register_user(&mut self, real: bool, mut req: UserInfo) -> std::result::Result<UserInfo, Status> {
+    pub fn register_user(&mut self, real: bool, req: UserInfo) -> std::result::Result<UserInfo, Status> {
         if !self.check_service_available() {
             return Err(Status::unavailable(""));
         }
@@ -387,18 +387,16 @@ impl Controller {
             return Ok(req);
         }
 
-        let last_user_id = self.user_manager.users.len() as u32;
-        req.user_id = last_user_id + 1;
-        // TODO: check user_id
-        // if last_user_id + 1 != req.user_id {
-        //     return Err(Status::invalid_argument("inconsist user_id"));
-        // }
-
+        let user_id = req.user_id.clone();
         let l1_address = req.l1_address.to_lowercase();
         let l2_pubkey = req.l2_pubkey.to_lowercase();
-
+        let user_ident = UserIdentifier{
+            user_id:user_id.clone(),
+            broker_id: req.broker_id.clone(),
+            account_id: req.account_id.clone()
+        };
         self.user_manager.users.insert(
-            req.user_id,
+            user_ident.clone(),
             user_manager::UserInfo {
                 l1_address: l1_address.clone(),
                 l2_pubkey: l2_pubkey.clone(),
@@ -407,9 +405,11 @@ impl Controller {
 
         if real {
             let mut detail: serde_json::Value = json!({});
-            detail["id"] = serde_json::Value::from(req.user_id);
+            detail["id"] = serde_json::Value::from(req.user_id.clone());
             self.persistor.register_user(models::AccountDesc {
-                id: req.user_id as i32,
+                id: user_ident.user_id.clone(),
+                broker_id: user_ident.broker_id.clone(),
+                account_id: user_ident.account_id.clone(),
                 l1_address: l1_address.clone(),
                 l2_pubkey: l2_pubkey.clone(),
             });
@@ -422,7 +422,9 @@ impl Controller {
         self.eth_guard.update_optional(meta);
 
         Ok(UserInfo {
-            user_id: req.user_id,
+            user_id: user_ident.user_id.clone(),
+            broker_id: user_ident.broker_id.clone(),
+            account_id: user_ident.account_id.clone(),
             l1_address,
             l2_pubkey,
             log_metadata: req.log_metadata,
@@ -471,7 +473,7 @@ impl Controller {
                 BalanceUpdateParams {
                     balance_type: BalanceType::AVAILABLE,
                     business_type,
-                    user_id: req.user_id,
+                    user_id: req.user_id.clone(),
                     broker_id: req.broker_id.clone(),
                     account_id: req.account_id.clone(),
                     asset: asset.to_owned(),
@@ -527,7 +529,7 @@ impl Controller {
                     (&mut self.balance_manager).into(),
                     persistor,
                     UserIdentifier {
-                        user_id: order_req.user_id,
+                        user_id: order_req.user_id.clone(),
                         broker_id: order_req.broker_id.clone(),
                         account_id: order_req.account_id.clone(),
                     },
@@ -599,7 +601,7 @@ impl Controller {
             (&mut self.balance_manager).into(),
             persistor,
             UserIdentifier {
-                user_id: req.user_id,
+                user_id: req.user_id.clone(),
                 broker_id: req.broker_id.clone(),
                 account_id: req.account_id.clone(),
             },
@@ -680,21 +682,21 @@ impl Controller {
         if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-
-        let to_user_id = req.to;
-        let to_account_id = req.to_account_id.clone();
-        let to_broker_id = req.to_broker_id.clone();
-        if !self.user_manager.users.contains_key(&to_user_id) {
+        let user_info_from = UserIdentifier{
+            user_id: req.from.clone(),
+            broker_id: req.from_broker_id.clone(),
+            account_id: req.from_account_id.clone()
+        };
+        let user_info_to = UserIdentifier{
+            user_id: req.to.clone(),
+            broker_id: req.to_broker_id.clone(),
+            account_id: req.to_account_id.clone()
+        };
+        if !self.user_manager.users.contains_key(&user_info_to) {
             return Err(Status::invalid_argument("invalid to_user"));
         }
-
-        let user_info = UserIdentifier {
-            user_id: req.from,
-            broker_id: req.from_broker_id.clone(),
-            account_id: req.from_account_id.clone(),
-        };
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(user_info, BalanceType::AVAILABLE, asset);
+        let balance_from = balance_manager.get(user_info_to.clone(), BalanceType::AVAILABLE, asset);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
@@ -732,9 +734,9 @@ impl Controller {
                 BalanceUpdateParams {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
-                    user_id: req.from,
-                    broker_id: req.from_broker_id.clone(),
-                    account_id: req.from_account_id.clone(),
+                    user_id: user_info_from.user_id.clone(),
+                    broker_id: user_info_from.broker_id.clone(),
+                    account_id: user_info_from.account_id.clone(),
                     asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
@@ -754,9 +756,9 @@ impl Controller {
                 BalanceUpdateParams {
                     balance_type: BalanceType::AVAILABLE,
                     business_type: BusinessType::Transfer,
-                    user_id: to_user_id,
-                    broker_id: to_broker_id.clone(),
-                    account_id: to_account_id.clone(),
+                    user_id: user_info_to.user_id.clone(),
+                    broker_id: user_info_to.broker_id.clone(),
+                    account_id: user_info_to.account_id.clone(),
                     asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
@@ -771,12 +773,12 @@ impl Controller {
         if real {
             self.persistor.put_transfer(models::InternalTx {
                 time: timestamp.into(),
-                user_from: req.from as i32, // TODO: will this overflow?
-                from_broker_id: req.from_broker_id.clone(),
-                from_account_id: req.from_account_id.clone(),
-                user_to: to_user_id as i32, // TODO: will this overflow?
-                to_broker_id,
-                to_account_id,
+                user_from: user_info_from.user_id.clone(), // TODO: will this overflow?
+                broker_id_from: req.from_broker_id.clone(),
+                account_id_from: req.from_account_id.clone(),
+                user_to: user_info_to.user_id.clone(), // TODO: will this overflow?
+                broker_id_to: user_info_to.broker_id.clone(),
+                account_id_to: user_info_to.account_id.clone(),
                 asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),
@@ -903,10 +905,15 @@ impl Controller {
         if !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
+        let user_ident = UserIdentifier{
+            user_id: req.user_id.clone(),
+            broker_id: req.broker_id.clone(),
+            account_id: req.account_id.clone()
+        };
         let total_order_num: usize = self
             .markets
             .iter()
-            .map(|(_, market)| market.get_order_num_of_user(req.user_id, req.broker_id.clone(), req.account_id.clone()))
+            .map(|(_, market)| market.get_order_num_of_user(user_ident.clone()))
             .sum();
         debug_assert!(total_order_num <= self.settings.user_order_num_limit);
         if total_order_num == self.settings.user_order_num_limit {

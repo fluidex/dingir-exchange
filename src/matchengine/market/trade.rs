@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerboseOrderState {
-    pub user_id: u32,
+    pub user_id: String,
     pub order_id: u64,
     pub order_side: OrderSide,
     pub finished_base: Decimal,
@@ -19,7 +19,7 @@ pub struct VerboseOrderState {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerboseBalanceState {
-    pub user_id: u32,
+    pub user_id: String,
     pub asset: InternedString,
     // total = balance_available + balance_frozen
     pub balance: Decimal,
@@ -46,14 +46,14 @@ pub struct Trade {
     pub amount: Decimal,
     pub quote_amount: Decimal,
 
-    pub ask_user_id: u32,
+    pub ask_user_id: String,
     pub ask_broker_id: String,
     pub ask_account_id: String,
     pub ask_order_id: u64,
     pub ask_role: MarketRole, // take/make
     pub ask_fee: Decimal,
 
-    pub bid_user_id: u32,
+    pub bid_user_id: String,
     pub bid_broker_id: String,
     pub bid_account_id: String,
     pub bid_order_id: u64,

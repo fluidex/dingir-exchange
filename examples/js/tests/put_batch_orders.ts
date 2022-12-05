@@ -1,20 +1,21 @@
 import axios from "axios";
-import { Account } from "fluidex.js";
-import { defaultClient as client } from "../client";
-import { depositAssets } from "../exchange_helper";
-import { fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "../config";
-import { getTestAccount } from "../accounts";
-import { strict as assert } from "assert";
+import {Account} from "fluidex.js";
+import {defaultClient as client} from "../client";
+import {depositAssets} from "../exchange_helper";
+import {fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT} from "../config";
+import {getTestAccount} from "../accounts";
+import {strict as assert} from "assert";
+import ID from "./ids";
 
-const botsIds = [1, 2, 3, 4, 5];
-const brokerIds = ["1", "2", "3", "4", "5"];
-const accountIds = ["1", "2", "3", "4", "5"];
+const botsIds = ID.userID;
+const brokerIds = ID.brokerID;
+const accountIds = ID.accountID;
 const apiServer = process.env.API_ENDPOINT || "0.0.0.0:8765";
 
 async function loadAccounts() {
   for (const user_id of botsIds) {
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-    console.log("acc", user_id, acc);
+    // console.log("acc", user_id, acc);
     client.addAccount(user_id, acc);
   }
 }
@@ -24,13 +25,16 @@ async function initClient() {
 }
 
 async function registerAccounts() {
-  for (const user_id of botsIds) {
-    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-    await client.client.RegisterUser({
-      user_id,
+  for (let i = 0; i < botsIds.length; i++) {
+    let acc = Account.fromMnemonic(getTestAccount(botsIds[i]).mnemonic);
+    const req = {
+      user_id: botsIds[i],
+      broker_id: brokerIds[i],
+      account_id: accountIds[i],
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
-    });
+    };
+    await client.client.RegisterUser(req);
   }
 }
 
@@ -55,10 +59,8 @@ async function mainTest() {
 async function putOrdersTest() {
   console.log("putOrdersTest Begin");
 
-  const userId1 = botsIds[0];
-  const userId2 = botsIds[1];
-  const oldOrderNum1 = await openOrderNum(userId1, 1, 1);
-  const oldOrderNum2 = await openOrderNum(userId2, 2, 2);
+  const oldOrderNum1 = await openOrderNum(botsIds[0],brokerIds[0], accountIds[0]);
+  const oldOrderNum2 = await openOrderNum(botsIds[1], accountIds[1], accountIds[1]);
 
   const res = await client.batchOrderPut("ETH_USDT", false, [
     {
@@ -87,8 +89,8 @@ async function putOrdersTest() {
     },
   ]);
   console.log(res);
-  const newOrderNum1 = await openOrderNum(userId1, 1, 1);
-  const newOrderNum2 = await openOrderNum(userId2, 2, 2);
+  const newOrderNum1 = await openOrderNum(botsIds[0], brokerIds[0], accountIds[0]);
+  const newOrderNum2 = await openOrderNum(botsIds[1], brokerIds[1], accountIds[1]);
 
   assert.equal(newOrderNum1 - oldOrderNum1, 1);
   assert.equal(newOrderNum2 - oldOrderNum2, 1);
@@ -102,9 +104,9 @@ async function putAndResetOrdersTest() {
 
   const userId1 = botsIds[0];
   const userId2 = botsIds[1];
-  const oldOrderNum1 = await openOrderNum(userId1, 1, 1);
+  const oldOrderNum1 = await openOrderNum(userId1, brokerIds[0], accountIds[0]);
   assert(oldOrderNum1 > 0);
-  const oldOrderNum2 = await openOrderNum(userId2, 2, 2);
+  const oldOrderNum2 = await openOrderNum(userId2,brokerIds[1], accountIds[1]);
   assert(oldOrderNum2 > 0);
 
   const res = await client.batchOrderPut("ETH_USDT", true, [
@@ -117,6 +119,8 @@ async function putAndResetOrdersTest() {
       price: "1",
       taker_fee: fee,
       maker_fee: fee,
+      broker_id: brokerIds[0],
+      account_id: accountIds[0],
     },
     {
       user_id: botsIds[1],
@@ -127,11 +131,13 @@ async function putAndResetOrdersTest() {
       price: "1",
       taker_fee: fee,
       maker_fee: fee,
+      broker_id: brokerIds[1],
+      account_id: accountIds[1],
     },
   ]);
 
-  const newOrderNum1 = await openOrderNum(userId1, 1, 1);
-  const newOrderNum2 = await openOrderNum(userId2, 2, 2);
+  const newOrderNum1 = await openOrderNum(userId1, brokerIds[0],accountIds[0]);
+  const newOrderNum2 = await openOrderNum(userId2, brokerIds[1],accountIds[1]);
   assert.equal(newOrderNum1, 1);
   assert.equal(newOrderNum2, 1);
 

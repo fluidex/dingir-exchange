@@ -20,7 +20,7 @@ pub enum BalanceType {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct BalanceMapKey {
-    pub user_id: u32,
+    pub user_id: String,
     pub broker_id: String,
     pub account_id: String,
     pub balance_type: BalanceType,
@@ -146,7 +146,7 @@ impl BalanceManager {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
-            user_id: user_info.user_id,
+            user_id: user_info.user_id.clone(),
             broker_id: user_info.broker_id.clone(),
             account_id: user_info.account_id.clone(),
             balance_type: BalanceType::AVAILABLE,
@@ -155,13 +155,13 @@ impl BalanceManager {
         let old_available_value = self.get_by_key(&key);
         debug_assert!(old_available_value.ge(&amount));
         self.sub(user_info.clone(), BalanceType::AVAILABLE, asset, &amount);
-        self.add(user_info, BalanceType::FREEZE, asset, &amount);
+        self.add(user_info.clone(), BalanceType::FREEZE, asset, &amount);
     }
     pub fn unfrozen(&mut self, user_info: UserIdentifier, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
         let amount = amount.round_dp(self.asset_manager.asset_prec(asset));
         let key = BalanceMapKey {
-            user_id: user_info.user_id,
+            user_id: user_info.user_id.clone(),
             broker_id: user_info.broker_id.clone(),
             account_id: user_info.account_id.clone(),
             balance_type: BalanceType::FREEZE,
@@ -175,7 +175,7 @@ impl BalanceManager {
             old_frozen_value
         );
         self.add(user_info.clone(), BalanceType::AVAILABLE, asset, &amount);
-        self.sub(user_info, BalanceType::FREEZE, asset, &amount);
+        self.sub(user_info.clone(), BalanceType::FREEZE, asset, &amount);
     }
     pub fn total(&self, user_info: UserIdentifier, asset: &str) -> Decimal {
         self.get(user_info.clone(), BalanceType::AVAILABLE, asset) + self.get(user_info, BalanceType::FREEZE, asset)

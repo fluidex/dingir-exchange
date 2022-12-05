@@ -6,10 +6,11 @@ import { getTestAccount } from "../accounts";
 import { fee, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "../config";
 import { depositAssets } from "../exchange_helper";
 import { strict as assert } from "assert";
+import ID from "./ids";
 
-const userId = 1;
-const brokerId = "1";
-const accountId = "1";
+const userId = ID.userID[0];
+const brokerId = ID.brokerID[0];
+const accountId = ID.accountID[0];
 const isCI = !!process.env.GITHUB_ACTIONS;
 const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
 
@@ -41,7 +42,7 @@ async function orderTest() {
   console.log(orders);
   assert.equal(orders.length, 4);
 
-  const openOrders = (await axios.get(`http://${server}/api/exchange/action/orders/all/1/1/1`)).data;
+  const openOrders = (await axios.get(`http://${server}/api/exchange/action/orders/all/${userId}/${brokerId}/${accountId}`)).data;
   console.log(openOrders);
   if (isCI) {
     assert.equal(openOrders.orders.length, orders.length);
@@ -49,7 +50,7 @@ async function orderTest() {
 
   await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
 
-  const closedOrders = (await axios.get(`http://${server}/api/exchange/panel/closedorders/all/1`)).data;
+  const closedOrders = (await axios.get(`http://${server}/api/exchange/panel/closedorders/all/${userId}`)).data;
   console.log(closedOrders);
   if (isCI) {
     assert.equal(closedOrders.orders.length, orders.length);
