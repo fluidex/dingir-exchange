@@ -227,7 +227,7 @@ impl Controller {
         if req.market != "all" && !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
-        if req.user_id.is_empty(){
+        if req.user_id.is_empty() {
             return Err(Status::invalid_argument("invalid user_id"));
         }
         // TODO: magic number
@@ -390,10 +390,10 @@ impl Controller {
         let user_id = req.user_id.clone();
         let l1_address = req.l1_address.to_lowercase();
         let l2_pubkey = req.l2_pubkey.to_lowercase();
-        let user_ident = UserIdentifier{
-            user_id:user_id.clone(),
+        let user_ident = UserIdentifier {
+            user_id: user_id.clone(),
             broker_id: req.broker_id.clone(),
-            account_id: req.account_id.clone()
+            account_id: req.account_id.clone(),
         };
         self.user_manager.users.insert(
             user_ident.clone(),
@@ -682,15 +682,15 @@ impl Controller {
         if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let user_info_from = UserIdentifier{
+        let user_info_from = UserIdentifier {
             user_id: req.from.clone(),
             broker_id: req.from_broker_id.clone(),
-            account_id: req.from_account_id.clone()
+            account_id: req.from_account_id.clone(),
         };
-        let user_info_to = UserIdentifier{
+        let user_info_to = UserIdentifier {
             user_id: req.to.clone(),
             broker_id: req.to_broker_id.clone(),
-            account_id: req.to_account_id.clone()
+            account_id: req.to_account_id.clone(),
         };
         if !self.user_manager.users.contains_key(&user_info_to) {
             return Err(Status::invalid_argument("invalid to_user"));
@@ -905,10 +905,10 @@ impl Controller {
         if !self.markets.contains_key(&req.market) {
             return Err(Status::invalid_argument("invalid market"));
         }
-        let user_ident = UserIdentifier{
+        let user_ident = UserIdentifier {
             user_id: req.user_id.clone(),
             broker_id: req.broker_id.clone(),
-            account_id: req.account_id.clone()
+            account_id: req.account_id.clone(),
         };
         let total_order_num: usize = self
             .markets

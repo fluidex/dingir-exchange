@@ -6,9 +6,9 @@ import ID from "./ids";
 const isCI = !!process.env.GITHUB_ACTIONS;
 
 async function main() {
-  const userID = ID.userID[4]
-  const brokerID = ID.brokerID[4]
-  const accountID = ID.accountID[4]
+  const userID = ID.userID[4];
+  const brokerID = ID.brokerID[4];
+  const accountID = ID.accountID[4];
   const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
   console.log("ci mode:", isCI);
   console.log("closed orders:");

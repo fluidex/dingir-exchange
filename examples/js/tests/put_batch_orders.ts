@@ -1,10 +1,10 @@
 import axios from "axios";
-import {Account} from "fluidex.js";
-import {defaultClient as client} from "../client";
-import {depositAssets} from "../exchange_helper";
-import {fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT} from "../config";
-import {getTestAccount} from "../accounts";
-import {strict as assert} from "assert";
+import { Account } from "fluidex.js";
+import { defaultClient as client } from "../client";
+import { depositAssets } from "../exchange_helper";
+import { fee, ORDER_SIDE_BID, ORDER_TYPE_LIMIT } from "../config";
+import { getTestAccount } from "../accounts";
+import { strict as assert } from "assert";
 import ID from "./ids";
 
 const botsIds = ID.userID;
@@ -59,7 +59,7 @@ async function mainTest() {
 async function putOrdersTest() {
   console.log("putOrdersTest Begin");
 
-  const oldOrderNum1 = await openOrderNum(botsIds[0],brokerIds[0], accountIds[0]);
+  const oldOrderNum1 = await openOrderNum(botsIds[0], brokerIds[0], accountIds[0]);
   const oldOrderNum2 = await openOrderNum(botsIds[1], accountIds[1], accountIds[1]);
 
   const res = await client.batchOrderPut("ETH_USDT", false, [
@@ -106,7 +106,7 @@ async function putAndResetOrdersTest() {
   const userId2 = botsIds[1];
   const oldOrderNum1 = await openOrderNum(userId1, brokerIds[0], accountIds[0]);
   assert(oldOrderNum1 > 0);
-  const oldOrderNum2 = await openOrderNum(userId2,brokerIds[1], accountIds[1]);
+  const oldOrderNum2 = await openOrderNum(userId2, brokerIds[1], accountIds[1]);
   assert(oldOrderNum2 > 0);
 
   const res = await client.batchOrderPut("ETH_USDT", true, [
@@ -136,8 +136,8 @@ async function putAndResetOrdersTest() {
     },
   ]);
 
-  const newOrderNum1 = await openOrderNum(userId1, brokerIds[0],accountIds[0]);
-  const newOrderNum2 = await openOrderNum(userId2, brokerIds[1],accountIds[1]);
+  const newOrderNum1 = await openOrderNum(userId1, brokerIds[0], accountIds[0]);
+  const newOrderNum2 = await openOrderNum(userId2, brokerIds[1], accountIds[1]);
   assert.equal(newOrderNum1, 1);
   assert.equal(newOrderNum2, 1);
 

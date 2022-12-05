@@ -1,10 +1,10 @@
+use crate::dto::UserIdentifier;
 use crate::models::AccountDesc;
 use crate::types::ConnectionType;
 use fluidex_common::babyjubjub_rs;
 use fluidex_common::types::{BigInt, PubkeyExt, SignatureExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::dto::UserIdentifier;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UserInfo {
@@ -30,10 +30,10 @@ impl UserManager {
         // lock?
         for user in users {
             self.users.insert(
-                UserIdentifier{
+                UserIdentifier {
                     user_id: user.id,
                     broker_id: user.broker_id,
-                    account_id: user.account_id
+                    account_id: user.account_id,
                 },
                 UserInfo {
                     l1_address: user.l1_address,

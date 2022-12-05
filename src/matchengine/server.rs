@@ -5,10 +5,10 @@ use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use crate::dto::UserIdentifier;
 use orchestra::rpc::exchange::*;
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tonic::{self, Request, Response, Status};
-use crate::dto::UserIdentifier;
 
 const MAX_BATCH_ORDER_NUM: usize = 40;
 
@@ -149,11 +149,15 @@ impl GrpcHandler {
                 .commit_order(req, market)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
-            if !stub.user_manager.verify_signature(UserIdentifier{
-                user_id: req.user_id.clone(),
-                broker_id: req.broker_id.clone(),
-                account_id: req.account_id.clone()
-            }, msg, &req.signature) {
+            if !stub.user_manager.verify_signature(
+                UserIdentifier {
+                    user_id: req.user_id.clone(),
+                    broker_id: req.broker_id.clone(),
+                    account_id: req.account_id.clone(),
+                },
+                msg,
+                &req.signature,
+            ) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
         }

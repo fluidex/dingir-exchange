@@ -771,10 +771,7 @@ impl Market {
         self.orders.get(&order_id).map(OrderRc::deep)
     }
     pub fn get_order_num_of_user(&self, user_ident: UserIdentifier) -> usize {
-        self.users
-            .get(&user_ident)
-            .map(|m| m.len())
-            .unwrap_or(0)
+        self.users.get(&user_ident).map(|m| m.len()).unwrap_or(0)
     }
     pub fn get_order_of_user(&self, user_ident: UserIdentifier) -> Vec<Order> {
         self.users
@@ -878,8 +875,8 @@ mod tests {
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
     use fluidex_common::rust_decimal_macros::*;
-    use uuid::Uuid;
     use mock::*;
+    use uuid::Uuid;
 
     //#[cfg(feature = "emit_state_diff")]
     #[test]
@@ -980,7 +977,7 @@ mod tests {
                 Decimal::from_f64(rng.gen_range(120.0..140.0)).unwrap()
             };
             let order = OrderInput {
-                user_id:user_id.clone(),
+                user_id: user_id.clone(),
                 broker_id: format!("{}", user_id.clone()),
                 account_id: format!("{}", user_id.clone()),
                 side,
@@ -1008,7 +1005,7 @@ mod tests {
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
         let ask_user_info = UserIdentifier {
             user_id: Uuid::new_v4().to_string(),
-            broker_id:Uuid::new_v4().to_string(),
+            broker_id: Uuid::new_v4().to_string(),
             account_id: Uuid::new_v4().to_string(),
         };
 
@@ -1138,15 +1135,15 @@ mod tests {
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
         let ask_user_info = UserIdentifier {
-            user_id:"a67dd45d-877d-4ce7-996b-4898bd1e70a0".to_string(),
-            broker_id:Uuid::new_v4().to_string(),
-            account_id:Uuid::new_v4().to_string(),
+            user_id: "a67dd45d-877d-4ce7-996b-4898bd1e70a0".to_string(),
+            broker_id: Uuid::new_v4().to_string(),
+            account_id: Uuid::new_v4().to_string(),
         };
 
         let bid_user_info = UserIdentifier {
-            user_id:Uuid::new_v4().to_string(),
-            broker_id:Uuid::new_v4().to_string(),
-            account_id:Uuid::new_v4().to_string(),
+            user_id: Uuid::new_v4().to_string(),
+            broker_id: Uuid::new_v4().to_string(),
+            account_id: Uuid::new_v4().to_string(),
         };
         balance_manager.add(ask_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
         balance_manager.add(bid_user_info.clone(), BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
