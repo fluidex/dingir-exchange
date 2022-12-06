@@ -5,6 +5,7 @@ import { assertDecimalEqual, sleep } from "../util";
 
 import { strict as assert } from "assert";
 import { depositAssets } from "../exchange_helper";
+import ID from "./ids";
 
 const anotherUserId = +10;
 const brokerId = `${anotherUserId}`;
@@ -22,7 +23,9 @@ async function setupAsset() {
 async function registerUsers() {
   for (let i = 1; i <= anotherUserId; i++) {
     await client.registerUser({
-      id: i,
+      id: ID.userID[i],
+      account_id: ID.accountID[i],
+      broker_id: ID.brokerID[i],
       l1_address: "l1_address_" + i,
       l2_pubkey: "l2_pubkey_" + i,
     });

@@ -163,13 +163,13 @@ where
 {
     let query_template = if force {
         format!(
-            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6, $7) 
+            "insert into {} (id, symbol, name,chain_id, token_address, rollup_token_id, precision_stor, precision_show, logo_uri) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6, $7) on conflict do nothing",
+            "insert into {} (id, symbol, name,chain_id, token_address, rollup_token_id, precision_stor, precision_show, logo_uri) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict do nothing",
             tablenames::ASSET
         )
     };
@@ -178,10 +178,12 @@ where
         .bind(&asset.id)
         .bind(&asset.symbol)
         .bind(&asset.name)
+        .bind(&asset.chain_id)
         .bind(&asset.token_address)
         .bind(&asset.rollup_token_id)
         .bind(asset.prec_save as i16)
         .bind(asset.prec_show as i16)
+        .bind(&asset.logo_uri)
         .execute(db_conn)
         .await?;
 

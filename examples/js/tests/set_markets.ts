@@ -11,27 +11,50 @@ const new_asset = {
 
 const new_market1 = {
   market: {
-    name: "BTC_USDC",
-    base: { name: "BTC", prec: 2 },
-    quote: { name: "USDC", prec: 4 },
+    name: "USDC_BTC",
+    base: "USDC",
+    quote: "BTC",
+    amount_prec: 2,
+    price_prec: 2,
     fee_prec: 2,
     min_amount: 0.01,
   },
-  asset_quote: {
-    name: "USDC",
-    prec_save: 6,
-    prec_show: 6,
+  asset_base: {
+    id: "USDC",
+    symbol: "USDC",
+    name: "USD Coin",
+    chain_id: 3,
+    token_address: "",
+    rollup_token_id: 2,
+    prec_save: 8,
+    prec_show: 8,
+    logo_uri: "",
   },
+  asset_quote: {
+    id: "BTC",
+    symbol: "BTC",
+    name: "Bitcoin",
+    chain_id: 2,
+    token_address: "",
+    rollup_token_id: 2,
+    prec_save: 8,
+    prec_show: 8,
+    logo_uri: "",
+  },
+  not_reload: false,
 };
 
 const new_market2 = {
   market: {
-    name: "BTC_USDT",
-    base: { name: "BTC", prec: 2 },
-    quote: { name: "USDT", prec: 4 },
+    name: "USDT_BTC",
+    base: "USDT",
+    quote: "BTC",
+    amount_prec: 2,
+    price_prec: 2,
     fee_prec: 2,
     min_amount: 0.01,
   },
+  not_reload: false,
 };
 async function main() {
   const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
@@ -66,7 +89,7 @@ async function main() {
   }
 }
 main().catch(function (e) {
-  console.log(e);
+  console.error(e.message);
   process.exit(1);
   //throw e;
 });

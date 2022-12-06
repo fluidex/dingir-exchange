@@ -1,13 +1,16 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "../config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, brokerId, accountId } from "../config";
 import { defaultClient as client } from "../client";
 import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "../util";
 import { Account } from "fluidex.js";
 import { getTestAccount } from "../accounts";
 import { strict as assert } from "assert";
 import { depositAssets, getPriceOfCoin, putLimitOrder } from "../exchange_helper";
+import ID from "./ids";
 
 const verbose = true;
-const botsIds = [1, 2, 3, 4, 5];
+const botsIds = ID.userID;
+const brokerID = ID.brokerID;
+const accountID = ID.accountID;
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
@@ -27,24 +30,26 @@ async function loadAccounts() {
   }
 }
 async function registerAccounts() {
-  for (const user_id of botsIds) {
+  for (let i = 0; i < botsIds.length; i++) {
     // TODO: clean codes here
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
     await client.registerUser({
-      user_id,
+      user_id: botsIds[i],
+      broker_id: brokerID[i],
+      account_id: accountID[i],
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
     });
   }
 }
 async function initAssets() {
-  for (const user_id of botsIds) {
-    await depositAssets({ USDT: "500000.0" }, user_id, `${user_id}`, `${user_id}`);
+  for (let i = 0; i < botsIds.length; i++) {
+    await depositAssets({ USDT: "500000.0" }, botsIds[i], brokerID[i], accountID[i]);
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
       depositReq[base] = "10";
-      await depositAssets(depositReq, user_id, `${user_id}`, `${user_id}`);
+      await depositAssets(depositReq, botsIds[i], brokerID[i], accountID[i]);
     }
   }
 }

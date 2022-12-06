@@ -16,11 +16,12 @@ import {
 } from "./utils";
 import { executeOrders } from "./executor";
 import { depositAssets, getPriceOfCoin } from "../exchange_helper";
+import ID from "../tests/ids";
 
 //const VERBOSE = false;
 console.log({ VERBOSE });
 
-async function initUser(): Promise<number> {
+async function initUser(): Promise<string> {
   const mnemonic1 = "split logic consider degree smile field term style opera dad believe indoor item type beyond";
   const mnemonic2 =
     "camp awful sand include refuse cash reveal mystery pupil salad length plunge square admit vocal draft found side same clock hurt length say figure";
@@ -34,7 +35,9 @@ async function initUser(): Promise<number> {
     // register
     console.log("register new user");
     let resp = await defaultGrpcClient.registerUser({
-      user_id: 0, // discard in server side
+      user_id: "0", // discard in server side
+      account_id: ID.accountID[0],
+      broker_id: ID.brokerID[0],
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
     });
@@ -43,7 +46,7 @@ async function initUser(): Promise<number> {
     await sleep(2000); // FIXME
     userInfo = await restClient.get_user_by_addr(acc.ethAddr);
     await sleep(2000); // FIXME
-    await depositAssets({ USDT: "10000.0" }, userInfo.id);
+    await depositAssets({ USDT: "10000.0" }, userInfo.id, ID.brokerID[0], ID.accountID[0]);
   } else {
     console.log("user", "already registered");
   }

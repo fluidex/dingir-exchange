@@ -4,7 +4,7 @@ import * as _ from "lodash";
 const REST_API_SERVER = "http://localhost:50053/api/exchange/panel";
 
 class UserInfo {
-  id: number;
+  id: string;
   l1_address: string;
   l2_pubkey: string;
 }

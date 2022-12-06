@@ -5,9 +5,13 @@ import { Account } from "fluidex.js";
 import { getTestAccount } from "../accounts";
 import { strict as assert } from "assert";
 import { depositAssets, getPriceOfCoin, putLimitOrder } from "../exchange_helper";
+import Ids from "./ids";
+import ID from "./ids";
 
 const verbose = true;
-const botsIds = [1, 2, 3, 4, 5];
+const botsIds = Ids.userID;
+const brokerIds = Ids.brokerID;
+const accountIds = Ids.accountID;
 let markets: Array<string> = [];
 let prices = new Map<string, number>();
 
@@ -31,20 +35,22 @@ async function registerAccounts() {
     // TODO: clean codes here
     let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
     await client.registerUser({
-      user_id,
+      user_id: user_id,
+      account_id: ID.accountID[0],
+      broker_id: ID.brokerID[0],
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
     });
   }
 }
 async function initAssets() {
-  for (const user_id of botsIds) {
-    await depositAssets({ USDT: "500000.0" }, user_id, `${user_id}`, `${user_id}`);
+  for (let i = 0; i < botsIds.length; i++) {
+    await depositAssets({ USDT: "500000.0" }, botsIds[i], `${brokerIds[i]}`, `${accountIds[i]}`);
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
       depositReq[base] = "10";
-      await depositAssets(depositReq, user_id, `${user_id}`, `${user_id}`);
+      await depositAssets(depositReq, botsIds[i], `${brokerIds[i]}`, `${accountIds[i]}`);
     }
   }
 }

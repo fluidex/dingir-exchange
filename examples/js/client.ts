@@ -275,6 +275,8 @@ class Client {
   async registerUser(user) {
     return await this.client.RegisterUser({
       user_id: user.id || user.user_id, // legacy reasons
+      broker_id: user.broker_id,
+      account_id: user.account_id,
       l1_address: user.l1_address,
       l2_pubkey: user.l2_pubkey,
     });

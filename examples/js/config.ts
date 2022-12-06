@@ -1,4 +1,6 @@
 import * as Dotenv from "dotenv";
+import { inspect } from "util";
+import ID from "./tests/ids";
 Dotenv.config();
 
 export const VERBOSE = !!process.env.VERBOSE;
@@ -10,14 +12,13 @@ export const ORDER_TYPE_LIMIT = 0;
 export const ORDER_TYPE_MARKET = 1;
 
 // fake data
-export const userId = 3;
-export const brokerId = "3";
-export const accountId = "3";
+export const userId = ID.userID[0];
+export const brokerId = ID.brokerID[0];
+export const accountId = ID.accountID[0];
 export const base = "ETH";
 export const quote = "USDT";
 export const market = `${base}_${quote}`;
 export const fee = "0";
 
 // global config
-import { inspect } from "util";
 inspect.defaultOptions.depth = null;

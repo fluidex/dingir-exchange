@@ -11,10 +11,10 @@ class MMByPriceBot {
   latestPrice: number;
   verbose: boolean;
   name: string;
-  user_id: number;
+  user_id: string;
   priceFn: (coin: string) => Promise<number>;
   init(
-    user_id: number,
+    user_id: string,
     bot_name: string,
     client: Client,
     baseCoin: string,
