@@ -391,7 +391,7 @@ impl Controller {
         let l1_address = req.l1_address.to_lowercase();
         let l2_pubkey = req.l2_pubkey.to_lowercase();
         let user_ident = UserIdentifier {
-            user_id: user_id.clone(),
+            user_id,
             broker_id: req.broker_id.clone(),
             account_id: req.account_id.clone(),
         };
@@ -424,7 +424,7 @@ impl Controller {
         Ok(UserInfo {
             user_id: user_ident.user_id.clone(),
             broker_id: user_ident.broker_id.clone(),
-            account_id: user_ident.account_id.clone(),
+            account_id: user_ident.account_id,
             l1_address,
             l2_pubkey,
             log_metadata: req.log_metadata,
@@ -773,12 +773,12 @@ impl Controller {
         if real {
             self.persistor.put_transfer(models::InternalTx {
                 time: timestamp.into(),
-                user_from: user_info_from.user_id.clone(), // TODO: will this overflow?
+                user_from: user_info_from.user_id,
                 broker_id_from: req.from_broker_id.clone(),
                 account_id_from: req.from_account_id.clone(),
-                user_to: user_info_to.user_id.clone(), // TODO: will this overflow?
+                user_to: user_info_to.user_id.clone(),
                 broker_id_to: user_info_to.broker_id.clone(),
-                account_id_to: user_info_to.account_id.clone(),
+                account_id_to: user_info_to.account_id,
                 asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),

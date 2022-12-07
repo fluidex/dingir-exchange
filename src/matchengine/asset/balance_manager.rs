@@ -155,7 +155,7 @@ impl BalanceManager {
         let old_available_value = self.get_by_key(&key);
         debug_assert!(old_available_value.ge(&amount));
         self.sub(user_info.clone(), BalanceType::AVAILABLE, asset, &amount);
-        self.add(user_info.clone(), BalanceType::FREEZE, asset, &amount);
+        self.add(user_info, BalanceType::FREEZE, asset, &amount);
     }
     pub fn unfrozen(&mut self, user_info: UserIdentifier, asset: &str, amount: &Decimal) {
         debug_assert!(amount.is_sign_positive());
@@ -175,7 +175,7 @@ impl BalanceManager {
             old_frozen_value
         );
         self.add(user_info.clone(), BalanceType::AVAILABLE, asset, &amount);
-        self.sub(user_info.clone(), BalanceType::FREEZE, asset, &amount);
+        self.sub(user_info, BalanceType::FREEZE, asset, &amount);
     }
     pub fn total(&self, user_info: UserIdentifier, asset: &str) -> Decimal {
         self.get(user_info.clone(), BalanceType::AVAILABLE, asset) + self.get(user_info, BalanceType::FREEZE, asset)

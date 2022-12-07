@@ -41,7 +41,7 @@ pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> Result<Jso
     user_map.insert(format_account_id_key(&user_info.account_id), user_info.clone());
     user_map.insert(format_broker_id_key(&user_info.broker_id), user_info.clone());
     user_map.insert(format_l1_address_key(&user_info.l1_address), user_info.clone());
-    user_map.insert(format_l2_pubkey_key(&user_info.l2_pubkey), user_info.clone());
+    user_map.insert(format_l2_pubkey_key(&user_info.l2_pubkey), user_info);
 
     Ok(Json(user))
 }
