@@ -65,32 +65,32 @@ async function getPrice(token: string): Promise<number> {
   return price;
 }
 
-async function cancelAllForUser(user_id) {
+async function cancelAllForUser(user_id: string, broker_id: string, account_id: string) {
   for (const [market, _] of client.markets) {
     console.log("cancel all", user_id, market, await client.orderCancelAll(user_id, market));
   }
-  console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id));
+  console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id, broker_id, account_id));
 }
 
 async function cancelAll() {
-  for (const user_id of botsIds) {
-    await cancelAllForUser(user_id);
+  for (let i = 0; i < botsIds.length; i++) {
+    await cancelAllForUser(botsIds[i], brokerID[i], accountID[i]);
   }
 }
 
 async function transferTest() {
   console.log("successTransferTest BEGIN");
 
-  const res1 = await client.transfer(botsIds[0], botsIds[1], "USDT", 1000);
+  const res1 = await client.transfer(botsIds[0],brokerID[0], accountID[0], botsIds[1],brokerID[1], accountID[1], "USDT", 1000);
   assert.equal(res1.success, true);
 
-  const res2 = await client.transfer(botsIds[1], botsIds[2], "USDT", 1000);
+  const res2 = await client.transfer(botsIds[1],brokerID[1], accountID[1], botsIds[2],brokerID[2], accountID[2], "USDT", 1000);
   assert.equal(res2.success, true);
 
-  const res3 = await client.transfer(botsIds[2], botsIds[3], "USDT", 1000);
+  const res3 = await client.transfer(botsIds[2],brokerID[2], accountID[2], botsIds[3],brokerID[3], accountID[3], "USDT", 1000);
   assert.equal(res3.success, true);
 
-  const res4 = await client.transfer(botsIds[3], botsIds[0], "USDT", 1000);
+  const res4 = await client.transfer(botsIds[3],brokerID[3], accountID[3], botsIds[0],brokerID[0], accountID[0], "USDT", 1000);
   assert.equal(res4.success, true);
 
   console.log("successTransferTest END");
@@ -124,7 +124,7 @@ async function run() {
       await sleep(1000);
       async function tickForUser(user, brokerId, accountId) {
         if (Math.floor(cnt / botsIds.length) % 200 == 0) {
-          await cancelAllForUser(user);
+          await cancelAllForUser(user, brokerId, accountId);
         }
         for (let market of markets) {
           const price = await getPrice(market.split("_")[0]);

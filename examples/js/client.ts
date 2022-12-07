@@ -204,16 +204,16 @@ class Client {
     let signature = "";
     if (this.accounts.has(user_id)) {
       // add signature for this tx
-      let nonce = 0; // use 0 as nonce for now
-      let tx = new TransferTx({
+      // let nonce = 0; // use 0 as nonce for now
+    /*  let tx = new TransferTx({
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
         from,
 
         from_nonce: nonce,
         to,
-      });
-      signature = this.accounts.get(user_id).signHashPacked(tx.hash());
+      });*/
+      // signature = this.accounts.get(user_id).signHashPacked(tx.hash());
     }
     return {
       from,
@@ -231,7 +231,7 @@ class Client {
 
   createWithdrawTx(account_id, asset, business, business_id, delta, detail) {
     let signature = "";
-    if (this.accounts.has(account_id)) {
+/*    if (this.accounts.has(account_id)) {
       let tx = new WithdrawTx({
         account_id,
         token_id: this.assets.get(asset).inner_id,
@@ -240,7 +240,7 @@ class Client {
         old_balance: 0, // TODO: Update `old_balance` with precision.
       });
       signature = this.accounts.get(account_id).signHashPacked(tx.hash());
-    }
+    }*/
     return {
       user_id: account_id,
       asset,
