@@ -1,19 +1,11 @@
 import { MMByPriceBot } from "./mm_external_price_bot";
 import * as regression from "regression";
 import { Account } from "fluidex.js";
-import { defaultRESTClient, RESTClient } from "../RESTClient";
-import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
+import { defaultRESTClient } from "../RESTClient";
+import { defaultClient as defaultGrpcClient, defaultClient } from "../client";
 import { sleep } from "../util";
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
-import {
-  estimateMarketOrderSell,
-  estimateMarketOrderBuy,
-  execMarketOrderAsLimit_Sell,
-  execMarketOrderAsLimit_Buy,
-  rebalance,
-  printBalance,
-  totalBalance,
-} from "./utils";
+import { VERBOSE } from "../config";
+import { rebalance, printBalance, totalBalance } from "./utils";
 import { executeOrders } from "./executor";
 import { depositAssets, getPriceOfCoin } from "../exchange_helper";
 import ID from "../tests/ids";
@@ -22,9 +14,6 @@ import ID from "../tests/ids";
 console.log({ VERBOSE });
 
 async function initUser(): Promise<string> {
-  const mnemonic1 = "split logic consider degree smile field term style opera dad believe indoor item type beyond";
-  const mnemonic2 =
-    "camp awful sand include refuse cash reveal mystery pupil salad length plunge square admit vocal draft found side same clock hurt length say figure";
   const mnemonic3 =
     "sound select report rug run cave provide index grief foster bar someone garage donate nominee crew once oil sausage flight tail holiday style afford";
   const acc = Account.fromMnemonic(mnemonic3);
@@ -41,7 +30,6 @@ async function initUser(): Promise<string> {
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
     });
-    const t = Date.now();
     console.log("register resp", resp);
     await sleep(2000); // FIXME
     userInfo = await restClient.get_user_by_addr(acc.ethAddr);

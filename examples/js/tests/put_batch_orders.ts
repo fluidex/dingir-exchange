@@ -41,6 +41,8 @@ async function registerAccounts() {
 async function initAssets() {
   for (let i = 0; i < botsIds.length; i++) {
     await depositAssets({ USDT: "500000.0" }, botsIds[i], brokerIds[i], accountIds[i]);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
@@ -109,6 +111,7 @@ async function putAndResetOrdersTest() {
   const oldOrderNum2 = await openOrderNum(userId2, brokerIds[1], accountIds[1]);
   assert(oldOrderNum2 > 0);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const res = await client.batchOrderPut("ETH_USDT", true, [
     {
       user_id: botsIds[0],

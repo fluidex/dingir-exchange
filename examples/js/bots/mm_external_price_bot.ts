@@ -1,6 +1,5 @@
 import { Client } from "../client";
-import { Bot } from "./bot";
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT } from "../config";
 class PriceBotParams {}
 class MMByPriceBot {
   client: Client;
@@ -72,9 +71,7 @@ class MMByPriceBot {
       //console.log({ bidPriceRaw, bidAmountRaw, askAmountRaw, askPriceRaw });
     }
     let lastBidPrice = oldBidOrder?.price || "";
-    let lastBidAmount = oldBidOrder?.amount || "";
     let lastAskPrice = oldAskOrder?.price || "";
-    let lastAskAmount = oldAskOrder?.amount || "";
     //if(bidPrice == lastBidPrice && bidAmount == lastBidAmount && askPrice ==lastAskPrice && askAmount == lastAskAmount) {
     if (bidPrice == lastBidPrice && askPrice == lastAskPrice) {
       if (VERBOSE) {
@@ -110,24 +107,30 @@ class MMByPriceBot {
       orders: [bid_order, ask_order],
     };
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleTrade(trade: any) {
     // console.log(trade);
     return;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleOrderbookUpdate(orderbook: any) {
     // console.log(orderbook);
     return;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleOrderEvent() {
     // console.log("log info");
     return;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getLatestPrice(): number {
     return this.latestPrice;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   estimatePrice(): number {
     return 3;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getMyBalance() {
     // console.log("log info");
     return;

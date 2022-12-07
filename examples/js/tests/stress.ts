@@ -1,7 +1,7 @@
 import { market, userId, accountId, brokerId } from "../config"; // dotenv
 import { defaultClient as client } from "../client";
 
-import { sleep, decimalAdd, assertDecimalEqual } from "../util";
+import { sleep, assertDecimalEqual } from "../util";
 
 import { depositAssets, printBalance, putRandOrder } from "../exchange_helper";
 

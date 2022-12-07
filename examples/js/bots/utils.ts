@@ -1,9 +1,6 @@
-import { Account } from "fluidex.js";
-import { defaultRESTClient, RESTClient } from "../RESTClient";
 import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
-import { sleep } from "../util";
-import { depositAssets, getPriceOfCoin } from "../exchange_helper";
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "../config";
+import { getPriceOfCoin } from "../exchange_helper";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT } from "../config";
 
 // TODO: add a similar function using quoteAmount. "i want to sell some eth to get 5000 usdt"
 // TODO: exclude my orders
@@ -76,12 +73,15 @@ async function execMarketOrderAsLimit_Sell(client: grpcClient, market, baseAmoun
     );
     */
   const price = "0.01"; // low enough as a market order...
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let order = await client.orderPut(uid, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, baseAmount, price, "0", "0");
   //console.log("execMarketOrderAsLimit_Sell", order);
 }
 
 async function execMarketOrderAsLimit_Buy(client: grpcClient, market, quoteAmount: string, uid) {
   let estimateResult = await estimateMarketOrderBuy(client, market, Number(quoteAmount));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let order = await client.orderPut(
     uid,
     market,

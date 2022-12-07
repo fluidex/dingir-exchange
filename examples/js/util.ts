@@ -1,9 +1,6 @@
-import { userId, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT, VERBOSE } from "./config"; // dotenv
-
 import Decimal from "decimal.js";
 let gaussian = require("gaussian");
 import { strict as assert } from "assert";
-import axios from "axios";
 
 export function decimalEqual(a, b): boolean {
   return new Decimal(a).equals(new Decimal(b));

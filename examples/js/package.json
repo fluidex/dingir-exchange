@@ -9,7 +9,8 @@
     "tick_no_deploy": "npx ts-node tests/tick_no_deploy.ts",
     "trade": "npx ts-node tests/trade.ts",
     "transfer": "npx ts-node tests/transfer.ts",
-    "fmt": "npx prettier --write \"**/*.ts\" package.json"
+    "fmt": "npx prettier --write \"**/*.ts\" package.json",
+    "lint": "npx eslint --fix ."
   },
   "dependencies": {
     "@eeston/grpc-caller": "^0.20.2",

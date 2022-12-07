@@ -1,10 +1,10 @@
-import {ORDER_SIDE_ASK, ORDER_SIDE_BID} from "../config";
-import {defaultClient as client} from "../client";
-import {getRandomElem, getRandomFloatAround, getRandomFloatAroundNormal, sleep} from "../util";
-import {Account} from "fluidex.js";
-import {getTestAccount} from "../accounts";
-import {strict as assert} from "assert";
-import {depositAssets, getPriceOfCoin, putLimitOrder} from "../exchange_helper";
+import { ORDER_SIDE_ASK, ORDER_SIDE_BID } from "../config";
+import { defaultClient as client } from "../client";
+import { getRandomElem, getRandomFloatAround, getRandomFloatAroundNormal, sleep } from "../util";
+import { Account } from "fluidex.js";
+import { getTestAccount } from "../accounts";
+import { strict as assert } from "assert";
+import { depositAssets, getPriceOfCoin, putLimitOrder } from "../exchange_helper";
 import Ids from "./ids";
 import ID from "./ids";
 
@@ -13,7 +13,6 @@ const botsIds = Ids.userID;
 const brokerIds = Ids.brokerID;
 const accountIds = Ids.accountID;
 let markets: Array<string> = [];
-let prices = new Map<string, number>();
 
 function businessId() {
   return Date.now();
@@ -46,6 +45,7 @@ async function registerAccounts() {
 async function initAssets() {
   for (let i = 0; i < botsIds.length; i++) {
     await depositAssets({ USDT: "500000.0" }, botsIds[i], brokerIds[i], accountIds[i]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [name, info] of client.markets) {
       const base = info.base;
       const depositReq = {};
@@ -54,6 +54,7 @@ async function initAssets() {
     }
   }
 }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function randUser() {
   return getRandomElem(botsIds);
 }
@@ -67,12 +68,14 @@ async function getPrice(token: string): Promise<number> {
 }
 
 async function cancelAllForUser(user_id, brokerId, accountId) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const [market, _] of client.markets) {
     console.log("cancel all", user_id, market, await client.orderCancelAll(user_id, market));
   }
-  console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id,brokerId, accountId));
+  console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id, brokerId, accountId));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function cancelAll() {
   for (let i = 0; i < botsIds.length; i++) {
     await cancelAllForUser(botsIds[i], brokerIds[i], accountIds[i]);
@@ -81,21 +84,22 @@ async function cancelAll() {
 
 async function transferTest() {
   console.log("successTransferTest BEGIN");
-  const res1 = await client.transfer(botsIds[0],brokerIds[0], accountIds[0], botsIds[1],brokerIds[1], accountIds[1], "USDT", 1000);
+  const res1 = await client.transfer(botsIds[0], brokerIds[0], accountIds[0], botsIds[1], brokerIds[1], accountIds[1], "USDT", 1000);
   assert.equal(res1.success, true);
 
-  const res2 = await client.transfer(botsIds[1],brokerIds[1], accountIds[1], botsIds[2],brokerIds[2], accountIds[2], "USDT", 1000);
+  const res2 = await client.transfer(botsIds[1], brokerIds[1], accountIds[1], botsIds[2], brokerIds[2], accountIds[2], "USDT", 1000);
   assert.equal(res2.success, true);
 
-  const res3 = await client.transfer(botsIds[2],brokerIds[2], accountIds[2], botsIds[3],brokerIds[3], accountIds[3], "USDT", 1000);
+  const res3 = await client.transfer(botsIds[2], brokerIds[2], accountIds[2], botsIds[3], brokerIds[3], accountIds[3], "USDT", 1000);
   assert.equal(res3.success, true);
 
-  const res4 = await client.transfer(botsIds[3],brokerIds[3], accountIds[3], botsIds[0],brokerIds[0], accountIds[0], "USDT", 1000);
+  const res4 = await client.transfer(botsIds[3], brokerIds[3], accountIds[3], botsIds[0], brokerIds[0], accountIds[0], "USDT", 1000);
   assert.equal(res4.success, true);
 
   console.log("successTransferTest END");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function withdrawTest() {
   console.log("withdrawTest BEGIN");
 
@@ -139,7 +143,7 @@ async function run() {
           );
         }
       }
-      const index = cnt % botsIds.length
+      const index = cnt % botsIds.length;
       await tickForUser(botsIds[index], brokerIds[index], accountIds[index]);
     } catch (e) {
       console.log(e);

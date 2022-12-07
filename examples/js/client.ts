@@ -1,8 +1,8 @@
 import * as caller from "@eeston/grpc-caller";
 import Decimal from "decimal.js";
-import { Account, OrderInput, TransferTx, WithdrawTx } from "fluidex.js";
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, VERBOSE } from "./config";
-import { assertDecimalEqual, decimalEqual } from "./util";
+import { Account, OrderInput } from "fluidex.js";
+import { ORDER_SIDE_BID, ORDER_TYPE_LIMIT, VERBOSE } from "./config";
+import { decimalEqual } from "./util";
 
 const file = "../../orchestra/proto/exchange/matchengine.proto";
 const load = {
@@ -205,7 +205,7 @@ class Client {
     if (this.accounts.has(user_id)) {
       // add signature for this tx
       // let nonce = 0; // use 0 as nonce for now
-    /*  let tx = new TransferTx({
+      /*  let tx = new TransferTx({
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
         from,
@@ -231,7 +231,7 @@ class Client {
 
   createWithdrawTx(account_id, asset, business, business_id, delta, detail) {
     let signature = "";
-/*    if (this.accounts.has(account_id)) {
+    /*    if (this.accounts.has(account_id)) {
       let tx = new WithdrawTx({
         account_id,
         token_id: this.assets.get(asset).inner_id,

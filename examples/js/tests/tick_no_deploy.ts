@@ -1,10 +1,10 @@
-import { ORDER_SIDE_BID, ORDER_SIDE_ASK, brokerId, accountId } from "../config";
+import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "../config";
 import { defaultClient as client } from "../client";
 import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "../util";
 import { Account } from "fluidex.js";
 import { getTestAccount } from "../accounts";
 import { strict as assert } from "assert";
-import { depositAssets, getPriceOfCoin, putLimitOrder } from "../exchange_helper";
+import { getPriceOfCoin, putLimitOrder } from "../exchange_helper";
 import ID from "./ids";
 
 const verbose = true;
@@ -12,7 +12,6 @@ const botsIds = ID.userID;
 const brokerID = ID.brokerID;
 const accountID = ID.accountID;
 let markets: Array<string> = [];
-let prices = new Map<string, number>();
 
 function businessId() {
   return Date.now();
@@ -29,6 +28,7 @@ async function loadAccounts() {
     client.addAccount(user_id, acc);
   }
 }
+/*
 async function registerAccounts() {
   for (let i = 0; i < botsIds.length; i++) {
     // TODO: clean codes here
@@ -56,6 +56,7 @@ async function initAssets() {
 function randUser() {
   return getRandomElem(botsIds);
 }
+*/
 
 async function getPrice(token: string): Promise<number> {
   const price = await getPriceOfCoin(token);
@@ -66,12 +67,14 @@ async function getPrice(token: string): Promise<number> {
 }
 
 async function cancelAllForUser(user_id: string, broker_id: string, account_id: string) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const [market, _] of client.markets) {
     console.log("cancel all", user_id, market, await client.orderCancelAll(user_id, market));
   }
   console.log("after cancel all, balance", user_id, await client.balanceQuery(user_id, broker_id, account_id));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function cancelAll() {
   for (let i = 0; i < botsIds.length; i++) {
     await cancelAllForUser(botsIds[i], brokerID[i], accountID[i]);
@@ -81,16 +84,16 @@ async function cancelAll() {
 async function transferTest() {
   console.log("successTransferTest BEGIN");
 
-  const res1 = await client.transfer(botsIds[0],brokerID[0], accountID[0], botsIds[1],brokerID[1], accountID[1], "USDT", 1000);
+  const res1 = await client.transfer(botsIds[0], brokerID[0], accountID[0], botsIds[1], brokerID[1], accountID[1], "USDT", 1000);
   assert.equal(res1.success, true);
 
-  const res2 = await client.transfer(botsIds[1],brokerID[1], accountID[1], botsIds[2],brokerID[2], accountID[2], "USDT", 1000);
+  const res2 = await client.transfer(botsIds[1], brokerID[1], accountID[1], botsIds[2], brokerID[2], accountID[2], "USDT", 1000);
   assert.equal(res2.success, true);
 
-  const res3 = await client.transfer(botsIds[2],brokerID[2], accountID[2], botsIds[3],brokerID[3], accountID[3], "USDT", 1000);
+  const res3 = await client.transfer(botsIds[2], brokerID[2], accountID[2], botsIds[3], brokerID[3], accountID[3], "USDT", 1000);
   assert.equal(res3.success, true);
 
-  const res4 = await client.transfer(botsIds[3],brokerID[3], accountID[3], botsIds[0],brokerID[0], accountID[0], "USDT", 1000);
+  const res4 = await client.transfer(botsIds[3], brokerID[3], accountID[3], botsIds[0], brokerID[0], accountID[0], "USDT", 1000);
   assert.equal(res4.success, true);
 
   console.log("successTransferTest END");

@@ -1,15 +1,4 @@
-import {
-  userId,
-  base,
-  quote,
-  market,
-  fee,
-  ORDER_SIDE_BID,
-  ORDER_SIDE_ASK,
-  ORDER_TYPE_MARKET,
-  ORDER_TYPE_LIMIT,
-  accountId,
-} from "../config"; // dotenv
+import { market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT } from "../config"; // dotenv
 import { getTestAccount } from "../accounts";
 import { defaultClient as client } from "../client";
 import { sleep, assertDecimalEqual } from "../util";
@@ -17,9 +6,7 @@ import { depositAssets } from "../exchange_helper";
 import { KafkaConsumer } from "../kafka_client";
 
 import { Account } from "fluidex.js";
-import Decimal from "decimal.js";
 import { strict as assert } from "assert";
-import whynoderun from "why-is-node-running";
 import ID from "./ids";
 
 const askUser = ID.userID.slice(0, 6);
@@ -28,12 +15,6 @@ const askAccountId = ID.accountID.slice(0, 6);
 const bidUser = ID.userID.slice(6, 11);
 const bidBrokerId = ID.brokerID.slice(6, 11);
 const bidAccountId = ID.accountID.slice(6, 11);
-
-async function infoList() {
-  console.log(await client.assetList());
-  console.log(await client.marketList());
-  console.log(await client.marketSummary(market));
-}
 
 async function initAccounts() {
   await client.connect();
@@ -171,6 +152,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   assertDecimalEqual(summary.bid_amount, "6");
   assert.equal(summary.bid_count, 1);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const depth = await client.orderDepth(market, 100, /*not merge*/ "0");
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
@@ -214,7 +196,7 @@ async function mainTest(withMQ) {
     kafkaConsumer = new KafkaConsumer();
     kafkaConsumer.Init();
   }
-  const [askOrderId, bidOrderId] = await simpleTest();
+  await simpleTest();
   if (withMQ) {
     await sleep(3 * 1000);
     const messages = kafkaConsumer.GetAllMessages();

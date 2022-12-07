@@ -1,5 +1,4 @@
 import { Account } from "fluidex.js";
-import { userId, base, quote, market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT } from "./config"; // dotenv
 
 let PROTO_PATH = __dirname + "/ordersigner.proto";
 
