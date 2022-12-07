@@ -10,8 +10,8 @@ async function stressTest({ parallel, interval, repeat }) {
   console.log("cancel", tradeCountBefore, "trades");
   console.log(await client.orderCancelAll(userId, market));
   await depositAssets({ USDT: "10000000", ETH: "10000" }, userId, brokerId, accountId);
-  const USDTBefore = await client.balanceQueryByAsset(userId, "USDT");
-  const ETHBefore = await client.balanceQueryByAsset(userId, "ETH");
+  const USDTBefore = await client.balanceQueryByAsset(userId, brokerId, accountId, "USDT");
+  const ETHBefore = await client.balanceQueryByAsset(userId, brokerId, accountId, "ETH");
   await printBalance();
   const startTime = Date.now();
   function elapsedSecs() {
@@ -35,8 +35,8 @@ async function stressTest({ parallel, interval, repeat }) {
   }
   const totalTime = elapsedSecs();
   await printBalance();
-  const USDTAfter = await client.balanceQueryByAsset(userId, "USDT");
-  const ETHAfter = await client.balanceQueryByAsset(userId, "ETH");
+  const USDTAfter = await client.balanceQueryByAsset(userId, brokerId, accountId, "USDT");
+  const ETHAfter = await client.balanceQueryByAsset(userId, brokerId, accountId, "ETH");
   assertDecimalEqual(USDTAfter, USDTBefore);
   assertDecimalEqual(ETHAfter, ETHBefore);
   const tradeCountAfter = (await client.marketSummary(market)).trade_count;

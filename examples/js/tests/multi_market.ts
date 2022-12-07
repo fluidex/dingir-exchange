@@ -14,24 +14,26 @@ const accountId = ID.accountID[0];
 const isCI = !!process.env.GITHUB_ACTIONS;
 const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
 
+const markets = Array.from(["ETH_USDT", "LINK_USDT", "MATIC_USDT", "UNI_USDT"]);
 async function initAccounts() {
   await client.debugReset();
   await client.connect();
   let acc = Account.fromMnemonic(getTestAccount(userId).mnemonic);
   client.addAccount(userId, acc);
   await client.client.RegisterUser({
-    userId,
+    user_id: userId,
+    broker_id: brokerId,
+    account_id: accountId,
     l1_address: acc.ethAddr,
     l2_pubkey: acc.bjjPubKey,
   });
 }
 
 async function setupAsset() {
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, userId, brokerId, accountId);
+     await depositAssets({ USDT: "100", ETH: "50.0", MATIC:"100.0", LINK:"100.0", UNI:"100.0" }, userId, brokerId, accountId);
 }
 
 async function orderTest() {
-  const markets = Array.from(["ETH_USDT", "LINK_USDT", "MATIC_USDT", "UNI_USDT"]);
   let orders = await Promise.all(
     markets.map(market =>
       client
@@ -48,7 +50,7 @@ async function orderTest() {
     assert.equal(openOrders.orders.length, orders.length);
   }
 
-  await Promise.all(orders.map(([market, id]) => client.orderCancel(1, market, Number(id))));
+  await Promise.all(orders.map(([market, id]) => client.orderCancel(userId, brokerId, accountId, market, Number(id))));
 
   const closedOrders = (await axios.get(`http://${server}/api/exchange/panel/closedorders/all/${userId}`)).data;
   console.log(closedOrders);

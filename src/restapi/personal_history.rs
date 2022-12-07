@@ -133,7 +133,7 @@ const fn default_zero() -> usize {
 /// `/internal_txs/{user_id}`
 #[api_v2_operation]
 pub async fn my_internal_txs(
-    user_id: web::Path<i32>,
+    user_id: web::Path<String>,
     query: web::Query<InternalTxQuery>,
     data: web::Data<AppState>,
 ) -> Result<Json<Vec<InternalTxResponse>>, actix_web::Error> {
@@ -179,8 +179,8 @@ where "#,
     let query_as = sqlx::query_as(sql_query.as_str());
 
     let query_as = match query.side {
-        Side::To | Side::From => query_as.bind(user_id),
-        Side::Both => query_as.bind(user_id).bind(user_id),
+        Side::To | Side::From => query_as.bind(user_id.clone()),
+        Side::Both => query_as.bind(user_id.clone()).bind(user_id),
     };
 
     let query_as = match (query.start_time, query.end_time) {

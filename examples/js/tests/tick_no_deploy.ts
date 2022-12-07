@@ -32,7 +32,7 @@ async function loadAccounts() {
 async function registerAccounts() {
   for (let i = 0; i < botsIds.length; i++) {
     // TODO: clean codes here
-    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
+    let acc = Account.fromMnemonic(getTestAccount(botsIds[i]).mnemonic);
     await client.registerUser({
       user_id: botsIds[i],
       broker_id: brokerID[i],

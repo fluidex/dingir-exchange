@@ -40,16 +40,16 @@ class Client {
     console.log("assets", this.assets);
   }
 
-  async balanceQuery(user_id): Promise<Map<string, any>> {
-    const balances = (await this.client.BalanceQuery({ user_id: user_id })).balances;
+  async balanceQuery(user_id, broker_id, account_id): Promise<Map<string, any>> {
+    const balances = (await this.client.BalanceQuery({ user_id, broker_id, account_id })).balances;
     let result = new Map();
     for (const entry of balances) {
       result.set(entry.asset_id, entry);
     }
     return result;
   }
-  async balanceQueryByAsset(user_id, asset) {
-    const allBalances = (await this.client.BalanceQuery({ user_id: user_id, assets: [asset] })).balances;
+  async balanceQueryByAsset(user_id,broker_id, account_id, asset) {
+    const allBalances = (await this.client.BalanceQuery({ user_id,broker_id, account_id, assets: [asset] })).balances;
     const balance = allBalances.find(item => item.asset_id == asset);
     let available = new Decimal(balance.available);
     let frozen = new Decimal(balance.frozen);
@@ -187,8 +187,8 @@ class Client {
     return await this.client.ReloadMarkets({ from_scratch });
   }
 
-  async orderCancel(user_id, market, order_id) {
-    return await this.client.OrderCancel({ user_id, market, order_id });
+  async orderCancel(user_id, broker_id, account_id, market, order_id) {
+    return await this.client.OrderCancel({ user_id, broker_id, account_id, market, order_id });
   }
 
   async orderCancelAll(user_id, market) {
@@ -199,7 +199,7 @@ class Client {
     return await this.client.OrderBookDepth({ market, limit, interval });
   }
 
-  createTransferTx(from, to, asset, delta, memo) {
+  createTransferTx(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo) {
     let user_id = from;
     let signature = "";
     if (this.accounts.has(user_id)) {
@@ -209,6 +209,7 @@ class Client {
         token_id: this.assets.get(asset).inner_id,
         amount: delta,
         from,
+
         from_nonce: nonce,
         to,
       });
@@ -221,6 +222,10 @@ class Client {
       delta,
       memo,
       signature,
+      from_broker_id: brokerFrom,
+      from_account_id: accountFrom,
+      to_broker_id: brokerTo,
+      to_account_id: accountTo
     };
   }
 
@@ -247,8 +252,8 @@ class Client {
     };
   }
 
-  async transfer(from, to, asset, delta, memo = "") {
-    let tx = this.createTransferTx(from, to, asset, delta, memo);
+  async transfer(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo = "") {
+    let tx = this.createTransferTx(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo);
     return await this.client.transfer(tx);
   }
 

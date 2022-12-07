@@ -1,4 +1,15 @@
-import { userId, base, quote, market, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT } from "../config"; // dotenv
+import {
+  userId,
+  base,
+  quote,
+  market,
+  fee,
+  ORDER_SIDE_BID,
+  ORDER_SIDE_ASK,
+  ORDER_TYPE_MARKET,
+  ORDER_TYPE_LIMIT,
+  accountId
+} from "../config"; // dotenv
 import { getTestAccount } from "../accounts";
 import { defaultClient as client } from "../client";
 import { sleep, assertDecimalEqual } from "../util";
@@ -9,13 +20,14 @@ import { Account } from "fluidex.js";
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
+import ID from "./ids";
 
-const askUser = userId;
-const askBrokerId = `${userId}`;
-const askAccountId = `${userId}`;
-const bidUser = userId + 1;
-const bidBrokerId = `${bidUser}`;
-const bidAccountId = `${bidUser}`;
+const askUser = ID.userID.slice(0,6);
+const askBrokerId = ID.brokerID.slice(0,6);
+const askAccountId = ID.accountID.slice(0,6);
+const bidUser =ID.userID.slice(6, 11);
+const bidBrokerId =ID.brokerID.slice(6, 11);
+const bidAccountId =ID.accountID.slice(6, 11);
 
 async function infoList() {
   console.log(await client.assetList());
@@ -25,11 +37,13 @@ async function infoList() {
 
 async function initAccounts() {
   await client.connect();
-  for (let user_id = 1; user_id <= bidUser; user_id++) {
-    let acc = Account.fromMnemonic(getTestAccount(user_id).mnemonic);
-    client.addAccount(user_id, acc);
+  for (let i = 1; i < bidUser.length; i++) {
+    let acc = Account.fromMnemonic(getTestAccount(bidUser[i]).mnemonic);
+    client.addAccount(bidUser[i], acc);
     await client.client.RegisterUser({
-      user_id,
+      user_id:bidUser[i],
+      broker_id: bidBrokerId[i],
+      account_id: bidAccountId[i],
       l1_address: acc.ethAddr,
       l2_pubkey: acc.bjjPubKey,
     });
@@ -38,7 +52,7 @@ async function initAccounts() {
 
 async function setupAsset() {
   // check balance is zero
-  const balance1 = await client.balanceQuery(askUser);
+  const balance1 = await client.balanceQuery(askUser[0], askBrokerId[0], askAccountId[0]);
   let usdtBalance = balance1.get("USDT");
   let ethBalance = balance1.get("ETH");
   assertDecimalEqual(usdtBalance.available, "0");
@@ -46,10 +60,10 @@ async function setupAsset() {
   assertDecimalEqual(ethBalance.available, "0");
   assertDecimalEqual(ethBalance.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser, askBrokerId, askAccountId);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, askUser[0], askBrokerId[0], askAccountId[0]);
 
   // check deposit success
-  const balance2 = await client.balanceQuery(askUser);
+  const balance2 = await client.balanceQuery(askUser[0], askBrokerId[0], askAccountId[0]);
   usdtBalance = balance2.get("USDT");
   ethBalance = balance2.get("ETH");
   console.log(usdtBalance);
@@ -58,15 +72,15 @@ async function setupAsset() {
   assertDecimalEqual(ethBalance.available, "50");
   assertDecimalEqual(ethBalance.frozen, "0");
 
-  await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser, bidBrokerId, bidAccountId);
+  await depositAssets({ USDT: "100.0", ETH: "50.0" }, bidUser[0], bidBrokerId[0], bidAccountId[0]);
 }
 
 // Test order put and cancel
 async function orderTest() {
   const order = await client.orderPut(
-    askUser,
-    askBrokerId,
-    askAccountId,
+    askUser[0],
+    askBrokerId[0],
+    askAccountId[0],
     market,
     ORDER_SIDE_BID,
     ORDER_TYPE_LIMIT,
@@ -76,7 +90,7 @@ async function orderTest() {
     fee
   );
   console.log(order);
-  const balance3 = await client.balanceQueryByAsset(askUser, "USDT");
+  const balance3 = await client.balanceQueryByAsset(askUser[0], askBrokerId[0], askAccountId[0], "USDT");
   assertDecimalEqual(balance3.available, "89");
   assertDecimalEqual(balance3.frozen, "11");
 
@@ -93,8 +107,8 @@ async function orderTest() {
     bids: [{ price: "1.10", amount: "10.0000" }],
   });
 
-  await client.orderCancel(askUser, market, 1);
-  const balance4 = await client.balanceQueryByAsset(askUser, "USDT");
+  await client.orderCancel(askUser[0], askBrokerId[0], askAccountId[0], market, 1);
+  const balance4 = await client.balanceQueryByAsset(askUser[0],askBrokerId[0], askAccountId[0], "USDT");
   assertDecimalEqual(balance4.available, "100");
   assertDecimalEqual(balance4.frozen, "0");
 
@@ -104,9 +118,9 @@ async function orderTest() {
 // Test order trading
 async function tradeTest() {
   const askOrder = await client.orderPut(
-    askUser,
-    askBrokerId,
-    askAccountId,
+    askUser[0],
+    askBrokerId[0],
+    askAccountId[0],
     market,
     ORDER_SIDE_ASK,
     ORDER_TYPE_LIMIT,
@@ -116,9 +130,9 @@ async function tradeTest() {
     fee
   );
   const bidOrder = await client.orderPut(
-    bidUser,
-    bidBrokerId,
-    bidAccountId,
+    bidUser[0],
+    bidBrokerId[0],
+    bidAccountId[0],
     market,
     ORDER_SIDE_BID,
     ORDER_TYPE_LIMIT,
@@ -161,7 +175,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   //assert.deepEqual(depth, { asks: [], bids: [{ price: "1.1", amount: "6" }] });
   // 4 * 1.1 sell, filled 4
-  const balance1 = await client.balanceQuery(askUser);
+  const balance1 = await client.balanceQuery(askUser[0], askBrokerId[0], askAccountId[0]);
   let usdtBalance = balance1.get("USDT");
   let ethBalance = balance1.get("ETH");
   assertDecimalEqual(usdtBalance.available, "104.4");
@@ -169,7 +183,7 @@ async function testStatusAfterTrade(askOrderId, bidOrderId) {
   assertDecimalEqual(ethBalance.available, "46");
   assertDecimalEqual(ethBalance.frozen, "0");
   // 10 * 1.1 buy, filled 4
-  const balance2 = await client.balanceQuery(bidUser);
+  const balance2 = await client.balanceQuery(bidUser[0], bidBrokerId[0], bidAccountId[0]);
   usdtBalance = balance2.get("USDT");
   ethBalance = balance2.get("ETH");
   assertDecimalEqual(usdtBalance.available, "89");

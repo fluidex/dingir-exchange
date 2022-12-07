@@ -1,4 +1,3 @@
-import { userId } from "../config"; // dotenv
 import { defaultClient as client } from "../client";
 import { defaultRESTClient as rest_client } from "../RESTClient";
 import { assertDecimalEqual, sleep } from "../util";
@@ -7,21 +6,26 @@ import { strict as assert } from "assert";
 import { depositAssets } from "../exchange_helper";
 import ID from "./ids";
 
-const anotherUserId = +10;
-const brokerId = `${anotherUserId}`;
-const accountId = `${anotherUserId}`;
+const userId = ID.userID[0];
+const brokerId = ID.brokerID[0];
+const accountId = ID.accountID[0];
+
+
+const anotherUserId = ID.userID[1];
+const anotherBrokerId = ID.brokerID[1];
+const anotherAccountId = ID.accountID[1];
 
 async function setupAsset() {
   await depositAssets({ ETH: "100.0" }, userId, brokerId, accountId);
 
-  const balance1 = await client.balanceQueryByAsset(userId, "ETH");
+  const balance1 = await client.balanceQueryByAsset(userId,brokerId, accountId, "ETH");
   assertDecimalEqual(balance1.available, "100");
-  const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
+  const balance2 = await client.balanceQueryByAsset(anotherUserId,anotherBrokerId, anotherAccountId, "ETH");
   assertDecimalEqual(balance2.available, "0");
 }
 
 async function registerUsers() {
-  for (let i = 1; i <= anotherUserId; i++) {
+  for (let i = 0; i < ID.userID.length; i++) {
     await client.registerUser({
       id: ID.userID[i],
       account_id: ID.accountID[i],
@@ -35,15 +39,15 @@ async function registerUsers() {
 
 // Test failure with argument delta of value zero
 async function failureWithZeroDeltaTest() {
-  const res = await client.transfer(userId, anotherUserId, "ETH", 0);
+  const res = await client.transfer(userId,brokerId,accountId, anotherUserId,anotherBrokerId, anotherAccountId, "ETH", 0);
 
   assert.equal(res.success, false);
   assert.equal(res.asset, "ETH");
   assertDecimalEqual(res.balance_from, "100");
 
-  const balance1 = await client.balanceQueryByAsset(userId, "ETH");
+  const balance1 = await client.balanceQueryByAsset(userId,brokerId, accountId, "ETH");
   assertDecimalEqual(balance1.available, "100");
-  const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
+  const balance2 = await client.balanceQueryByAsset(anotherUserId,anotherBrokerId, anotherAccountId, "ETH");
   assertDecimalEqual(balance2.available, "0");
 
   console.log("failureWithZeroDeltaTest passed");
@@ -51,15 +55,15 @@ async function failureWithZeroDeltaTest() {
 
 // Test failure with insufficient balance of from user
 async function failureWithInsufficientFromBalanceTest() {
-  const res = await client.transfer(userId, anotherUserId, "ETH", 101);
+  const res = await client.transfer(userId,brokerId,accountId, anotherUserId,anotherBrokerId, anotherAccountId, "ETH", 101);
 
   assert.equal(res.success, false);
   assert.equal(res.asset, "ETH");
   assertDecimalEqual(res.balance_from, "100");
 
-  const balance1 = await client.balanceQueryByAsset(userId, "ETH");
+  const balance1 = await client.balanceQueryByAsset(userId,brokerId, accountId, "ETH");
   assertDecimalEqual(balance1.available, "100");
-  const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
+  const balance2 = await client.balanceQueryByAsset(anotherUserId,anotherBrokerId, anotherAccountId, "ETH");
   assertDecimalEqual(balance2.available, "0");
 
   console.log("failureWithInsufficientFromBalanceTest passed");
@@ -67,15 +71,15 @@ async function failureWithInsufficientFromBalanceTest() {
 
 // Test success transfer
 async function successTransferTest() {
-  const res = await client.transfer(userId, anotherUserId, "ETH", 50);
+  const res = await client.transfer(userId,brokerId,accountId, anotherUserId,anotherBrokerId, anotherAccountId,"ETH", 50);
 
   assert.equal(res.success, true);
   assert.equal(res.asset, "ETH");
   assertDecimalEqual(res.balance_from, "50");
 
-  const balance1 = await client.balanceQueryByAsset(userId, "ETH");
+  const balance1 = await client.balanceQueryByAsset(userId, brokerId, accountId,"ETH");
   assertDecimalEqual(balance1.available, "50");
-  const balance2 = await client.balanceQueryByAsset(anotherUserId, "ETH");
+  const balance2 = await client.balanceQueryByAsset(anotherUserId,anotherBrokerId, anotherAccountId, "ETH");
   assertDecimalEqual(balance2.available, "50");
 
   console.log("successTransferTest passed");

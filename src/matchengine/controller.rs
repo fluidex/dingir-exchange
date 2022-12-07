@@ -696,7 +696,7 @@ impl Controller {
             return Err(Status::invalid_argument("invalid to_user"));
         }
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(user_info_to.clone(), BalanceType::AVAILABLE, asset);
+        let balance_from = balance_manager.get(user_info_from.clone(), BalanceType::AVAILABLE, asset);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);

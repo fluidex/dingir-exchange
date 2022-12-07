@@ -1,4 +1,13 @@
-import { userId, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT, VERBOSE } from "./config"; // dotenv
+import {
+  userId,
+  fee,
+  ORDER_SIDE_BID,
+  ORDER_SIDE_ASK,
+  ORDER_TYPE_MARKET,
+  ORDER_TYPE_LIMIT,
+  VERBOSE,
+  brokerId, accountId
+} from "./config"; // dotenv
 import { defaultClient as client } from "./client";
 
 import Decimal from "decimal.js";
@@ -12,7 +21,7 @@ function depositId() {
 }
 
 export async function printBalance(printList = ["USDT", "ETH"]) {
-  const balances = await client.balanceQuery(userId);
+  const balances = await client.balanceQuery(userId, brokerId, accountId);
   console.log("\nasset\tsum\tavaiable\tfrozen");
   for (const asset of printList) {
     const balance = balances.get(asset);
