@@ -8,7 +8,7 @@ import {
   ORDER_SIDE_ASK,
   ORDER_TYPE_MARKET,
   ORDER_TYPE_LIMIT,
-  accountId
+  accountId,
 } from "../config"; // dotenv
 import { getTestAccount } from "../accounts";
 import { defaultClient as client } from "../client";
@@ -22,12 +22,12 @@ import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";
 import ID from "./ids";
 
-const askUser = ID.userID.slice(0,6);
-const askBrokerId = ID.brokerID.slice(0,6);
-const askAccountId = ID.accountID.slice(0,6);
-const bidUser =ID.userID.slice(6, 11);
-const bidBrokerId =ID.brokerID.slice(6, 11);
-const bidAccountId =ID.accountID.slice(6, 11);
+const askUser = ID.userID.slice(0, 6);
+const askBrokerId = ID.brokerID.slice(0, 6);
+const askAccountId = ID.accountID.slice(0, 6);
+const bidUser = ID.userID.slice(6, 11);
+const bidBrokerId = ID.brokerID.slice(6, 11);
+const bidAccountId = ID.accountID.slice(6, 11);
 
 async function infoList() {
   console.log(await client.assetList());
@@ -41,7 +41,7 @@ async function initAccounts() {
     let acc = Account.fromMnemonic(getTestAccount(bidUser[i]).mnemonic);
     client.addAccount(bidUser[i], acc);
     await client.client.RegisterUser({
-      user_id:bidUser[i],
+      user_id: bidUser[i],
       broker_id: bidBrokerId[i],
       account_id: bidAccountId[i],
       l1_address: acc.ethAddr,
@@ -108,7 +108,7 @@ async function orderTest() {
   });
 
   await client.orderCancel(askUser[0], askBrokerId[0], askAccountId[0], market, 1);
-  const balance4 = await client.balanceQueryByAsset(askUser[0],askBrokerId[0], askAccountId[0], "USDT");
+  const balance4 = await client.balanceQueryByAsset(askUser[0], askBrokerId[0], askAccountId[0], "USDT");
   assertDecimalEqual(balance4.available, "100");
   assertDecimalEqual(balance4.frozen, "0");
 

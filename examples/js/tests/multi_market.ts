@@ -30,7 +30,7 @@ async function initAccounts() {
 }
 
 async function setupAsset() {
-     await depositAssets({ USDT: "100", ETH: "50.0", MATIC:"100.0", LINK:"100.0", UNI:"100.0" }, userId, brokerId, accountId);
+  await depositAssets({ USDT: "100", ETH: "50.0", MATIC: "100.0", LINK: "100.0", UNI: "100.0" }, userId, brokerId, accountId);
 }
 
 async function orderTest() {

@@ -48,8 +48,8 @@ class Client {
     }
     return result;
   }
-  async balanceQueryByAsset(user_id,broker_id, account_id, asset) {
-    const allBalances = (await this.client.BalanceQuery({ user_id,broker_id, account_id, assets: [asset] })).balances;
+  async balanceQueryByAsset(user_id, broker_id, account_id, asset) {
+    const allBalances = (await this.client.BalanceQuery({ user_id, broker_id, account_id, assets: [asset] })).balances;
     const balance = allBalances.find(item => item.asset_id == asset);
     let available = new Decimal(balance.available);
     let frozen = new Decimal(balance.frozen);
@@ -199,7 +199,7 @@ class Client {
     return await this.client.OrderBookDepth({ market, limit, interval });
   }
 
-  createTransferTx(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo) {
+  createTransferTx(from, brokerFrom, accountFrom, to, brokerTo, accountTo, asset, delta, memo) {
     let user_id = from;
     let signature = "";
     if (this.accounts.has(user_id)) {
@@ -225,7 +225,7 @@ class Client {
       from_broker_id: brokerFrom,
       from_account_id: accountFrom,
       to_broker_id: brokerTo,
-      to_account_id: accountTo
+      to_account_id: accountTo,
     };
   }
 
@@ -252,8 +252,8 @@ class Client {
     };
   }
 
-  async transfer(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo = "") {
-    let tx = this.createTransferTx(from,brokerFrom, accountFrom,  to,brokerTo, accountTo, asset, delta, memo);
+  async transfer(from, brokerFrom, accountFrom, to, brokerTo, accountTo, asset, delta, memo = "") {
+    let tx = this.createTransferTx(from, brokerFrom, accountFrom, to, brokerTo, accountTo, asset, delta, memo);
     return await this.client.transfer(tx);
   }
 
