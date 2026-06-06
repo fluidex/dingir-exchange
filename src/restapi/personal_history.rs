@@ -172,7 +172,7 @@ where "#,
     };
 
     let constraint = format!("limit {} offset {}", limit, query.offset);
-    let sql_query = format!("{}{}{}", base_query, condition, constraint);
+    let sql_query = format!("{}{} {}", base_query, condition, constraint);
 
     let query_as = sqlx::query_as(sql_query.as_str());
 
