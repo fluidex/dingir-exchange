@@ -95,6 +95,6 @@ tonic-build = { version = "0.12" }
 windows_build = [ "rdkafka/dynamic_linking" ]
 emit_state_diff = [ ]
 zk-rollup = ["dep:babyjubjub-rs", "dep:ff", "dep:poseidon-rs"]
-default = [ "emit_state_diff", "zk-rollup" ]
+default = [ "emit_state_diff" ]
 #default = ["windows_build"]
 #default = ["windows_build", "emit_state_diff"]
