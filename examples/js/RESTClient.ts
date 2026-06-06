@@ -133,12 +133,7 @@ class RESTClient {
     }
   }
 
-  async kline_history(
-    symbol: string,
-    resolution: number,
-    from: number,
-    to: number
-  ): Promise<KlineResult> {
+  async kline_history(symbol: string, resolution: number, from: number, to: number): Promise<KlineResult> {
     let resp = await this.client.get(`/tradingview/history`, {
       params: { symbol, resolution, from, to },
     });

@@ -22,12 +22,7 @@ impl SignatureVerifier for NoopVerifier {
 pub struct NoopCommitter;
 
 impl OrderCommitter for NoopCommitter {
-    fn commit_order(
-        &self,
-        _req: &OrderPutRequest,
-        _market: &Market,
-        _asset_manager: &AssetManager,
-    ) -> anyhow::Result<Vec<u8>> {
+    fn commit_order(&self, _req: &OrderPutRequest, _market: &Market, _asset_manager: &AssetManager) -> anyhow::Result<Vec<u8>> {
         Ok(Vec::new())
     }
 }

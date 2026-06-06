@@ -24,8 +24,6 @@ pub struct GrpcHandler {
     set_close: Option<oneshot::Sender<()>>,
 }
 
-
-
 struct ControllerDispatch<OT>(ControllerAction, oneshot::Receiver<OT>);
 
 impl<OT: 'static + Debug + Send> ControllerDispatch<OT> {

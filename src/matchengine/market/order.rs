@@ -172,5 +172,3 @@ pub struct OrderInput {
     pub post_only: bool,
     pub signature: [u8; 64],
 }
-
-

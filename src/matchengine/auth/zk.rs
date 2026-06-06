@@ -2,9 +2,7 @@ use super::{OrderCommitter, SignatureVerifier};
 use crate::asset::AssetManager;
 use crate::market::Market;
 use crate::rpc::exchange::{OrderPutRequest, OrderSide};
-use crate::utils::crypto::{
-    BigInt, DecimalExt, Fr, FrExt, PubkeyExt, SignatureExt, verify as babyjubjub_verify,
-};
+use crate::utils::crypto::{BigInt, DecimalExt, Fr, FrExt, PubkeyExt, SignatureExt, verify as babyjubjub_verify};
 use anyhow::{Result, bail};
 use rust_decimal::RoundingStrategy;
 use std::str::FromStr;
@@ -23,13 +21,7 @@ pub struct OrderCommitment {
 impl OrderCommitment {
     pub fn hash(&self) -> BigInt {
         let magic_head = Fr::from_u32(4); // TxType::PlaceOrder
-        let data = Fr::hash(&[
-            magic_head,
-            self.token_sell,
-            self.token_buy,
-            self.total_sell,
-            self.total_buy,
-        ]);
+        let data = Fr::hash(&[magic_head, self.token_sell, self.token_buy, self.total_sell, self.total_buy]);
         data.to_bigint()
     }
 }
@@ -62,12 +54,7 @@ impl SignatureVerifier for BabyJubJubVerifier {
 pub struct ZkOrderCommitter;
 
 impl OrderCommitter for ZkOrderCommitter {
-    fn commit_order(
-        &self,
-        o: &OrderPutRequest,
-        market: &Market,
-        asset_manager: &AssetManager,
-    ) -> Result<Vec<u8>> {
+    fn commit_order(&self, o: &OrderPutRequest, market: &Market, asset_manager: &AssetManager) -> Result<Vec<u8>> {
         let assets: Vec<&str> = o.market.split('_').collect();
         if assets.len() != 2 {
             bail!("market error");

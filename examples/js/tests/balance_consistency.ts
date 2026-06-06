@@ -98,11 +98,11 @@ async function testPrecisionAndLimits() {
   // Server rounds precision; order is accepted with rounded values
   const o1 = await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.12345678", "1.0", fee, fee);
   assert.equal(o1.amount, "1.1235"); // rounded to amount_prec=4
-  assert.equal(o1.price, "1.00");    // rounded to price_prec=2
+  assert.equal(o1.price, "1.00"); // rounded to price_prec=2
 
   const o2 = await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.0", "1.12345678", fee, fee);
   assert.equal(o2.amount, "1.0000");
-  assert.equal(o2.price, "1.12");    // rounded to price_prec=2
+  assert.equal(o2.price, "1.12"); // rounded to price_prec=2
 
   console.log("testPrecisionAndLimits passed");
 }
