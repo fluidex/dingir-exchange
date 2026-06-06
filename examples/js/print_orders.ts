@@ -10,7 +10,7 @@ async function main() {
   await client.connect();
   console.log("ci mode:", isCI);
   console.log("closed orders:");
-  const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/ETH_USDT/3`)).data;
+  const closedOrders = (await axios.get(`http://${server}/api/exchange/panel/closedorders/ETH_USDT/3`)).data;
   console.log(closedOrders);
   if (isCI) {
     assert.equal(closedOrders.orders.length, 2);
@@ -22,7 +22,7 @@ async function main() {
     assert.equal(openOrders.orders.length, 1);
   }
   console.log("market ticker:");
-  const ticker = (await axios.get(`http://${server}/restapi/ticker_24h/ETH_USDT`)).data;
+  const ticker = (await axios.get(`http://${server}/api/exchange/panel/ticker_24h/ETH_USDT`)).data;
   console.log(ticker);
   if (isCI) {
     assert.equal(ticker.volume, 4);
