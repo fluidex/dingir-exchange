@@ -17,12 +17,12 @@ chrono = { version = "0.4", features = [ "serde" ] }
 config_rs = { package = "config", version = "0.14" }
 const_format = "0.2"
 dotenv = "0.15"
-babyjubjub-rs = { git = "https://github.com/Fluidex/babyjubjub-rs" }
-ff = { git = "https://github.com/Fluidex/ff", package = "ff_ce" }
+babyjubjub-rs = { git = "https://github.com/Fluidex/babyjubjub-rs", optional = true }
+ff = { git = "https://github.com/Fluidex/ff", package = "ff_ce", optional = true }
 futures = "0.3"
 num-bigint = "0.4"
 num-traits = "0.2"
-poseidon-rs = { git = "https://github.com/Fluidex/poseidon-rs" }
+poseidon-rs = { git = "https://github.com/Fluidex/poseidon-rs", optional = true }
 rdkafka = { version = "0.37", features = [ "cmake-build" ] }
 futures-channel = "0.3"
 futures-core = { version = "0.3", default-features = false }
@@ -94,6 +94,7 @@ tonic-build = { version = "0.12" }
 [features]
 windows_build = [ "rdkafka/dynamic_linking" ]
 emit_state_diff = [ ]
-default = [ "emit_state_diff" ]
+zk-rollup = ["dep:babyjubjub-rs", "dep:ff", "dep:poseidon-rs"]
+default = [ "emit_state_diff", "zk-rollup" ]
 #default = ["windows_build"]
 #default = ["windows_build", "emit_state_diff"]

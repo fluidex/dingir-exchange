@@ -1,6 +1,5 @@
 use crate::types::{OrderSide, OrderType};
 use crate::utils::InternedString;
-use crate::utils::crypto::{BigInt, Fr, FrExt};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -174,35 +173,4 @@ pub struct OrderInput {
     pub signature: [u8; 64],
 }
 
-pub struct OrderCommitment {
-    // order_id
-    // account_id
-    // nonce
-    pub token_sell: Fr,
-    pub token_buy: Fr,
-    pub total_sell: Fr,
-    pub total_buy: Fr,
-}
 
-impl OrderCommitment {
-    pub fn hash(&self) -> BigInt {
-        // consistent with https://github.com/fluidex/circuits/blob/d6e06e964b9d492f1fa5513bcc2295e7081c540d/helper.ts/state-utils.ts#L38
-        // TxType::PlaceOrder
-        let magic_head = Fr::from_u32(4);
-        let data = Fr::hash(&[
-            magic_head,
-            // TODO: sign nonce or order_id
-            //u32_to_fr(self.order_id),
-            self.token_sell,
-            self.token_buy,
-            self.total_sell,
-            self.total_buy,
-        ]);
-        //data = hash([data, accountID, nonce]);
-        // nonce and orderID seems redundant?
-
-        // account_id is not needed if the hash is signed later?
-        //data = hash(&[data, u32_to_fr(self.account_id)]);
-        data.to_bigint()
-    }
-}

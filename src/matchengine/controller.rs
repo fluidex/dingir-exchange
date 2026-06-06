@@ -1,5 +1,6 @@
 use crate::asset::update_controller::{BalanceUpdateParams, BusinessType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
+use crate::auth::{DynOrderCommitter, DynSignatureVerifier};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::eth_guard::{EthLogGuard, EthLogMetadata};
@@ -136,7 +137,9 @@ pub struct Controller {
     pub sequencer: Sequencer,
     pub user_manager: UserManager,
     pub balance_manager: BalanceManager,
-    pub eth_guard: EthLogGuard,
+    pub eth_guard: Option<EthLogGuard>,
+    pub verifier: DynSignatureVerifier,
+    pub committer: DynOrderCommitter,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<MarketName, market::Market>,
@@ -159,7 +162,11 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 const OPERATION_BATCH_ORDER_PUT: &str = "batch_order_put";
 const OPERATION_TRANSFER: &str = "transfer";
 
-pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
+pub fn create_controller(
+    cfgs: (config::Settings, MarketConfigs),
+    verifier: DynSignatureVerifier,
+    committer: DynOrderCommitter,
+) -> Controller {
     let settings = cfgs.0;
     let main_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap();
     let user_manager = UserManager::new(); // load from db later
@@ -185,7 +192,9 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         //            asset_manager,
         user_manager,
         balance_manager,
-        eth_guard: EthLogGuard::new(0),
+        eth_guard: Some(EthLogGuard::new(0)),
+        verifier,
+        committer,
         update_controller,
         markets,
         asset_market_names,
@@ -401,8 +410,10 @@ impl Controller {
 
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
-        if !self.eth_guard.accept_optional(&meta) {
-            return Ok(req);
+        if let Some(ref mut guard) = self.eth_guard {
+            if !guard.accept_optional(&meta) {
+                return Ok(req);
+            }
         }
 
         let last_user_id = self.user_manager.users.len() as u32;
@@ -437,7 +448,9 @@ impl Controller {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);
         }
 
-        self.eth_guard.update_optional(meta);
+        if let Some(ref mut guard) = self.eth_guard {
+            guard.update_optional(meta);
+        }
 
         Ok(UserInfo {
             user_id: req.user_id,
@@ -454,8 +467,10 @@ impl Controller {
 
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
-        if !self.eth_guard.accept_optional(&meta) {
-            return Ok(BalanceUpdateResponse::default());
+        if let Some(ref mut guard) = self.eth_guard {
+            if !guard.accept_optional(&meta) {
+                return Ok(BalanceUpdateResponse::default());
+            }
         }
 
         let asset = &req.asset;
@@ -507,7 +522,9 @@ impl Controller {
             self.append_operation_log(OPERATION_BALANCE_UPDATE, &req);
         }
 
-        self.eth_guard.update_optional(meta);
+        if let Some(ref mut guard) = self.eth_guard {
+            guard.update_optional(meta);
+        }
 
         Ok(BalanceUpdateResponse::default())
     }

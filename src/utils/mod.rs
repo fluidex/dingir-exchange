@@ -1,3 +1,4 @@
+#[cfg(feature = "zk-rollup")]
 pub mod crypto;
 pub mod timeutil;
 pub use timeutil::*;

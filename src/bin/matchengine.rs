@@ -5,6 +5,7 @@
 #![allow(clippy::single_char_pattern)]
 //#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
+use dingir_exchange::auth;
 use dingir_exchange::config;
 use dingir_exchange::controller::create_controller;
 use dingir_exchange::persist;
@@ -14,6 +15,22 @@ use dingir_exchange::server::GrpcHandler;
 use dingir_exchange::rpc::exchange::matchengine_server::MatchengineServer;
 use dingir_exchange::types::ConnectionType;
 use sqlx::Connection;
+
+#[cfg(feature = "zk-rollup")]
+fn build_auth() -> (auth::DynSignatureVerifier, auth::DynOrderCommitter) {
+    (
+        std::sync::Arc::new(auth::zk::BabyJubJubVerifier),
+        std::sync::Arc::new(auth::zk::ZkOrderCommitter),
+    )
+}
+
+#[cfg(not(feature = "zk-rollup"))]
+fn build_auth() -> (auth::DynSignatureVerifier, auth::DynOrderCommitter) {
+    (
+        std::sync::Arc::new(auth::noop::NoopVerifier),
+        std::sync::Arc::new(auth::noop::NoopCommitter),
+    )
+}
 
 fn main() {
     dotenv::dotenv().ok();
@@ -48,7 +65,8 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
         persist::MarketConfigs::new()
     };
 
-    let mut grpc_stub = create_controller((settings.clone(), market_cfg));
+    let (verifier, committer) = build_auth();
+    let mut grpc_stub = create_controller((settings.clone(), market_cfg), verifier, committer);
     log::info!("grpc_stub created");
     grpc_stub.user_manager.load_users_from_db(&mut conn).await?;
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
