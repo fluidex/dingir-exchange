@@ -167,20 +167,20 @@ impl<'a> AutoCommitSetup<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NotifyTrackItem {
     Left(u64),
     Right(u64),
 }
 
 impl NotifyTrackItem {
-    fn is_left(&self) -> bool {
+    pub(crate) fn is_left(&self) -> bool {
         matches!(self, NotifyTrackItem::Left(_))
     }
-    fn is_right(&self) -> bool {
+    pub(crate) fn is_right(&self) -> bool {
         !self.is_left()
     }
-    fn val(&self) -> u64 {
+    pub(crate) fn val(&self) -> u64 {
         match self {
             NotifyTrackItem::Left(v) => *v,
             NotifyTrackItem::Right(v) => *v,
@@ -192,7 +192,7 @@ impl NotifyTrackItem {
             NotifyTrackItem::Right(v) => v,
         }
     }
-    fn resolve(&mut self, another: NotifyTrackItem) -> u64 {
+    pub(crate) fn resolve(&mut self, another: NotifyTrackItem) -> u64 {
         let self_v = self.val();
         let another_v = another.val();
         if self_v < another_v {
@@ -202,7 +202,7 @@ impl NotifyTrackItem {
             another_v
         }
     }
-    fn merge(&mut self, another: NotifyTrackItem) -> Option<u64> {
+    pub(crate) fn merge(&mut self, another: NotifyTrackItem) -> Option<u64> {
         match self {
             NotifyTrackItem::Left(v) => {
                 if another.is_left() {
@@ -227,7 +227,7 @@ impl NotifyTrackItem {
 use database::TaskNotifyFlag;
 use std::collections::HashMap;
 
-pub struct NotifyTracker(HashMap<i32, NotifyTrackItem>);
+pub struct NotifyTracker(pub(crate) HashMap<i32, NotifyTrackItem>);
 
 impl std::ops::Deref for NotifyTracker {
     type Target = HashMap<i32, NotifyTrackItem>;
@@ -246,7 +246,7 @@ impl NotifyTracker {
     fn map_to(input: &TaskNotifyFlag, mf: fn(u64) -> NotifyTrackItem) -> NotifyTracker {
         NotifyTracker(input.iter().map(|(k, v)| (*k, mf(*v))).collect())
     }
-    fn merge(&mut self, another: NotifyTracker) -> TaskNotifyFlag {
+    pub(crate) fn merge(&mut self, another: NotifyTracker) -> TaskNotifyFlag {
         another
             .0
             .into_iter()

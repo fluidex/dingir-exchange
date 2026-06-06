@@ -325,3 +325,6 @@ pub fn new_simple_message_manager(brokers: &str) -> Result<SimpleMessageManager>
 pub fn new_full_order_message_manager(brokers: &str) -> Result<FullOrderMessageManager> {
     KafkaMessageManager::new(brokers, true)
 }
+
+#[cfg(test)]
+mod tests;
