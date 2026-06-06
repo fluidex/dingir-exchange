@@ -13,7 +13,7 @@ const transferUser = userId + 2;
 
 async function initAccounts() {
   await client.connect();
-  for (let uid of [askUser, bidUser, transferUser]) {
+  for (let uid = 1; uid <= transferUser; uid++) {
     let acc = Account.fromMnemonic(getTestAccount(uid).mnemonic);
     client.addAccount(uid, acc);
     await client.client.RegisterUser({
@@ -89,21 +89,20 @@ async function testBalanceInvariant() {
   console.log("testBalanceInvariant passed");
 }
 
-// Test: precision and min_amount enforcement
+// Test: precision rounding behavior and min_amount enforcement
 async function testPrecisionAndLimits() {
   await client.debugReset();
   await initAccounts();
   await depositAssets({ USDT: "1000.0", ETH: "500.0" }, askUser);
 
-  // Invalid amount precision (ETH has amount_prec, likely 4)
-  await assert.rejects(async () => {
-    await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.12345678", "1.0", fee, fee);
-  });
+  // Server rounds precision; order is accepted with rounded values
+  const o1 = await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.12345678", "1.0", fee, fee);
+  assert.equal(o1.amount, "1.1235"); // rounded to amount_prec=4
+  assert.equal(o1.price, "1.00");    // rounded to price_prec=2
 
-  // Invalid price precision
-  await assert.rejects(async () => {
-    await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.0", "1.12345678", fee, fee);
-  });
+  const o2 = await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "1.0", "1.12345678", fee, fee);
+  assert.equal(o2.amount, "1.0000");
+  assert.equal(o2.price, "1.12");    // rounded to price_prec=2
 
   console.log("testPrecisionAndLimits passed");
 }

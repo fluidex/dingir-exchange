@@ -1,7 +1,7 @@
 version: '3.4'
 services:
   exchange_db:
-    image: timescale/timescaledb:2.1.0-pg13
+    image: timescale/timescaledb:latest-pg17
     container_name: exchange_db
     restart: always
     volumes:

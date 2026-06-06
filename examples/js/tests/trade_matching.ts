@@ -11,7 +11,7 @@ const bidUser = userId + 1;
 
 async function initAccounts() {
   await client.connect();
-  for (let uid of [askUser, bidUser]) {
+  for (let uid = 1; uid <= bidUser; uid++) {
     let acc = Account.fromMnemonic(getTestAccount(uid).mnemonic);
     client.addAccount(uid, acc);
     await client.client.RegisterUser({

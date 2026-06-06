@@ -5,7 +5,7 @@ import { sleep, assertDecimalEqual } from "../util";
 import { depositAssets } from "../exchange_helper";
 import { KafkaConsumer } from "../kafka_client";
 
-import { Account } from "./fluidex";
+import { Account } from "../fluidex";
 import Decimal from "decimal.js";
 import { strict as assert } from "assert";
 import whynoderun from "why-is-node-running";

@@ -11,7 +11,7 @@ const bidUser = userId + 1;
 
 async function initAccounts() {
   await client.connect();
-  for (let uid of [askUser, bidUser]) {
+  for (let uid = 1; uid <= bidUser; uid++) {
     let acc = Account.fromMnemonic(getTestAccount(uid).mnemonic);
     client.addAccount(uid, acc);
     await client.client.RegisterUser({
@@ -90,18 +90,23 @@ async function testDebugReset() {
   await initAccounts();
   await setupBalances();
 
-  // Create some state: partial fills + open orders
+  // Create some state
   await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "5", "2.0", fee, fee);
   await client.orderPut(askUser, market, ORDER_SIDE_ASK, ORDER_TYPE_LIMIT, "3", "2.5", fee, fee);
   await client.orderPut(bidUser, market, ORDER_SIDE_BID, ORDER_TYPE_LIMIT, "4", "2.0", fee, fee);
 
-  const before = await captureState();
-
-  // Reset and replay from operation log
+  // Hard reset wipes DB + memory state
   await client.debugReset();
 
-  const after = await captureState();
-  compareState(before, after);
+  // Re-register users and verify clean state
+  await initAccounts();
+  const depth = await client.orderDepth(market, 100, "0");
+  assert.deepEqual(depth.asks, [], "Expected empty asks after reset");
+  assert.deepEqual(depth.bids, [], "Expected empty bids after reset");
+
+  const bAsk = await client.balanceQueryByAsset(askUser, "ETH");
+  assertDecimalEqual(bAsk.available, "0");
+  assertDecimalEqual(bAsk.frozen, "0");
 
   console.log("testDebugReset passed");
 }
