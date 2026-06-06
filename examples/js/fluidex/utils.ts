@@ -1,7 +1,7 @@
-import { Scalar } from './ffjs';
-import { hash } from './hash';
-import * as crypto from 'crypto';
-import { babyJub } from 'circomlib';
+import { Scalar } from "./ffjs";
+import { hash } from "./hash";
+import * as crypto from "crypto";
+import { babyJub } from "circomlib";
 
 /**
  * Convert to hexadecimal string padding until 256 characters
@@ -10,7 +10,7 @@ import { babyJub } from 'circomlib';
  */
 function padding256(n) {
   let nstr = Scalar.e(n).toString(16);
-  while (nstr.length < 64) nstr = '0' + nstr;
+  while (nstr.length < 64) nstr = "0" + nstr;
   nstr = `0x${nstr}`;
   return nstr;
 }
@@ -34,7 +34,7 @@ function extract(num, origin, len) {
  * @returns {String} Resulting string
  */
 function padZeros(str, length) {
-  if (length > str.length) str = '0'.repeat(length - str.length) + str;
+  if (length > str.length) str = "0".repeat(length - str.length) + str;
   return str;
 }
 /**
@@ -43,7 +43,7 @@ function padZeros(str, length) {
  * @returns {String} Resulting string encoded as hexadecimal
  */
 function sha256Snark(str) {
-  const hash = crypto.createHash('sha256').update(str).digest('hex');
+  const hash = crypto.createHash("sha256").update(str).digest("hex");
   const h = Scalar.mod(Scalar.fromString(hash, 16), babyJub.p);
   return h;
 }
@@ -67,7 +67,7 @@ function arrayHexToBigInt(arrayHex) {
  * @returns {String} - result array
  */
 function buildElement(arrayStr) {
-  let finalStr = '';
+  let finalStr = "";
   arrayStr.forEach(element => {
     finalStr = finalStr.concat(element);
   });
@@ -87,17 +87,17 @@ function buildElement(arrayStr) {
 function hashStateTree(balance, tokenId, Ax, Ay, ethAddress, nonce) {
   // Build Entry
   // element 0
-  const tokenStr = padZeros(tokenId.toString('16'), 8);
-  const nonceStr = padZeros(nonce.toString('16'), 12);
+  const tokenStr = padZeros(tokenId.toString("16"), 8);
+  const nonceStr = padZeros(nonce.toString("16"), 12);
   const e0 = buildElement([nonceStr, tokenStr]);
   // element 1
-  const e1 = buildElement([balance.toString('16')]);
+  const e1 = buildElement([balance.toString("16")]);
   // element 2
-  const e2 = buildElement([Ax.toString('16')]);
+  const e2 = buildElement([Ax.toString("16")]);
   // element 3
-  const e3 = buildElement([Ay.toString('16')]);
+  const e3 = buildElement([Ay.toString("16")]);
   // element 4
-  const e4 = buildElement([ethAddress.toString('16')]);
+  const e4 = buildElement([ethAddress.toString("16")]);
   // Get array BigInt
   const entryBigInt = arrayHexToBigInt([e0, e1, e2, e3, e4]);
   // Object leaf

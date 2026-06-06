@@ -1,12 +1,11 @@
-use crate::models::tablenames::{MARKET, MARKETTRADE};
 use crate::models::MarketDesc;
+use crate::models::tablenames::{MARKET, MARKETTRADE};
 use crate::restapi::errors::RpcError;
 use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
 use crate::restapi::{mock, state};
-use actix_web::Responder;
 use humantime::parse_duration;
 use paperclip::actix::web::{self, HttpRequest, Json};
-use paperclip::actix::{api_v2_operation, Apiv2Schema};
+use paperclip::actix::{Apiv2Schema, api_v2_operation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -14,7 +13,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 // All APIs here follow https://zlq4863947.gitbook.io/tradingview/3-shu-ju-bang-ding/udf
 
 #[api_v2_operation]
-pub async fn unix_timestamp(_req: HttpRequest) -> impl Responder {
+pub async fn unix_timestamp(_req: HttpRequest) -> String {
     format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
 }
 
@@ -23,7 +22,7 @@ static DEFAULT_SYMBOL: &str = "tradepair";
 static DEFAULT_SESSION: &str = "24x7";
 
 #[api_v2_operation]
-pub async fn chart_config(_req: HttpRequest) -> impl Responder {
+pub async fn chart_config(_req: HttpRequest) -> String {
     log::debug!("request config");
     let value = json!({
         "supports_search": true,
@@ -347,8 +346,8 @@ pub async fn search_symbols(
 }
 
 use chrono::{self, DurationRound};
-use rust_decimal::{prelude::*, Decimal};
 use futures::TryStreamExt;
+use rust_decimal::{Decimal, prelude::*};
 use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(sqlx::FromRow, Debug, Clone)]
@@ -482,7 +481,7 @@ where
     }
 }
 
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{HttpResponse, http::StatusCode};
 
 impl std::fmt::Display for TradeViewError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

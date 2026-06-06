@@ -11,8 +11,8 @@ use dingir_exchange::persist;
 use dingir_exchange::server::GrpcHandler;
 //use dingir_exchange::sqlxextend;
 
-use dingir_exchange::types::ConnectionType;
 use dingir_exchange::rpc::exchange::matchengine_server::MatchengineServer;
+use dingir_exchange::types::ConnectionType;
 use sqlx::Connection;
 
 fn main() {

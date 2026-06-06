@@ -11,6 +11,6 @@ pub use storage::{database, models, sqlxextend};
 pub mod config;
 pub mod message;
 pub mod restapi;
+pub mod rpc;
 pub mod types;
 pub mod utils;
-pub mod rpc;

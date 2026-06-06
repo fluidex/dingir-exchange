@@ -1,11 +1,11 @@
 use super::consumer::{MessageHandler, TypedHandler};
 use crate::{database, models, types, utils};
+use rdkafka::Message;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::message::BorrowedMessage;
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
-use rdkafka::Message;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use types::OrderSide;
@@ -146,23 +146,23 @@ impl<'a> AutoCommitSetup<'a> {
     }
 
     fn build_tracker(&self) -> NotifyTrackerReceiver {
-        let mut trackers: Vec<NotifyTrackerReceiver> = self.notify_fns.iter().map(|f| {
-            NotifyTrackerReceiver {
+        let mut trackers: Vec<NotifyTrackerReceiver> = self
+            .notify_fns
+            .iter()
+            .map(|f| NotifyTrackerReceiver {
                 status: NotifyTracker(HashMap::new()),
                 listener: f(),
                 next: None,
-            }
-        }).collect();
+            })
+            .collect();
         for i in (1..trackers.len()).rev() {
             let next = Box::new(trackers.remove(i));
             trackers[i - 1].next = Some(next);
         }
-        trackers.into_iter().next().unwrap_or_else(|| {
-            NotifyTrackerReceiver {
-                status: NotifyTracker(HashMap::new()),
-                listener: tokio::sync::watch::channel(std::collections::HashMap::new()).1,
-                next: None,
-            }
+        trackers.into_iter().next().unwrap_or_else(|| NotifyTrackerReceiver {
+            status: NotifyTracker(HashMap::new()),
+            listener: tokio::sync::watch::channel(std::collections::HashMap::new()).1,
+            next: None,
         })
     }
 }
@@ -250,9 +250,7 @@ impl NotifyTracker {
         another
             .0
             .into_iter()
-            .filter_map(|(k, v)| {
-                self.entry(k).or_insert_with(|| v.clone()).merge(v).map(|u| (k, u))
-            })
+            .filter_map(|(k, v)| self.entry(k).or_insert_with(|| v.clone()).merge(v).map(|u| (k, u)))
             .collect()
     }
 }
@@ -265,11 +263,7 @@ pub struct NotifyTrackerReceiver {
 
 impl NotifyTrackerReceiver {
     fn final_status(self) -> TaskNotifyFlag {
-        self.status
-            .0
-            .into_iter()
-            .map(|(k, v)| (k, v.val_into()))
-            .collect()
+        self.status.0.into_iter().map(|(k, v)| (k, v.val_into())).collect()
     }
 
     fn changed(&mut self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<TaskNotifyFlag>> + Send + '_>> {
@@ -395,8 +389,10 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
         models::BalanceHistory {
             time: utils::FTimestamp::from(&origin.timestamp).into(),
             user_id: origin.user_id as i32,
+            business_id: origin.business_id as i64,
             asset: origin.asset.clone(),
             business: origin.business.clone(),
+            market_price: DecimalDbType::from_str(&origin.market_price).unwrap_or_else(decimal_warning),
             change: DecimalDbType::from_str(&origin.change).unwrap_or_else(decimal_warning),
             balance: DecimalDbType::from_str(&origin.balance).unwrap_or_else(decimal_warning),
             balance_available: DecimalDbType::from_str(&origin.balance_available).unwrap_or_else(decimal_warning),

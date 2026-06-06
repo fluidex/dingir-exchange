@@ -6,14 +6,14 @@ use dingir_exchange::restapi::state::{AppCache, AppState};
 use dingir_exchange::restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
 use dingir_exchange::restapi::user::get_user;
 use paperclip::actix::web::{self, HttpResponse};
-use paperclip::actix::{api_v2_operation, OpenApiExt};
+use paperclip::actix::{OpenApiExt, api_v2_operation};
 
 #[api_v2_operation]
 async fn manage_forbidden() -> HttpResponse {
     HttpResponse::Forbidden().body("No manage endpoint")
 }
-use sqlx::postgres::Postgres;
 use sqlx::Pool;
+use sqlx::postgres::Postgres;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Mutex;
@@ -56,7 +56,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(AppCache::new())
             .wrap_api()
             .service(
-                web::scope("/restapi")
+                web::scope("/api/exchange/panel")
                     .route("/ping", web::get().to(ping))
                     .route("/user/{l1addr_or_l2pubkey}", web::get().to(get_user))
                     .route("/recenttrades/{market}", web::get().to(recent_trades))
@@ -80,8 +80,7 @@ async fn main() -> std::io::Result<()> {
                                 .route("/assets", web::post().to(market::add_assets)),
                         )
                     } else {
-                        web::scope("/manage")
-                            .service(web::resource("/").to(manage_forbidden))
+                        web::scope("/manage").service(web::resource("/").to(manage_forbidden))
                     }),
             )
             .with_json_spec_at("/api/spec")

@@ -3,8 +3,8 @@ use crate::config;
 pub use crate::models::BalanceHistory;
 
 use anyhow::Result;
-use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::Zero;
 use serde::{Deserialize, Serialize};
 
 use num_enum::TryFromPrimitive;

@@ -1,4 +1,4 @@
-use super::models::{tablenames, AssetDesc, DbType, MarketDesc, TimestampDbType};
+use super::models::{AssetDesc, DbType, MarketDesc, TimestampDbType, tablenames};
 use crate::config;
 use anyhow::Result;
 use chrono::DateTime;

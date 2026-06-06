@@ -1,19 +1,19 @@
 #![allow(clippy::if_same_then_else)]
-use crate::asset::{BalanceManager, BalanceType};
+use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController, BalanceUpdateParams, BusinessType};
 use crate::config::{self, OrderSignatrueCheck};
 use crate::persist::PersistExector;
 use crate::sequencer::Sequencer;
 use crate::types::{self, MarketRole, OrderEventType};
-use crate::utils;
 
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::iter::Iterator;
 
-use anyhow::{bail, Result};
+use crate::utils::timeutil::current_timestamp;
+use anyhow::{Result, bail};
+use itertools::Itertools;
 use rust_decimal::prelude::Zero;
 use rust_decimal::{Decimal, RoundingStrategy};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 pub use types::{OrderSide, OrderType};
@@ -33,6 +33,7 @@ pub struct Market {
     pub quote_prec: u32,
     pub fee_prec: u32,
     pub min_amount: Decimal,
+    pub price: Decimal,
 
     pub orders: BTreeMap<u64, OrderRc>,
     pub users: BTreeMap<u32, BTreeMap<u64, OrderRc>>,
@@ -48,7 +49,7 @@ pub struct Market {
 }
 
 pub struct BalanceManagerWrapper<'a> {
-    inner: &'a mut BalanceManager,
+    pub inner: &'a mut BalanceManager,
 }
 
 impl<'a> From<&'a mut BalanceManager> for BalanceManagerWrapper<'a> {
@@ -116,6 +117,7 @@ impl Market {
             quote_prec,
             fee_prec: market_conf.fee_prec,
             min_amount: market_conf.min_amount,
+            price: Decimal::zero(),
             orders: BTreeMap::new(),
             users: BTreeMap::new(),
             asks: BTreeMap::new(),
@@ -153,7 +155,8 @@ impl Market {
         &mut self,
         sequencer: &mut Sequencer,
         mut balance_manager: BalanceManagerWrapper<'_>,
-        mut persistor: impl PersistExector,
+        balance_update_controller: &mut BalanceUpdateController,
+        persistor: &mut impl PersistExector,
         order_input: OrderInput,
     ) -> Result<Order> {
         if order_input.type_ == OrderType::MARKET && self.disable_market_order {
@@ -192,13 +195,13 @@ impl Market {
 
         if order_input.side == OrderSide::ASK {
             if balance_manager
-                .balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.base)
+                .balance_get(order_input.user_id, BalanceType::AVAILABLE, self.base)
                 .lt(&order_input.amount)
             {
                 bail!("balance not enough");
             }
         } else {
-            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, self.quote);
 
             if order_input.type_ == OrderType::LIMIT {
                 if balance.lt(&(order_input.amount * order_input.price)) {
@@ -225,7 +228,7 @@ impl Market {
             }
         }
         let quote_limit = if order_input.type_ == OrderType::MARKET && order_input.side == OrderSide::BID {
-            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, &self.quote);
+            let balance = balance_manager.balance_get(order_input.user_id, BalanceType::AVAILABLE, self.quote);
             if order_input.quote_limit.is_zero() {
                 // quote_limit == 0 means no extra limit
                 balance
@@ -242,7 +245,7 @@ impl Market {
             Decimal::zero()
         };
 
-        let t = utils::current_timestamp();
+        let t = current_timestamp();
         let order = Order {
             id: sequencer.next_order_id(),
             type_: order_input.type_,
@@ -265,7 +268,14 @@ impl Market {
             post_only: order_input.post_only,
             signature: order_input.signature,
         };
-        let order = self.execute_order(sequencer, &mut balance_manager, &mut persistor, order, &quote_limit);
+        let order = self.execute_order(
+            sequencer,
+            &mut balance_manager,
+            balance_update_controller,
+            persistor,
+            order,
+            &quote_limit,
+        );
         Ok(order)
     }
 
@@ -276,6 +286,7 @@ impl Market {
         &mut self,
         sequencer: &mut Sequencer,
         balance_manager: &mut BalanceManagerWrapper<'_>,
+        balance_update_controller: &mut BalanceUpdateController,
         persistor: &mut impl PersistExector,
         mut taker: Order,
         quote_limit: &Decimal,
@@ -368,7 +379,7 @@ impl Market {
             let bid_fee = (traded_base_amount * bid_fee_rate).round_dp_with_strategy(self.base_prec, RoundingStrategy::ToZero);
             let ask_fee = (traded_quote_amount * ask_fee_rate).round_dp_with_strategy(self.quote_prec, RoundingStrategy::ToZero);
 
-            let timestamp = utils::current_timestamp();
+            let timestamp = current_timestamp();
             ask_order.update_time = timestamp;
             bid_order.update_time = timestamp;
 
@@ -376,7 +387,7 @@ impl Market {
             let trade_id = sequencer.next_trade_id();
             let trade = Trade {
                 id: trade_id,
-                timestamp: utils::current_timestamp(),
+                timestamp: current_timestamp(),
                 market: self.name.to_string(),
                 base: self.base.into(),
                 quote: self.quote.into(),
@@ -400,7 +411,7 @@ impl Market {
                 state_after: Default::default(),
             };
             #[cfg(feature = "emit_state_diff")]
-            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            let state_before = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
             self.trade_count += 1;
             if self.disable_self_trade {
                 debug_assert_ne!(trade.ask_user_id, trade.bid_user_id);
@@ -423,46 +434,96 @@ impl Market {
             bid_order.finished_fee += bid_fee;
 
             // Step6: update balances
-            // TODO: change balance should emit a balance update history/event
-            // handle maker balance
-            let _balance_type = if maker_is_bid {
-                BalanceType::FREEZE
-            } else {
-                BalanceType::AVAILABLE
-            };
-            // handle base
-            balance_manager.balance_add(bid_order.user, BalanceType::AVAILABLE, &self.base, &traded_base_amount);
-            balance_manager.balance_sub(
-                ask_order.user,
-                if maker_is_ask {
-                    BalanceType::FREEZE
-                } else {
-                    BalanceType::AVAILABLE
-                },
-                &self.base,
-                &traded_base_amount,
-            );
-            // handle quote
-            balance_manager.balance_add(ask_order.user, BalanceType::AVAILABLE, &self.quote, &traded_quote_amount);
-            balance_manager.balance_sub(
-                bid_order.user,
-                if maker_is_bid {
-                    BalanceType::FREEZE
-                } else {
-                    BalanceType::AVAILABLE
-                },
-                &self.quote,
-                &traded_quote_amount,
-            );
-
-            if ask_fee.is_sign_positive() {
-                balance_manager.balance_sub(ask_order.user, BalanceType::AVAILABLE, &self.quote, &ask_fee);
-            }
-            if bid_fee.is_sign_positive() {
-                balance_manager.balance_sub(bid_order.user, BalanceType::AVAILABLE, &self.base, &bid_fee);
-            }
+            balance_update_controller
+                .update_user_balance(
+                    balance_manager.inner,
+                    persistor,
+                    BalanceUpdateParams {
+                        balance_type: BalanceType::AVAILABLE,
+                        business_type: BusinessType::Trade,
+                        user_id: bid_order.user,
+                        asset: self.base.to_string(),
+                        business: "trade".to_string(),
+                        business_id: trade_id,
+                        market_price: self.price,
+                        change: if bid_fee.is_sign_positive() {
+                            traded_base_amount - bid_fee
+                        } else {
+                            traded_base_amount
+                        },
+                        detail: serde_json::Value::default(),
+                        signature: vec![],
+                    },
+                )
+                .unwrap();
+            balance_update_controller
+                .update_user_balance(
+                    balance_manager.inner,
+                    persistor,
+                    BalanceUpdateParams {
+                        balance_type: if maker_is_ask {
+                            BalanceType::FREEZE
+                        } else {
+                            BalanceType::AVAILABLE
+                        },
+                        business_type: BusinessType::Trade,
+                        user_id: ask_order.user,
+                        asset: self.base.to_string(),
+                        business: "trade".to_string(),
+                        business_id: trade_id,
+                        market_price: self.price,
+                        change: -traded_base_amount,
+                        detail: serde_json::Value::default(),
+                        signature: vec![],
+                    },
+                )
+                .unwrap();
+            balance_update_controller
+                .update_user_balance(
+                    balance_manager.inner,
+                    persistor,
+                    BalanceUpdateParams {
+                        balance_type: BalanceType::AVAILABLE,
+                        business_type: BusinessType::Trade,
+                        user_id: ask_order.user,
+                        asset: self.quote.to_string(),
+                        business: "trade".to_string(),
+                        business_id: trade_id,
+                        market_price: self.price,
+                        change: if ask_fee.is_sign_positive() {
+                            traded_quote_amount - ask_fee
+                        } else {
+                            traded_quote_amount
+                        },
+                        detail: serde_json::Value::default(),
+                        signature: vec![],
+                    },
+                )
+                .unwrap();
+            balance_update_controller
+                .update_user_balance(
+                    balance_manager.inner,
+                    persistor,
+                    BalanceUpdateParams {
+                        balance_type: if maker_is_bid {
+                            BalanceType::FREEZE
+                        } else {
+                            BalanceType::AVAILABLE
+                        },
+                        business_type: BusinessType::Trade,
+                        user_id: bid_order.user,
+                        asset: self.quote.to_string(),
+                        business: "trade".to_string(),
+                        business_id: trade_id,
+                        market_price: self.price,
+                        change: -traded_quote_amount,
+                        detail: serde_json::Value::default(),
+                        signature: vec![],
+                    },
+                )
+                .unwrap();
             #[cfg(feature = "emit_state_diff")]
-            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, &self.base, &self.quote);
+            let state_after = Self::get_trade_state(ask_order, bid_order, balance_manager, self.base, self.quote);
 
             // Step7: persist trade and order
             //if true persistor.real_persist() {
@@ -488,10 +549,13 @@ impl Market {
                 // So we don't need to send the finish message here.
                 persistor.put_order(&maker, OrderEventType::UPDATE);
             }
+
+            // Save this trade price to market.
+            self.price = price;
         }
 
         for item in finished_orders.iter() {
-            self.order_finish(&mut *balance_manager, &mut *persistor, item);
+            self.order_finish(&mut *balance_manager, persistor, item);
         }
 
         if need_cancel {
@@ -621,16 +685,16 @@ impl Market {
             ],
         }
     }
-    pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, mut persistor: impl PersistExector, order_id: u64) -> Order {
+    pub fn cancel(&mut self, mut balance_manager: BalanceManagerWrapper<'_>, persistor: &mut impl PersistExector, order_id: u64) -> Order {
         let order = self.orders.get(&order_id).unwrap();
         let order_struct = order.deep();
-        self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
+        self.order_finish(&mut balance_manager, persistor, &order_struct);
         order_struct
     }
     pub fn cancel_all_for_user(
         &mut self,
         mut balance_manager: BalanceManagerWrapper<'_>,
-        mut persistor: impl PersistExector,
+        persistor: &mut impl PersistExector,
         user_id: u32,
     ) -> usize {
         // TODO: can we mutate while iterate?
@@ -639,7 +703,7 @@ impl Market {
         for order_id in order_ids {
             let order = self.orders.get(&order_id).unwrap();
             let order_struct = order.deep();
-            self.order_finish(&mut balance_manager, &mut persistor, &order_struct);
+            self.order_finish(&mut balance_manager, persistor, &order_struct);
         }
         total
     }
@@ -746,12 +810,12 @@ struct BalanceHistoryFromFee {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
+    use crate::asset::update_controller::{BalanceUpdateParams, BusinessType};
     use crate::config::Settings;
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
-    use rust_decimal_macros::*;
     use mock::*;
+    use rust_decimal_macros::*;
 
     //#[cfg(feature = "emit_state_diff")]
     #[test]
@@ -759,8 +823,8 @@ mod tests {
         use crate::asset::BalanceUpdateController;
         use crate::matchengine::market::{Market, OrderInput};
         use crate::types::{OrderSide, OrderType};
-        use rust_decimal::prelude::FromPrimitive;
         use rand::Rng;
+        use rust_decimal::prelude::FromPrimitive;
 
         let only_int = true;
         let broker = std::env::var("KAFKA_BROKER");
@@ -781,11 +845,13 @@ mod tests {
                     balance_manager,
                     &mut persistor,
                     BalanceUpdateParams {
-                        typ: BalanceUpdateType::Deposit,
+                        balance_type: BalanceType::AVAILABLE,
+                        business_type: BusinessType::Deposit,
                         user_id,
                         asset: asset.to_string(),
                         business: "deposit".to_owned(),
                         business_id: seq_id,
+                        market_price: Decimal::zero(),
                         change: amount,
                         detail: serde_json::Value::default(),
                         signature: vec![],
@@ -834,12 +900,14 @@ mod tests {
                 post_only: false,
                 signature: [0; 64],
             };
-            market.put_order(sequencer, balance_manager.into(), &mut persistor, order).unwrap();
+            market
+                .put_order(sequencer, balance_manager.into(), &mut update_controller, &mut persistor, order)
+                .unwrap();
         }
     }
-
     #[test]
     fn test_market_taker_is_bid() {
+        let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
         balance_manager.add(101, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
@@ -865,7 +933,13 @@ mod tests {
             signature: [0; 64],
         };
         let ask_order = market
-            .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
+            .put_order(
+                sequencer,
+                balance_manager.into(),
+                &mut update_controller,
+                &mut persistor,
+                ask_order_input,
+            )
             .unwrap();
         assert_eq!(ask_order.id, 1);
         assert_eq!(ask_order.remain, dec!(20.0));
@@ -885,7 +959,13 @@ mod tests {
             signature: [0; 64],
         };
         let bid_order = market
-            .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
+            .put_order(
+                sequencer,
+                balance_manager.into(),
+                &mut update_controller,
+                &mut persistor,
+                bid_order_input,
+            )
             .unwrap();
         // trade: price: 0.10 amount: 10
         assert_eq!(bid_order.id, 2);
@@ -942,6 +1022,7 @@ mod tests {
 
     #[test]
     fn test_limit_post_only_orders() {
+        let mut update_controller = BalanceUpdateController::new();
         let balance_manager = &mut get_simple_balance_manager(get_simple_asset_config(8));
 
         balance_manager.add(201, BalanceType::AVAILABLE, &MockAsset::USDT.id(), &dec!(300));
@@ -967,7 +1048,13 @@ mod tests {
             signature: [0; 64],
         };
         let ask_order = market
-            .put_order(sequencer, balance_manager.into(), &mut persistor, ask_order_input)
+            .put_order(
+                sequencer,
+                balance_manager.into(),
+                &mut update_controller,
+                &mut persistor,
+                ask_order_input,
+            )
             .unwrap();
 
         assert_eq!(ask_order.id, 1);
@@ -988,7 +1075,13 @@ mod tests {
             signature: [0; 64],
         };
         let bid_order = market
-            .put_order(sequencer, balance_manager.into(), &mut persistor, bid_order_input)
+            .put_order(
+                sequencer,
+                balance_manager.into(),
+                &mut update_controller,
+                &mut persistor,
+                bid_order_input,
+            )
             .unwrap();
 
         // No trade occurred since limit and post only. This BID order should be finished.

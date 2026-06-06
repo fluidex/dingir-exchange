@@ -1,4 +1,4 @@
-use crate::asset::update_controller::{BalanceUpdateParams, BalanceUpdateType};
+use crate::asset::update_controller::{BalanceUpdateParams, BusinessType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
@@ -12,13 +12,13 @@ use crate::sequencer::Sequencer;
 use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
 use crate::user_manager::{self, UserManager};
-use crate::utils::{self, FTimestamp};
 
-use anyhow::{anyhow, bail};
-use crate::utils::merge_sort::{MergeSortIterator, Order as SortOrder};
-use rust_decimal::prelude::Zero;
-use rust_decimal::Decimal;
 use crate::rpc::exchange::*;
+use crate::utils::merge_sort::{MergeSortIterator, Order as SortOrder};
+use crate::utils::timeutil::{FTimestamp, current_timestamp};
+use anyhow::{anyhow, bail};
+use rust_decimal::Decimal;
+use rust_decimal::prelude::{RoundingStrategy, Zero};
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Connection;
@@ -27,6 +27,10 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
+
+type MarketName = String;
+type BaseAsset = String;
+type QuoteAsset = String;
 
 pub trait OperationLogConsumer {
     fn is_block(&self) -> bool;
@@ -91,13 +95,14 @@ pub struct Controller {
     pub eth_guard: EthLogGuard,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
-    pub markets: HashMap<String, market::Market>,
+    pub markets: HashMap<MarketName, market::Market>,
+    pub asset_market_names: HashMap<(BaseAsset, QuoteAsset), MarketName>,
     // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
     pub persistor: Box<dyn PersistExector>,
     // TODO: is this needed?
     pub dummy_persistor: Box<dyn PersistExector>,
-    dbg_pool: sqlx::Pool<DbType>,
+    db_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
 }
 
@@ -120,9 +125,11 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     //        let asset_manager = AssetManager::new(&settings.assets).unwrap();
     let sequencer = Sequencer::default();
     let mut markets = HashMap::new();
+    let mut asset_market_names = HashMap::new();
     for entry in &settings.markets {
         let market = market::Market::new(entry, &settings, &balance_manager).unwrap();
         markets.insert(entry.name.clone(), market);
+        asset_market_names.insert((entry.base.clone(), entry.quote.clone()), entry.name.clone());
     }
 
     let persistor = create_persistor(&settings);
@@ -142,10 +149,11 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         eth_guard: EthLogGuard::new(0),
         update_controller,
         markets,
+        asset_market_names,
         log_handler: Box::<OperationLogSender>::new(log_handler),
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
-        dbg_pool: main_pool,
+        db_pool: main_pool,
         market_load_cfg: cfgs.1,
     }
 }
@@ -411,12 +419,13 @@ impl Controller {
             return Ok(BalanceUpdateResponse::default());
         }
 
-        if !self.balance_manager.asset_manager.asset_exist(&req.asset) {
+        let asset = &req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
-        let prec = self.balance_manager.asset_manager.asset_prec_show(&req.asset);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
         let change_result = Decimal::from_str(req.delta.as_str()).map_err(|_| Status::invalid_argument("invalid amount"))?;
-        let change = change_result.round_dp(prec);
+        let change = change_result.round_dp_with_strategy(prec, RoundingStrategy::ToNegativeInfinity);
         let detail_json: serde_json::Value = if req.detail.is_empty() {
             json!({})
         } else {
@@ -424,21 +433,28 @@ impl Controller {
         };
         //let persistor = self.get_persistor(real);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
-        let update_type = if change.is_sign_positive() {
-            BalanceUpdateType::Deposit
+        let business_type = if change.is_sign_positive() {
+            BusinessType::Deposit
         } else {
-            BalanceUpdateType::Withdraw
+            BusinessType::Withdraw
+        };
+        // Get market price of requested base asset and quote asset of USDT.
+        let market_price = match self.asset_market_names.get(&(asset.to_owned(), "USDT".to_owned())) {
+            Some(market_name) => self.markets.get(market_name).unwrap().price,
+            None => Decimal::zero(),
         };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: update_type,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type,
                     user_id: req.user_id,
-                    asset: req.asset.to_string(),
+                    asset: asset.to_owned(),
                     business: req.business.clone(),
                     business_id: req.business_id,
+                    market_price,
                     change,
                     detail: detail_json,
                     signature: req.signature.clone().map_or_else(Vec::new, |sig| sig.as_bytes().to_vec()),
@@ -495,7 +511,7 @@ impl Controller {
                 return Err(Status::invalid_argument("inconsistent order markets"));
             }
 
-            match self.put_order(real, &order_req) {
+            match self.put_order(real, order_req) {
                 Ok(order) => order_ids.push(order.id),
                 Err(error) => {
                     result_code = ResultCode::InternalError;
@@ -558,7 +574,7 @@ impl Controller {
     pub async fn debug_dump(&self, _req: DebugDumpRequest) -> Result<DebugDumpResponse, Status> {
         async {
             let mut connection = ConnectionType::connect(&self.settings.db_log).await?;
-            crate::persist::dump_to_db(&mut connection, utils::current_timestamp() as i64, self).await
+            crate::persist::dump_to_db(&mut connection, current_timestamp() as i64, self).await
         }
         .await
         .map_err(|err| Status::unknown(format!("{}", err)))?;
@@ -586,7 +602,7 @@ impl Controller {
         //after another
         let new_assets = self
             .market_load_cfg
-            .load_asset_from_db(&self.dbg_pool)
+            .load_asset_from_db(&self.db_pool)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
@@ -594,14 +610,15 @@ impl Controller {
 
         let new_markets = self
             .market_load_cfg
-            .load_market_from_db(&self.dbg_pool)
+            .load_market_from_db(&self.db_pool)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         for entry in new_markets.into_iter() {
             let handle_ret = if self.markets.get(&entry.name).is_none() {
                 market::Market::new(&entry, &self.settings, &self.balance_manager).map(|mk| {
-                    self.markets.insert(entry.name, mk);
+                    self.markets.insert(entry.name.clone(), mk);
+                    self.asset_market_names.insert((entry.base, entry.quote), entry.name);
                 })
             } else {
                 Err(anyhow!("market {} is duplicated", entry.name))
@@ -620,8 +637,8 @@ impl Controller {
             return Err(Status::unavailable(""));
         }
 
-        let asset_id = &req.asset;
-        if !self.balance_manager.asset_manager.asset_exist(asset_id) {
+        let asset = &req.asset;
+        if !self.balance_manager.asset_manager.asset_exist(asset) {
             return Err(Status::invalid_argument("invalid asset"));
         }
 
@@ -632,7 +649,7 @@ impl Controller {
         }
 
         let balance_manager = &self.balance_manager;
-        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset_id);
+        let balance_from = balance_manager.get(from_user_id, BalanceType::AVAILABLE, asset);
 
         let zero = Decimal::from(0);
         let delta = Decimal::from_str(&req.delta).unwrap_or(zero);
@@ -640,16 +657,16 @@ impl Controller {
         if delta <= zero || delta > balance_from {
             return Ok(TransferResponse {
                 success: false,
-                asset: asset_id.to_owned(),
+                asset: asset.to_owned(),
                 balance_from: balance_from.to_string(),
             });
         }
 
-        let prec = self.balance_manager.asset_manager.asset_prec_show(asset_id);
-        let change = delta.round_dp(prec);
+        let prec = self.balance_manager.asset_manager.asset_prec_show(asset);
+        let change = delta.round_dp_with_strategy(prec, RoundingStrategy::ToNegativeInfinity);
 
         let business = "transfer";
-        let timestamp = FTimestamp(utils::current_timestamp());
+        let timestamp = FTimestamp(current_timestamp());
         let business_id = (timestamp.0 * 1_000_f64) as u64; // milli-seconds
         let detail_json: serde_json::Value = if req.memo.is_empty() {
             json!({})
@@ -657,18 +674,24 @@ impl Controller {
             serde_json::from_str(req.memo.as_str()).map_err(|_| Status::invalid_argument("invalid memo"))?
         };
 
-        //let persistor = self.get_persistor(real);
+        // Get market price of requested base asset and quote asset of USDT.
+        let market_price = self
+            .asset_market_names
+            .get(&(asset.to_owned(), "USDT".to_owned()))
+            .map_or(Decimal::zero(), |market_name| self.markets.get(market_name).unwrap().price);
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         self.update_controller
             .update_user_balance(
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: BalanceUpdateType::Transfer,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type: BusinessType::Transfer,
                     user_id: from_user_id,
-                    asset: asset_id.to_owned(),
+                    asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
+                    market_price,
                     change: -change,
                     detail: detail_json.clone(),
                     signature: vec![],
@@ -682,11 +705,13 @@ impl Controller {
                 &mut self.balance_manager,
                 persistor,
                 BalanceUpdateParams {
-                    typ: BalanceUpdateType::Transfer,
+                    balance_type: BalanceType::AVAILABLE,
+                    business_type: BusinessType::Transfer,
                     user_id: to_user_id,
-                    asset: asset_id.to_owned(),
+                    asset: asset.to_owned(),
                     business: business.to_owned(),
                     business_id,
+                    market_price: Decimal::zero(),
                     change,
                     detail: detail_json,
                     signature: vec![],
@@ -699,7 +724,7 @@ impl Controller {
                 time: timestamp.into(),
                 user_from: from_user_id as i32, // TODO: will this overflow?
                 user_to: to_user_id as i32,     // TODO: will this overflow?
-                asset: asset_id.to_string(),
+                asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),
             });
@@ -709,7 +734,7 @@ impl Controller {
 
         Ok(TransferResponse {
             success: true,
-            asset: asset_id.to_owned(),
+            asset: asset.to_owned(),
             balance_from: (balance_from - change).to_string(),
         })
     }
@@ -752,7 +777,13 @@ impl Controller {
             // to avoid timescaledb extension state issues after schema drop
             let db_str = self.settings.db_log.clone();
             let db_name = db_str.rsplit('/').next().unwrap_or("exchange");
-            let admin_db_str = format!("{}/postgres", db_str.rsplitn(2, '/').nth(1).unwrap_or("postgres://exchange:exchange_AA9944@127.0.0.1"));
+            let admin_db_str = format!(
+                "{}/postgres",
+                db_str
+                    .rsplitn(2, '/')
+                    .nth(1)
+                    .unwrap_or("postgres://exchange:exchange_AA9944@127.0.0.1")
+            );
             let mut admin_conn = ConnectionType::connect(&admin_db_str).await?;
             let drop_cmd = format!("DROP DATABASE IF EXISTS {} WITH (FORCE);", db_name);
             let create_cmd = format!("CREATE DATABASE {} OWNER exchange;", db_name);
@@ -843,10 +874,17 @@ impl Controller {
         }
         let market = self.markets.get_mut(&req.market).unwrap();
         let balance_manager = &mut self.balance_manager;
+        let update_controller = &mut self.update_controller;
         let persistor = if real { &mut self.persistor } else { &mut self.dummy_persistor };
         let order_input = OrderInput::try_from(req.clone()).map_err(|e| Status::invalid_argument(format!("invalid decimal {}", e)))?;
         market
-            .put_order(&mut self.sequencer, balance_manager.into(), persistor, order_input)
+            .put_order(
+                &mut self.sequencer,
+                balance_manager.into(),
+                update_controller,
+                persistor,
+                order_input,
+            )
             .map_err(|e| Status::unknown(format!("{}", e)))
     }
     fn append_operation_log<Operation>(&mut self, method: &str, req: &Operation)
@@ -856,7 +894,7 @@ impl Controller {
         let params = serde_json::to_string(req).unwrap();
         let operation_log = models::OperationLog {
             id: self.sequencer.next_operation_log_id() as i64,
-            time: FTimestamp(utils::current_timestamp()).into(),
+            time: FTimestamp(current_timestamp()).into(),
             method: method.to_owned(),
             params,
         };

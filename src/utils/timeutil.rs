@@ -38,7 +38,9 @@ impl From<&f64> for FTimestamp {
 
 impl From<FTimestamp> for NaiveDateTime {
     fn from(f: FTimestamp) -> NaiveDateTime {
-        DateTime::from_timestamp(f.0 as i64, ((f.0 - f.0 as i64 as f64) * 1e9) as u32).unwrap().naive_utc()
+        DateTime::from_timestamp(f.0 as i64, ((f.0 - f.0 as i64 as f64) * 1e9) as u32)
+            .unwrap()
+            .naive_utc()
     }
 }
 
@@ -58,5 +60,11 @@ impl From<FTimestamp> for DateTime<Utc> {
     fn from(f: FTimestamp) -> DateTime<Utc> {
         let naive: NaiveDateTime = f.into();
         naive.and_utc()
+    }
+}
+
+impl FTimestamp {
+    pub fn as_milliseconds(&self) -> i64 {
+        (self.0 * 1000.0) as i64
     }
 }

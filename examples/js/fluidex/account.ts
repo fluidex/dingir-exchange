@@ -1,14 +1,14 @@
-import { prv2pub, signWithHasher, packSignature } from './eddsa';
-import { babyJub } from 'circomlib';
-import { ffutils, Scalar } from './ffjs';
-import * as ethers from 'ethers';
-import { randomBytes } from '@ethersproject/random';
-import { defaultPath, HDNode, entropyToMnemonic, Mnemonic } from '@ethersproject/hdnode';
-import { SigningKey } from '@ethersproject/signing-key';
-import { hash } from './hash';
+import { prv2pub, signWithHasher, packSignature } from "./eddsa";
+import { babyJub } from "circomlib";
+import { ffutils, Scalar } from "./ffjs";
+import * as ethers from "ethers";
+import { randomBytes } from "@ethersproject/random";
+import { defaultPath, HDNode, entropyToMnemonic, Mnemonic } from "@ethersproject/hdnode";
+import { SigningKey } from "@ethersproject/signing-key";
+import { hash } from "./hash";
 
 function get_CREATE_L2_ACCOUNT_MSG(chainID: number): string {
-  return 'FLUIDEX_L2_ACCOUNT' + `\nChain ID: ${chainID}.`;
+  return "FLUIDEX_L2_ACCOUNT" + `\nChain ID: ${chainID}.`;
 }
 
 // https://github.com/ethers-io/ethers.js/issues/447#issuecomment-519163178
@@ -26,7 +26,7 @@ class L2Account {
   public bjjPubKey: string;
   constructor(seed) {
     if (seed.length != 32) {
-      throw new Error('invalid l2 key seed');
+      throw new Error("invalid l2 key seed");
     }
 
     this.rollupPrvKey = Buffer.from(seed);
@@ -42,13 +42,13 @@ class L2Account {
     if (compressedBuff[31] & 0x80) {
       this.sign = 1n;
     }
-    this.bjjPubKey = '0x' + Buffer.from(compressedBuff).toString('hex');
+    this.bjjPubKey = "0x" + Buffer.from(compressedBuff).toString("hex");
     //this.bjjCompressed = utils.padZeros(ffutils.leBuff2int(compressedBuff).toString(16), 64);
   }
 
   signHashPacked(h: bigint): string {
     const sig = signWithHasher(this.rollupPrvKey, h, hash);
-    return packSignature(sig).toString('hex');
+    return packSignature(sig).toString("hex");
   }
 
   signHash(h: bigint): TxSignature {

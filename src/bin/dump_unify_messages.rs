@@ -65,15 +65,18 @@ fn main() {
         loop {
             let writer = writer.clone();
             let cr_main = SimpleConsumer::new(consumer.as_ref())
-                .add_topic(message::UNIFY_TOPIC, SimpleHandler::new(move |msg: &BorrowedMessage<'_>| {
-                    let mut file = writer.out_file.lock().unwrap();
-                    let msg_key = std::str::from_utf8(msg.key().unwrap()).unwrap();
-                    if let Some(msgtype) = get_msg_tag_from_topic(msg_key) {
-                        let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
-                        file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
-                            .unwrap();
-                    }
-                }))
+                .add_topic(
+                    message::UNIFY_TOPIC,
+                    SimpleHandler::new(move |msg: &BorrowedMessage<'_>| {
+                        let mut file = writer.out_file.lock().unwrap();
+                        let msg_key = std::str::from_utf8(msg.key().unwrap()).unwrap();
+                        if let Some(msgtype) = get_msg_tag_from_topic(msg_key) {
+                            let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
+                            file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
+                                .unwrap();
+                        }
+                    }),
+                )
                 .unwrap();
 
             tokio::select! {

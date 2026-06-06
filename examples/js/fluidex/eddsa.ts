@@ -1,8 +1,8 @@
 /* modified from circomlib/src/eddsa.js */
 
-import * as createBlakeHash from 'blake-hash';
-import { Scalar, F1Field, ffutils } from './ffjs';
-import { babyJub, poseidon } from 'circomlib';
+import * as createBlakeHash from "blake-hash";
+import { Scalar, F1Field, ffutils } from "./ffjs";
+import { babyJub, poseidon } from "circomlib";
 
 function pruneBuffer(_buff) {
   const buff = Buffer.from(_buff);
@@ -13,7 +13,7 @@ function pruneBuffer(_buff) {
 }
 
 function prv2bigint(prv) {
-  const sBuff = pruneBuffer(createBlakeHash('blake512').update(prv).digest().slice(0, 32));
+  const sBuff = pruneBuffer(createBlakeHash("blake512").update(prv).digest().slice(0, 32));
   let s = ffutils.leBuff2int(sBuff);
   return Scalar.shr(s, 3);
 }
@@ -24,13 +24,13 @@ function prv2pub(prv) {
 }
 
 function signWithHasher(prv, msg, hasher) {
-  const h1 = createBlakeHash('blake512').update(prv).digest();
+  const h1 = createBlakeHash("blake512").update(prv).digest();
   const sBuff = pruneBuffer(h1.slice(0, 32));
   const s = ffutils.leBuff2int(sBuff);
   const A = babyJub.mulPointEscalar(babyJub.Base8, Scalar.shr(s, 3));
 
   const msgBuff = ffutils.leInt2Buff(msg, 32);
-  const rBuff = createBlakeHash('blake512')
+  const rBuff = createBlakeHash("blake512")
     .update(Buffer.concat([h1.slice(32, 64), msgBuff]))
     .digest();
   let r = ffutils.leBuff2int(rBuff);
@@ -47,7 +47,7 @@ function signWithHasher(prv, msg, hasher) {
 
 function verifyWithHasher(msg, sig, A, hasher) {
   // Check parameters
-  if (typeof sig != 'object') return false;
+  if (typeof sig != "object") return false;
   if (!Array.isArray(sig.R8)) return false;
   if (sig.R8.length != 2) return false;
   if (!babyJub.inCurve(sig.R8)) return false;

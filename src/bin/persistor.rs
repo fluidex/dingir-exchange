@@ -10,7 +10,7 @@ use types::DbType;
 
 use rdkafka::consumer::StreamConsumer;
 
-use message::persist::{self, TopicHandlerBuilder, MIGRATOR};
+use message::persist::{self, MIGRATOR, TopicHandlerBuilder};
 
 fn main() {
     dotenv::dotenv().ok();
@@ -93,11 +93,16 @@ fn main() {
 
         loop {
             let cr_main = message::consumer::SimpleConsumer::new(consumer)
-                .add_topic_config(&trade_cfg).unwrap()
-                .add_topic_config(&order_cfg).unwrap()
-                .add_topic_config(&balance_cfg).unwrap()
-                .add_topic_config(&internaltx_cfg).unwrap()
-                .add_topic_config(&user_cfg).unwrap();
+                .add_topic_config(&trade_cfg)
+                .unwrap()
+                .add_topic_config(&order_cfg)
+                .unwrap()
+                .add_topic_config(&balance_cfg)
+                .unwrap()
+                .add_topic_config(&internaltx_cfg)
+                .unwrap()
+                .add_topic_config(&user_cfg)
+                .unwrap();
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {

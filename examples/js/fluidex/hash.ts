@@ -1,4 +1,4 @@
-import { poseidon } from 'circomlib';
+import { poseidon } from "circomlib";
 export { poseidon as hash };
 
 //import { rescueHash as rescueHashJs } from './rescue_hash';

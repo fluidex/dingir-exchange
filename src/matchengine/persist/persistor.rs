@@ -138,7 +138,7 @@ impl MemBasedPersistor {
     }
 }
 
-impl PersistExector for &mut MemBasedPersistor {
+impl PersistExector for MemBasedPersistor {
     fn put_order(&mut self, order: &Order, at_step: OrderEventType) {
         self.messages
             .push(message::Message::OrderMessage(Box::new(OrderMessage::from_order(order, at_step))));

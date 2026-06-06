@@ -1,6 +1,6 @@
 use crate::models::AccountDesc;
 use crate::types::ConnectionType;
-use crate::utils::crypto::{verify as babyjubjub_verify, BigInt, PubkeyExt, SignatureExt};
+use crate::utils::crypto::{BigInt, PubkeyExt, SignatureExt, verify as babyjubjub_verify};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -1,6 +1,6 @@
-const Scalar = require('ffjavascript').Scalar;
-import { Account, TxSignature } from './account';
-import { hash } from './hash';
+const Scalar = require("ffjavascript").Scalar;
+import { Account, TxSignature } from "./account";
+import { hash } from "./hash";
 
 export enum OrderSide {
   Buy,

@@ -1,5 +1,5 @@
-import { Account, TxSignature } from './account';
-import { hash } from './hash';
+import { Account, TxSignature } from "./account";
+import { hash } from "./hash";
 
 export class WithdrawTx {
   account_id: bigint = 0n;

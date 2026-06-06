@@ -137,13 +137,7 @@ mod tests {
         let i5 = vec![3u32, 10, 13];
 
         let iter = MergeSortIterator::new(
-            vec![
-                i1.into_iter(),
-                i2.into_iter(),
-                i3.into_iter(),
-                i4.into_iter(),
-                i5.into_iter(),
-            ],
+            vec![i1.into_iter(), i2.into_iter(), i3.into_iter(), i4.into_iter(), i5.into_iter()],
             Order::Asc,
         );
         assert_eq!(
@@ -177,10 +171,7 @@ mod tests {
         }
         vectors.push(vec![3u32, 6, 10, 13, 15]);
 
-        let iter = MergeSortIterator::new(
-            vectors.into_iter().map(|v| v.into_iter()).collect(),
-            Order::Asc,
-        );
+        let iter = MergeSortIterator::new(vectors.into_iter().map(|v| v.into_iter()).collect(), Order::Asc);
         assert_eq!(
             iter.collect::<Vec<u32>>(),
             vec![1u32, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]

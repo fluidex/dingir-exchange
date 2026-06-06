@@ -1,6 +1,6 @@
 use config_rs::{Config, File};
-use rust_decimal::Decimal;
 use paperclip::actix::Apiv2Schema;
+use rust_decimal::Decimal;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

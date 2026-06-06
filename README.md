@@ -57,7 +57,7 @@ $ cd $DingirExchangeDir/examples/js ; npm i
 # This script will put orders into the exchange.
 # Then you will find some orders got matched, trades generated,
 # and users' balances updated accordingly. 
-$ npx ts-node trade.ts 
+$ npx ts-node tests/trade.ts 
 ```
 
 ## Release

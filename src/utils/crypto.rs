@@ -6,12 +6,11 @@ use std::io;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-pub use babyjubjub_rs::{decompress_point, decompress_signature, verify, Point as Pubkey, Signature};
+pub use babyjubjub_rs::{Point as Pubkey, Signature, decompress_point, decompress_signature, verify};
 pub use poseidon_rs::Fr;
 
 /// Global Poseidon hasher instance.
-pub static POSEIDON_HASHER: LazyLock<poseidon_rs::Poseidon> =
-    LazyLock::new(poseidon_rs::Poseidon::new);
+pub static POSEIDON_HASHER: LazyLock<poseidon_rs::Poseidon> = LazyLock::new(poseidon_rs::Poseidon::new);
 
 #[derive(Debug, thiserror::Error)]
 pub enum FrExtError {

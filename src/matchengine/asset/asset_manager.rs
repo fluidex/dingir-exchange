@@ -1,9 +1,9 @@
 use crate::config;
 use crate::market::{Market, OrderCommitment};
-use anyhow::{bail, Result};
-use rust_decimal::{self, RoundingStrategy};
-use crate::utils::crypto::{DecimalExt, Fr, FrExt};
 use crate::rpc::exchange::*;
+use crate::utils::crypto::{DecimalExt, Fr, FrExt};
+use anyhow::{Result, bail};
+use rust_decimal::{self, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;

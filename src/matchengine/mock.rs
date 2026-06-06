@@ -54,6 +54,7 @@ pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
     ]
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub enum MockAsset {
     ETH,

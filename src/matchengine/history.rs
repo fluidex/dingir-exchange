@@ -3,7 +3,7 @@ use crate::market;
 use crate::models;
 use market::Trade;
 
-use crate::utils::FTimestamp;
+use crate::utils::timeutil::FTimestamp;
 use anyhow::Result;
 
 type BalanceWriter = DatabaseWriter<models::BalanceHistory>;

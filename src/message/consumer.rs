@@ -1,9 +1,9 @@
-use anyhow::{format_err, Result};
+use anyhow::{Result, format_err};
 use futures::StreamExt;
+use rdkafka::Message;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::error::KafkaError;
 use rdkafka::message::BorrowedMessage;
-use rdkafka::Message;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -59,8 +59,7 @@ impl<'c> SimpleConsumer<'c> {
         loop {
             match stream.next().await.expect("Kafka's stream has no EOF") {
                 Err(KafkaError::NoMessageReceived) => {
-                    let fs: Vec<PinBoxFuture<()>> =
-                        self.handlers.iter().map(|(_, h)| h.on_no_msg(self.consumer)).collect();
+                    let fs: Vec<PinBoxFuture<()>> = self.handlers.iter().map(|(_, h)| h.on_no_msg(self.consumer)).collect();
                     futures::future::join_all(fs).await;
                 }
                 Err(KafkaError::PartitionEOF(_)) => {} //simply omit this type of error
@@ -107,8 +106,7 @@ where
             match String::from_utf8(payload.to_vec())
                 .map_err(|e| format_err!("Decode kafka message fail: {}", e))
                 .and_then(|json_str| {
-                    serde_json::from_str::<T>(&json_str)
-                        .map_err(|e| format_err!("Decode json fail: {}, payload: {}", e, json_str))
+                    serde_json::from_str::<T>(&json_str).map_err(|e| format_err!("Decode json fail: {}, payload: {}", e, json_str))
                 }) {
                 Ok(t) => {
                     log::debug!("{:?}", t);

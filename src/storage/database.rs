@@ -1,10 +1,10 @@
-use std::collections::{hash_map, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque, hash_map};
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::{sync, task};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::models;
 use crate::types;

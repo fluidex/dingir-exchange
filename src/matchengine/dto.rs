@@ -1,9 +1,10 @@
 use crate::market;
 
-use anyhow::{anyhow, bail, Result};
-use arrayref::array_ref;
-use rust_decimal::{self, prelude::Zero, Decimal};
 use crate::rpc::exchange::*;
+use crate::utils::timeutil::FTimestamp;
+use anyhow::{Result, anyhow, bail};
+use arrayref::array_ref;
+use rust_decimal::{self, Decimal, prelude::Zero};
 
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -32,8 +33,8 @@ impl From<market::Order> for OrderInfo {
                 OrderSide::Bid as i32
             },
             user_id: o.user,
-            create_time: o.create_time,
-            update_time: o.update_time,
+            create_time: FTimestamp::from(&o.create_time).0 * 1000.0,
+            update_time: FTimestamp::from(&o.update_time).0 * 1000.0,
             price: o.price.to_string(),
             amount: o.amount.to_string(),
             taker_fee: o.taker_fee.to_string(),

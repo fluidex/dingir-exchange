@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::rpc::exchange::*;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tonic::{self, Request, Response, Status};
 
 const MAX_BATCH_ORDER_NUM: usize = 40;
@@ -145,7 +145,7 @@ impl GrpcHandler {
             let order = stub
                 .balance_manager
                 .asset_manager
-                .commit_order(&req, &market)
+                .commit_order(req, market)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
