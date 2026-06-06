@@ -67,3 +67,7 @@ jobs:
           npx ts-node print_orders.ts
           npx ts-node tests/transfer.ts
           npx ts-node tests/put_batch_orders.ts
+          npx ts-node tests/trade_matching.ts
+          npx ts-node tests/balance_consistency.ts
+          npx ts-node tests/market_data.ts
+          npx ts-node tests/state_recovery.ts
