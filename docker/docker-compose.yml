@@ -1,0 +1,53 @@
+services:
+  exchange_db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: exchange_db
+    restart: always
+    volumes:
+      - ./volumes/exchange_db/data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: exchange
+      POSTGRES_USER: exchange
+      POSTGRES_PASSWORD: exchange_AA9944
+
+  rollup_db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: rollup_db
+    restart: always
+    volumes:
+      - ./volumes/rollup_db/data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: rollup
+      POSTGRES_USER: rollup
+      POSTGRES_PASSWORD: rollup_AA9944
+
+  exchange_kafka:
+    image: apache/kafka:latest
+    container_name: exchange_kafka
+    restart: always
+    logging:
+      options:
+        max-size: 10m
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./volumes/exchange_kafka/data:/tmp/kraft-combined-logs
+    command: >
+      bash -c "if [ ! -f /tmp/kraft-combined-logs/meta.properties ]; then /opt/kafka/bin/kafka-storage.sh format -t 02DCB020098A4C5D8F62189F57D4DEA4 --standalone -c /opt/kafka/config/server.properties; fi && /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties --override advertised.listeners=PLAINTEXT://127.0.0.1:9092 --override auto.create.topics.enable=true"
+
+  exchange_envoy:
+    image: envoyproxy/envoy:v1.30.1
+    container_name: exchange_envoy
+    network_mode: host
+    restart: always
+    command: -c /etc/envoy/envoy.yaml --log-level debug
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - ../proto/exchange/matchengine.pb:/tmp/envoy/matchengine.pb
+      - ../proto/rollup/rollup.pb:/tmp/envoy/rollup.pb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

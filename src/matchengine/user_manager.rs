@@ -1,7 +1,6 @@
 use crate::models::AccountDesc;
 use crate::types::ConnectionType;
-use fluidex_common::babyjubjub_rs;
-use fluidex_common::types::{BigInt, PubkeyExt, SignatureExt};
+use crate::utils::crypto::{verify as babyjubjub_verify, BigInt, PubkeyExt, SignatureExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -57,7 +56,7 @@ impl UserManager {
                         return false;
                     }
                 };
-                babyjubjub_rs::verify(pubkey, signature, msg)
+                babyjubjub_verify(pubkey, signature, msg)
             }
         }
     }

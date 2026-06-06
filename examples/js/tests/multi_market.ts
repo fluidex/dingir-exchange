@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Account } from "fluidex.js";
+import { Account } from "../fluidex";
 
 import { defaultClient as client } from "../client";
 import { getTestAccount } from "../accounts";

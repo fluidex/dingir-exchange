@@ -347,7 +347,7 @@ pub async fn search_symbols(
 }
 
 use chrono::{self, DurationRound};
-use fluidex_common::rust_decimal::{prelude::*, Decimal};
+use rust_decimal::{prelude::*, Decimal};
 use futures::TryStreamExt;
 use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
@@ -371,7 +371,7 @@ fn sqlverf_ticker() -> impl std::any::Any {
         "select first(price, time), last(price, time), max(price), min(price), 
         sum(amount), sum(quote_amount) as quote_sum from market_trade where market = $1 and time > $2",
         "USDT_ETH",
-        NaiveDateTime::from_timestamp(100_000_000, 0)
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc()
     )
 }
 
@@ -518,8 +518,8 @@ fn sqlverf_history() -> impl std::any::Any {
     group by ts order by ts asc",
         sqlx::postgres::types::PgInterval::try_from(std::time::Duration::new(3600, 0)).unwrap(),
         "ETH_USDT",
-        NaiveDateTime::from_timestamp(100_000_000, 0),
-        NaiveDateTime::from_timestamp(100_000_000, 0),
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc(),
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc(),
     )
 }
 
@@ -545,8 +545,8 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
         .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // TODO: remove this magic number
         .bind(&req.symbol)
-        .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
-        .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
+        .bind(DateTime::from_timestamp(req.from as i64, 0).unwrap().naive_utc())
+        .bind(DateTime::from_timestamp(req.to as i64, 0).unwrap().naive_utc())
         .fetch(&app_state.db);
 
     let mut out_t: Vec<i32> = Vec::new();
@@ -557,7 +557,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     let mut out_v: Vec<f32> = Vec::new();
 
     while let Some(item) = query_rows.try_next().await.map_err(TradeViewError::from)? {
-        out_t.push(item.ts.as_ref().map(NaiveDateTime::timestamp).unwrap_or(0) as i32);
+        out_t.push(item.ts.as_ref().map(|t| t.and_utc().timestamp()).unwrap_or(0) as i32);
         out_c.push(item.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_o.push(item.first.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_h.push(item.max.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
@@ -570,11 +570,11 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     if out_t.is_empty() {
         let next_query = format!("select time from {} where time < $1 order by time desc limit 1", MARKETTRADE);
         let nxt = sqlx::query_scalar(&next_query)
-            .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
+            .bind(DateTime::from_timestamp(req.from as i64, 0).unwrap().naive_utc())
             .fetch_optional(&app_state.db)
             .await
             .map_err(TradeViewError::from)?
-            .map(|x: NaiveDateTime| x.timestamp() as i32);
+            .map(|x: NaiveDateTime| x.and_utc().timestamp() as i32);
 
         return Ok(Json(KlineResult {
             s: String::from("no_data"),

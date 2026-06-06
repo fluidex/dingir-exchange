@@ -48,7 +48,7 @@ pub struct BalanceMessage {
 impl From<&BalanceHistory> for BalanceMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -78,7 +78,7 @@ pub struct DepositMessage {
 impl From<&BalanceHistory> for DepositMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -108,7 +108,7 @@ pub struct WithdrawMessage {
 impl From<&BalanceHistory> for WithdrawMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -186,99 +186,84 @@ pub trait MessageManager: Sync + Send {
     fn push_user_message(&mut self, user: &UserMessage);
 }
 
-pub struct RdProducerStub<T> {
-    pub sender: crossbeam_channel::Sender<(&'static str, String)>,
-    _phantom: std::marker::PhantomData<T>,
+pub struct KafkaMessageManager {
+    producer: producer::KafkaProducer,
+    full_order: bool,
 }
 
-impl<T> RdProducerStub<T> {
-    fn push_message_and_topic(&self, message: String, topic_name: &'static str) {
-        //log::debug!("KAFKA: push {} message: {}", topic_name, message);
-        self.sender.try_send((topic_name, message)).unwrap();
-    }
-}
-
-impl<T: producer::MessageScheme + 'static> RdProducerStub<T> {
-    pub fn new_and_run(brokers: &str) -> Result<Self> {
-        //now the channel is just need to provide a small buffer which is
-        //enough to accommodate a pluse request in some time slice of thread
-        let (sender, receiver) = crossbeam_channel::bounded(2048);
-
-        let producer_context: producer::RdProducerContext<T> = Default::default();
-
-        let kafkaproducer = producer_context.new_producer(brokers)?;
-        std::thread::spawn(move || {
-            producer::RdProducerContext::<T>::run_default(kafkaproducer, receiver);
-        });
+impl KafkaMessageManager {
+    pub fn new(brokers: &str, full_order: bool) -> Result<Self> {
         Ok(Self {
-            sender,
-            _phantom: std::marker::PhantomData,
+            producer: producer::KafkaProducer::new(brokers, full_order)?,
+            full_order,
         })
     }
 }
 
-impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
-    /*
-    fn push_message(&mut self, msg: &Message) {
-        match msg {
-            Message::OrderMessage{value: order} => {
-                let message = serde_json::to_string(order).unwrap();
-                self.push_message_and_topic(message, ORDERS_TOPIC)
-            },
-            Message::BalanceMessage{value: balance} => {
-                let message = serde_json::to_string(balance).unwrap();
-                self.push_message_and_topic(message, BALANCES_TOPIC)
-            },
-            Message::TradeMessage{value: trade} => {
-                let message = serde_json::to_string(trade).unwrap();
-                self.push_message_and_topic(message, TRADES_TOPIC)
-            }
-        }
-    }
-    */
-
+impl MessageManager for KafkaMessageManager {
     fn is_block(&self) -> bool {
-        // https://github.com/fluidex/dingir-exchange/issues/119
-        //self.sender.is_full()
-        //self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
-        self.sender.len() >= (self.sender.capacity().unwrap() - 1000)
+        self.producer.is_full()
     }
     fn push_order_message(&mut self, order: &OrderMessage) {
-        let message = serde_json::to_string(&order).unwrap();
-        self.push_message_and_topic(message, ORDERS_TOPIC)
+        let message = serde_json::to_string(order).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, ORDERS_TOPIC, message);
+        } else {
+            self.producer.try_send(ORDERS_TOPIC, "", message);
+        }
     }
     fn push_trade_message(&mut self, trade: &Trade) {
-        let message = serde_json::to_string(&trade).unwrap();
-        self.push_message_and_topic(message, TRADES_TOPIC)
+        let message = serde_json::to_string(trade).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, TRADES_TOPIC, message);
+        } else {
+            self.producer.try_send(TRADES_TOPIC, "", message);
+        }
     }
     fn push_balance_message(&mut self, balance: &BalanceMessage) {
-        let message = serde_json::to_string(&balance).unwrap();
-        self.push_message_and_topic(message, BALANCES_TOPIC)
+        let message = serde_json::to_string(balance).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, BALANCES_TOPIC, message);
+        } else {
+            self.producer.try_send(BALANCES_TOPIC, "", message);
+        }
     }
     fn push_deposit_message(&mut self, deposit: &DepositMessage) {
-        let message = serde_json::to_string(&deposit).unwrap();
-        self.push_message_and_topic(message, DEPOSITS_TOPIC)
+        let message = serde_json::to_string(deposit).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, DEPOSITS_TOPIC, message);
+        } else {
+            self.producer.try_send(DEPOSITS_TOPIC, "", message);
+        }
     }
     fn push_withdraw_message(&mut self, withdraw: &WithdrawMessage) {
-        let message = serde_json::to_string(&withdraw).unwrap();
-        self.push_message_and_topic(message, WITHDRAWS_TOPIC)
+        let message = serde_json::to_string(withdraw).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, WITHDRAWS_TOPIC, message);
+        } else {
+            self.producer.try_send(WITHDRAWS_TOPIC, "", message);
+        }
     }
     fn push_transfer_message(&mut self, tx: &TransferMessage) {
-        let message = serde_json::to_string(&tx).unwrap();
-        self.push_message_and_topic(message, INTERNALTX_TOPIC)
+        let message = serde_json::to_string(tx).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, INTERNALTX_TOPIC, message);
+        } else {
+            self.producer.try_send(INTERNALTX_TOPIC, "", message);
+        }
     }
     fn push_user_message(&mut self, user: &UserMessage) {
-        let message = serde_json::to_string(&user).unwrap();
-        self.push_message_and_topic(message, USER_TOPIC)
+        let message = serde_json::to_string(user).unwrap();
+        if self.full_order {
+            self.producer.try_send(UNIFY_TOPIC, USER_TOPIC, message);
+        } else {
+            self.producer.try_send(USER_TOPIC, "", message);
+        }
     }
 }
 
-pub type SimpleMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
-
-// TODO: since now we enable SimpleMessageManager & FullOrderMessageManager both,
-// we only need to process useful (deposit,trade etc, which update the rollup global state) msgs only
-// and skip others
-pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
+pub type SimpleMessageManager = KafkaMessageManager;
+pub type FullOrderMessageManager = KafkaMessageManager;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
 // TODO: better naming?
@@ -330,9 +315,9 @@ impl MessageManager for DummyMessageManager {
 */
 
 pub fn new_simple_message_manager(brokers: &str) -> Result<SimpleMessageManager> {
-    SimpleMessageManager::new_and_run(brokers)
+    KafkaMessageManager::new(brokers, false)
 }
 
 pub fn new_full_order_message_manager(brokers: &str) -> Result<FullOrderMessageManager> {
-    FullOrderMessageManager::new_and_run(brokers)
+    KafkaMessageManager::new(brokers, true)
 }

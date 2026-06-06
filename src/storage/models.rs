@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use paperclip::actix::Apiv2Schema;
 use serde::{Deserialize, Serialize};
 
-pub type DecimalDbType = fluidex_common::rust_decimal::Decimal;
+pub type DecimalDbType = rust_decimal::Decimal;
 // https://github.com/launchbadge/sqlx/blob/master/sqlx-core/src/postgres/types/mod.rs
 // pub type TimestampDbType = DateTime<Utc>;
 pub type TimestampDbType = NaiveDateTime;
@@ -228,12 +228,12 @@ impl sqlxextend::TableSchemas for InternalTx {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for InternalTx {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.time);
-        arg.add(self.user_from);
-        arg.add(self.user_to);
-        arg.add(&self.asset);
-        arg.add(self.amount);
-        arg.add(&self.signature);
+        let _ = arg.add(self.time);
+        let _ = arg.add(self.user_from);
+        let _ = arg.add(self.user_to);
+        let _ = arg.add(&self.asset);
+        let _ = arg.add(self.amount);
+        let _ = arg.add(&self.signature);
     }
 }
 
@@ -249,9 +249,9 @@ impl sqlxextend::TableSchemas for AccountDesc {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for AccountDesc {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
-        arg.add(&self.l1_address);
-        arg.add(&self.l2_pubkey);
+        let _ = arg.add(self.id);
+        let _ = arg.add(&self.l1_address);
+        let _ = arg.add(&self.l2_pubkey);
     }
 }
 
@@ -270,16 +270,16 @@ impl sqlxextend::TableSchemas for BalanceHistory {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for BalanceHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.time);
-        arg.add(self.user_id);
-        arg.add(&self.asset);
-        arg.add(&self.business);
-        arg.add(&self.change);
-        arg.add(&self.balance);
-        arg.add(&self.balance_available);
-        arg.add(&self.balance_frozen);
-        arg.add(&self.detail);
-        arg.add(&self.signature);
+        let _ = arg.add(self.time);
+        let _ = arg.add(self.user_id);
+        let _ = arg.add(&self.asset);
+        let _ = arg.add(&self.business);
+        let _ = arg.add(&self.change);
+        let _ = arg.add(&self.balance);
+        let _ = arg.add(&self.balance_available);
+        let _ = arg.add(&self.balance_frozen);
+        let _ = arg.add(&self.detail);
+        let _ = arg.add(&self.signature);
     }
 }
 
@@ -298,19 +298,19 @@ impl sqlxextend::TableSchemas for UserTrade {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for UserTrade {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.time);
-        arg.add(self.user_id);
-        arg.add(&self.market);
-        arg.add(self.trade_id);
-        arg.add(self.order_id);
-        arg.add(self.counter_order_id);
-        arg.add(self.side);
-        arg.add(self.role);
-        arg.add(&self.price);
-        arg.add(&self.amount);
-        arg.add(&self.quote_amount);
-        arg.add(&self.fee);
-        arg.add(&self.counter_order_fee);
+        let _ = arg.add(self.time);
+        let _ = arg.add(self.user_id);
+        let _ = arg.add(&self.market);
+        let _ = arg.add(self.trade_id);
+        let _ = arg.add(self.order_id);
+        let _ = arg.add(self.counter_order_id);
+        let _ = arg.add(self.side);
+        let _ = arg.add(self.role);
+        let _ = arg.add(&self.price);
+        let _ = arg.add(&self.amount);
+        let _ = arg.add(&self.quote_amount);
+        let _ = arg.add(&self.fee);
+        let _ = arg.add(&self.counter_order_fee);
     }
 }
 
@@ -327,23 +327,23 @@ impl sqlxextend::TableSchemas for OrderHistory {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for OrderHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
-        arg.add(self.create_time);
-        arg.add(self.finish_time);
-        arg.add(self.user_id);
-        arg.add(&self.market);
-        arg.add(self.order_type);
-        arg.add(self.order_side);
-        arg.add(&self.price);
-        arg.add(&self.amount);
-        arg.add(&self.taker_fee);
-        arg.add(&self.maker_fee);
-        arg.add(&self.finished_base);
-        arg.add(&self.finished_quote);
-        arg.add(&self.finished_fee);
-        arg.add(&self.status);
-        arg.add(&self.post_only);
-        arg.add(&self.signature);
+        let _ = arg.add(self.id);
+        let _ = arg.add(self.create_time);
+        let _ = arg.add(self.finish_time);
+        let _ = arg.add(self.user_id);
+        let _ = arg.add(&self.market);
+        let _ = arg.add(self.order_type);
+        let _ = arg.add(self.order_side);
+        let _ = arg.add(&self.price);
+        let _ = arg.add(&self.amount);
+        let _ = arg.add(&self.taker_fee);
+        let _ = arg.add(&self.maker_fee);
+        let _ = arg.add(&self.finished_base);
+        let _ = arg.add(&self.finished_quote);
+        let _ = arg.add(&self.finished_fee);
+        let _ = arg.add(&self.status);
+        let _ = arg.add(&self.post_only);
+        let _ = arg.add(&self.signature);
     }
 }
 
@@ -359,10 +359,10 @@ impl sqlxextend::TableSchemas for OperationLog {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for OperationLog {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
-        arg.add(self.time);
-        arg.add(&self.method);
-        arg.add(&self.params);
+        let _ = arg.add(self.id);
+        let _ = arg.add(self.time);
+        let _ = arg.add(&self.method);
+        let _ = arg.add(&self.params);
     }
 }
 
@@ -380,25 +380,25 @@ impl sqlxextend::TableSchemas for OrderSlice {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for OrderSlice {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.id);
-        arg.add(self.slice_id);
-        arg.add(self.order_type);
-        arg.add(self.order_side);
-        arg.add(self.create_time);
-        arg.add(self.update_time);
-        arg.add(self.user_id);
-        arg.add(&self.market);
-        arg.add(&self.price);
-        arg.add(&self.amount);
-        arg.add(&self.taker_fee);
-        arg.add(&self.maker_fee);
-        arg.add(&self.remain);
-        arg.add(&self.frozen);
-        arg.add(&self.finished_base);
-        arg.add(&self.finished_quote);
-        arg.add(&self.finished_fee);
-        arg.add(&self.post_only);
-        arg.add(&self.signature);
+        let _ = arg.add(self.id);
+        let _ = arg.add(self.slice_id);
+        let _ = arg.add(self.order_type);
+        let _ = arg.add(self.order_side);
+        let _ = arg.add(self.create_time);
+        let _ = arg.add(self.update_time);
+        let _ = arg.add(self.user_id);
+        let _ = arg.add(&self.market);
+        let _ = arg.add(&self.price);
+        let _ = arg.add(&self.amount);
+        let _ = arg.add(&self.taker_fee);
+        let _ = arg.add(&self.maker_fee);
+        let _ = arg.add(&self.remain);
+        let _ = arg.add(&self.frozen);
+        let _ = arg.add(&self.finished_base);
+        let _ = arg.add(&self.finished_quote);
+        let _ = arg.add(&self.finished_fee);
+        let _ = arg.add(&self.post_only);
+        let _ = arg.add(&self.signature);
     }
 }
 
@@ -418,11 +418,11 @@ impl sqlxextend::TableSchemas for BalanceSliceInsert {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for BalanceSliceInsert {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.slice_id);
-        arg.add(self.user_id);
-        arg.add(&self.asset);
-        arg.add(self.t);
-        arg.add(&self.balance);
+        let _ = arg.add(self.slice_id);
+        let _ = arg.add(self.user_id);
+        let _ = arg.add(&self.asset);
+        let _ = arg.add(self.t);
+        let _ = arg.add(&self.balance);
     }
 }
 
@@ -442,10 +442,10 @@ impl sqlxextend::TableSchemas for SliceHistory {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for SliceHistory {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.time);
-        arg.add(self.end_operation_log_id);
-        arg.add(self.end_order_id);
-        arg.add(self.end_trade_id);
+        let _ = arg.add(self.time);
+        let _ = arg.add(self.end_operation_log_id);
+        let _ = arg.add(self.end_order_id);
+        let _ = arg.add(self.end_trade_id);
     }
 }
 
@@ -461,13 +461,13 @@ impl sqlxextend::TableSchemas for MarketTrade {
 
 impl sqlxextend::BindQueryArg<'_, DbType> for MarketTrade {
     fn bind_args<'g, 'q: 'g>(&'q self, arg: &mut impl sqlx::Arguments<'g, Database = DbType>) {
-        arg.add(self.time);
-        arg.add(&self.market);
-        arg.add(self.trade_id);
-        arg.add(self.price);
-        arg.add(self.amount);
-        arg.add(self.quote_amount);
-        arg.add(self.taker_side);
+        let _ = arg.add(self.time);
+        let _ = arg.add(&self.market);
+        let _ = arg.add(self.trade_id);
+        let _ = arg.add(self.price);
+        let _ = arg.add(self.amount);
+        let _ = arg.add(self.quote_amount);
+        let _ = arg.add(self.taker_side);
     }
 }
 

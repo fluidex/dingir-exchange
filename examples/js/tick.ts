@@ -1,7 +1,7 @@
 import { ORDER_SIDE_BID, ORDER_SIDE_ASK } from "./config";
 import { defaultClient as client } from "./client";
 import { sleep, getRandomFloatAround, getRandomFloatAroundNormal, getRandomElem } from "./util";
-import { Account } from "fluidex.js";
+import { Account } from "./fluidex";
 import { getTestAccount } from "./accounts";
 import { strict as assert } from "assert";
 import { depositAssets, getPriceOfCoin, putLimitOrder } from "./exchange_helper";

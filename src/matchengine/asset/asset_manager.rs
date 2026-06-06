@@ -1,10 +1,9 @@
 use crate::config;
 use crate::market::{Market, OrderCommitment};
 use anyhow::{bail, Result};
-use fluidex_common::rust_decimal::{self, RoundingStrategy};
-use fluidex_common::types::{DecimalExt, FrExt};
-use fluidex_common::Fr;
-use orchestra::rpc::exchange::*;
+use rust_decimal::{self, RoundingStrategy};
+use crate::utils::crypto::{DecimalExt, Fr, FrExt};
+use crate::rpc::exchange::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -92,20 +91,20 @@ impl AssetManager {
             _ => bail!("price error"),
         };
 
-        match OrderSide::from_i32(o.order_side) {
-            Some(OrderSide::Ask) => Ok(OrderCommitment {
+        match OrderSide::try_from(o.order_side) {
+            Ok(OrderSide::Ask) => Ok(OrderCommitment {
                 token_buy: Fr::from_u32(quote_token.inner_id),
                 token_sell: Fr::from_u32(base_token.inner_id),
                 total_buy: (amount * price).to_fr(market.amount_prec + market.price_prec),
                 total_sell: amount.to_fr(market.amount_prec),
             }),
-            Some(OrderSide::Bid) => Ok(OrderCommitment {
+            Ok(OrderSide::Bid) => Ok(OrderCommitment {
                 token_buy: Fr::from_u32(base_token.inner_id),
                 token_sell: Fr::from_u32(quote_token.inner_id),
                 total_buy: amount.to_fr(market.amount_prec),
                 total_sell: (amount * price).to_fr(market.amount_prec + market.price_prec),
             }),
-            None => bail!("market error"),
+            Err(_) => bail!("market error"),
         }
     }
 }

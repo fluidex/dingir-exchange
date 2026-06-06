@@ -12,79 +12,31 @@ on:
       - prod
       - release/*
 
-env:
-  SCCACHE_REGION: ap-northeast-1
-  SCCACHE_BUCKET: ff-building
-  SCCACHE_S3_USE_SSL: true
-  SCCACHE_S3_KEY_PREFIX: sccache-gh-action
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  CARGO_INCREMENTAL: false
-
 jobs:
   integration-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        rust:
-          - 1.53.0
-
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Cache cargo registry
-        uses: actions/cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.90.0
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node.js 20
+        uses: actions/setup-node@v4
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo target
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Setup sccache
-        run: |
-          cd $RUNNER_TEMP
-          export NAME="sccache-v0.2.15-x86_64-unknown-linux-musl"
-          curl -fsSOL https://github.com/mozilla/sccache/releases/download/v0.2.15/$NAME.tar.gz
-          tar xzf $NAME.tar.gz
-          mkdir -p ~/.cargo/bin
-          mv ./$NAME/sccache ~/.cargo/bin
-          chmod +x ~/.cargo/bin/sccache
-          printf "[build]\nrustc-wrapper = \"/home/runner/.cargo/bin/sccache\"" >> ~/.cargo/config
-          ~/.cargo/bin/sccache -s
-
-      - name: Install libpq
-        run: sudo apt-get install libpq-dev
-
-      - name: Install rust 1.53.0 toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.53.0
-          override: true
-          components: rustfmt, clippy
-
-      - name: Install Node.js 16
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-          # cache: 'npm'
-          # cache-dependency-path: examples/js/package-lock.json
+          node-version: '20'
 
       - name: Cache node_modules
         id: npm_cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ./examples/js/node_modules
           key: node_modules-${{ hashFiles('examples/js/package-lock.json') }}
@@ -98,22 +50,17 @@ jobs:
       - name: Pull git submodule
         run: git submodule update --init --recursive
 
-      - name: Up docker-compose
-        run: docker-compose --file "./orchestra/docker/docker-compose.yaml" up --detach
+      - name: Up docker compose
+        run: docker compose --file "./docker/docker-compose.yaml" up --detach
 
-      # 1. we build the binary after starting docker-compose, to ensure time for running services in docker-compose
-      # 2. we avoid nohup cargo run directly, to make sure server is running before starting trading tests
       - name: Start exchange server daemon
         run: make startall
-
-      - name: show sccache stats
-        run: ~/.cargo/bin/sccache -s
 
       - name: Check services status
         run: |
           sleep 5
           make taillogs
-          docker-compose --file "./orchestra/docker/docker-compose.yaml" logs --tail=20
+          docker compose --file "./docker/docker-compose.yaml" logs --tail=20
 
       - name: Run trading tests
         run: |

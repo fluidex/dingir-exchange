@@ -13,3 +13,4 @@ pub mod message;
 pub mod restapi;
 pub mod types;
 pub mod utils;
+pub mod rpc;

@@ -1,11 +1,13 @@
 import axios from "axios";
 import { strict as assert } from "assert";
+import { defaultClient as client } from "./client";
 import "./config";
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
 async function main() {
-  const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
+  const server = process.env.API_ENDPOINT || "localhost:50053";
+  await client.connect();
   console.log("ci mode:", isCI);
   console.log("closed orders:");
   const closedOrders = (await axios.get(`http://${server}/restapi/closedorders/ETH_USDT/3`)).data;
@@ -14,7 +16,7 @@ async function main() {
     assert.equal(closedOrders.orders.length, 2);
   }
   console.log("active orders:");
-  const openOrders = (await axios.get(`http://${server}/api/orders/ETH_USDT/4`)).data;
+  const openOrders = await client.orderQuery(4, "ETH_USDT");
   console.log(openOrders);
   if (isCI) {
     assert.equal(openOrders.orders.length, 1);

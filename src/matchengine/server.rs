@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use orchestra::rpc::exchange::*;
+use crate::rpc::exchange::*;
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tonic::{self, Request, Response, Status};
 

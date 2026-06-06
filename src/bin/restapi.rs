@@ -5,9 +5,13 @@ use dingir_exchange::restapi::public_history::{order_trades, recent_trades};
 use dingir_exchange::restapi::state::{AppCache, AppState};
 use dingir_exchange::restapi::tradingview::{chart_config, history, search_symbols, symbols, ticker, unix_timestamp};
 use dingir_exchange::restapi::user::get_user;
-use fluidex_common::non_blocking_tracing;
 use paperclip::actix::web::{self, HttpResponse};
 use paperclip::actix::{api_v2_operation, OpenApiExt};
+
+#[api_v2_operation]
+async fn manage_forbidden() -> HttpResponse {
+    HttpResponse::Forbidden().body("No manage endpoint")
+}
 use sqlx::postgres::Postgres;
 use sqlx::Pool;
 use std::collections::HashMap;
@@ -17,7 +21,7 @@ use std::sync::Mutex;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    let _guard = non_blocking_tracing::setup();
+    let _guard = dingir_exchange::utils::tracing::setup();
 
     let db_url = dingir_exchange::config::Settings::new().db_history;
     log::debug!("Prepared DB connection: {}", &db_url);
@@ -77,7 +81,7 @@ async fn main() -> std::io::Result<()> {
                         )
                     } else {
                         web::scope("/manage")
-                            .service(web::resource("/").to(|| HttpResponse::Forbidden().body(String::from("No manage endpoint"))))
+                            .service(web::resource("/").to(manage_forbidden))
                     }),
             )
             .with_json_spec_at("/api/spec")

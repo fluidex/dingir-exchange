@@ -19,13 +19,11 @@ fmt: fmtsql fmtrs fmtjs
 
 # docker related
 start-compose:
-	# cd orchestra/docker; docker compose up -d exchange_db exchange_zookeeper exchange_kafka exchange_envoy
-	cd orchestra/docker; docker-compose up -d exchange_db exchange_zookeeper exchange_kafka exchange_envoy
+	cd docker; docker compose up -d exchange_db exchange_kafka exchange_envoy
 stop-compose:
-	# cd orchestra/docker; docker compose down exchange_db exchange_zookeeper exchange_kafka exchange_envoy
-	cd orchestra/docker; docker-compose down
+	cd docker; docker compose down
 clean-compose: stop-compose 
-	rm -rf orchestra/docker/volumes/exchange_*
+	rm -rf docker/volumes/exchange_*
 
 # process relared
 startall:

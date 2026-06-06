@@ -503,7 +503,7 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
-    let controller = controller.as_ref().unwrap();
+    let controller = unsafe { controller.as_ref().unwrap() };
 
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()

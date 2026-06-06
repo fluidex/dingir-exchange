@@ -2,8 +2,8 @@ use crate::market;
 
 use anyhow::{anyhow, bail, Result};
 use arrayref::array_ref;
-use fluidex_common::rust_decimal::{self, prelude::Zero, Decimal};
-use orchestra::rpc::exchange::*;
+use rust_decimal::{self, prelude::Zero, Decimal};
+use crate::rpc::exchange::*;
 
 use std::convert::TryFrom;
 use std::str::FromStr;

@@ -1,6 +1,6 @@
 import { MMByPriceBot } from "./mm_external_price_bot";
 
-import { Account } from "fluidex.js";
+import { Account } from "./fluidex";
 import { defaultRESTClient, RESTClient } from "../RESTClient";
 import { defaultClient as defaultGrpcClient, Client as grpcClient, defaultClient } from "../client";
 import { sleep } from "../util";

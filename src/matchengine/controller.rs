@@ -5,7 +5,7 @@ use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::eth_guard::{EthLogGuard, EthLogMetadata};
 use crate::history::DatabaseHistoryWriter;
 use crate::market::{self, Order, OrderInput};
-use crate::message::{FullOrderMessageManager, SimpleMessageManager};
+use crate::message::{new_full_order_message_manager, new_simple_message_manager};
 use crate::models::{self};
 use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileBasedPersistor, MessengerBasedPersistor, PersistExector};
 use crate::sequencer::Sequencer;
@@ -15,14 +15,13 @@ use crate::user_manager::{self, UserManager};
 use crate::utils::{self, FTimestamp};
 
 use anyhow::{anyhow, bail};
-use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
-use fluidex_common::rust_decimal::prelude::Zero;
-use fluidex_common::rust_decimal::Decimal;
-use orchestra::rpc::exchange::*;
+use crate::utils::merge_sort::{MergeSortIterator, Order as SortOrder};
+use rust_decimal::prelude::Zero;
+use rust_decimal::Decimal;
+use crate::rpc::exchange::*;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Connection;
-use sqlx::Executor;
 use tonic::{self, Status};
 
 use std::collections::HashMap;
@@ -52,12 +51,12 @@ fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let mut persistor = Box::new(CompositePersistor::default());
     if !settings.brokers.is_empty() && persist_to_mq {
         persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-            SimpleMessageManager::new_and_run(&settings.brokers).unwrap(),
+            new_simple_message_manager(&settings.brokers).unwrap(),
         ))));
     }
     if !settings.brokers.is_empty() && persist_to_mq_full_order {
         persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-            FullOrderMessageManager::new_and_run(&settings.brokers).unwrap(),
+            new_full_order_message_manager(&settings.brokers).unwrap(),
         ))));
     }
     if persist_to_db {
@@ -749,13 +748,16 @@ impl Controller {
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
 
+            // Use DROP DATABASE + CREATE DATABASE instead of down.sql/up.sql
+            // to avoid timescaledb extension state issues after schema drop
             let db_str = self.settings.db_log.clone();
-            let down_cmd = include_str!("../../migrations/reset/down.sql");
-            let up_cmd = include_str!("../../migrations/reset/up.sql");
-            let mut connection = ConnectionType::connect(&db_str).await?;
-            connection.execute(down_cmd).await?;
-            let mut connection = ConnectionType::connect(&db_str).await?;
-            connection.execute(up_cmd).await?;
+            let db_name = db_str.rsplit('/').next().unwrap_or("exchange");
+            let admin_db_str = format!("{}/postgres", db_str.rsplitn(2, '/').nth(1).unwrap_or("postgres://exchange:exchange_AA9944@127.0.0.1"));
+            let mut admin_conn = ConnectionType::connect(&admin_db_str).await?;
+            let drop_cmd = format!("DROP DATABASE IF EXISTS {} WITH (FORCE);", db_name);
+            let create_cmd = format!("CREATE DATABASE {} OWNER exchange;", db_name);
+            sqlx::query(&drop_cmd).execute(&mut admin_conn).await?;
+            sqlx::query(&create_cmd).execute(&mut admin_conn).await?;
 
             //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
             let db_str = self.settings.db_log.clone();
@@ -768,7 +770,11 @@ impl Controller {
                 let ret = rt.block_on(async move {
                     let mut conn = ConnectionType::connect(&db_str).await?;
                     crate::persist::MIGRATOR.run(&mut conn).await?;
-                    crate::message::persist::MIGRATOR.run(&mut conn).await
+                    // message::persist MIGRATOR shares the same _sqlx_migrations table
+                    // but has a different set of migrations, causing conflicts after reset.
+                    // Since migrations/ already contains all migrations from migrations/ts/,
+                    // we only need to run persist::MIGRATOR.
+                    Ok::<_, sqlx::Error>(())
                 });
 
                 log::info!("migration task done");

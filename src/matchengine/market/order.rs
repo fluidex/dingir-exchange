@@ -1,6 +1,7 @@
 use crate::types::{OrderSide, OrderType};
 use crate::utils::InternedString;
-use fluidex_common::types::{BigInt, Decimal, Fr, FrExt};
+use crate::utils::crypto::{BigInt, Fr, FrExt};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::sync::Arc;
@@ -32,8 +33,8 @@ impl Ord for MarketKeyBid {
 #[cfg(test)]
 #[test]
 fn test_order_sort() {
-    use fluidex_common::rust_decimal::prelude::One;
-    use fluidex_common::rust_decimal::prelude::Zero;
+    use rust_decimal::prelude::One;
+    use rust_decimal::prelude::Zero;
     {
         let o1 = MarketKeyBid {
             order_price: Decimal::zero(),

@@ -326,7 +326,7 @@ where
             <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement(),
             entries.len()
         );
-        let ret = match InsertTableBatch::sql_query_fine(entries.as_slice(), &mut conn).await {
+        let ret = match InsertTableBatch::sql_query_fine(entries.as_slice(), &mut *conn).await {
             Ok(_) => {
                 if let Some((now, len)) = self.benchmark {
                     log::debug!(
@@ -370,7 +370,7 @@ impl DatabaseWriterStatus {
     }
 }
 
-pub struct DatabaseWriterEntryImpl<'a, U: std::clone::Clone + Send>(&'a mut sync::mpsc::Sender<WriterMsg<U>>);
+pub struct DatabaseWriterEntryImpl<'a, U: std::clone::Clone + Send>(&'a sync::mpsc::Sender<WriterMsg<U>>);
 
 impl<U> DatabaseWriterEntryImpl<'_, U>
 where
@@ -401,8 +401,8 @@ impl<U> DatabaseWriterEntry<U>
 where
     U: std::clone::Clone + Send,
 {
-    pub fn gen(&mut self) -> DatabaseWriterEntryImpl<'_, U> {
-        DatabaseWriterEntryImpl(&mut self.0)
+    pub fn generate(&self) -> DatabaseWriterEntryImpl<'_, U> {
+        DatabaseWriterEntryImpl(&self.0)
     }
 }
 

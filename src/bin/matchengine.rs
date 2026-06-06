@@ -12,13 +12,12 @@ use dingir_exchange::server::GrpcHandler;
 //use dingir_exchange::sqlxextend;
 
 use dingir_exchange::types::ConnectionType;
-use fluidex_common::non_blocking_tracing;
-use orchestra::rpc::exchange::matchengine_server::MatchengineServer;
+use dingir_exchange::rpc::exchange::matchengine_server::MatchengineServer;
 use sqlx::Connection;
 
 fn main() {
     dotenv::dotenv().ok();
-    let _guard = non_blocking_tracing::setup();
+    let _guard = dingir_exchange::utils::tracing::setup();
 
     let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
