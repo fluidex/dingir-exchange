@@ -72,8 +72,9 @@ function compareState(a, b) {
   assert.deepEqual(a.balances, b.balances, "Balances mismatch after recovery");
 
   // Compare open orders (by id and remain)
-  const aOrders = new Map(a.openOrders.map(o => [o.id, o]));
-  const bOrders = new Map(b.openOrders.map(o => [o.id, o]));
+  type OrderInfo = { id: any; side: any; price: any; remain: any };
+  const aOrders = new Map<string, OrderInfo>((a.openOrders as OrderInfo[]).map((o: OrderInfo) => [o.id, o]));
+  const bOrders = new Map<string, OrderInfo>((b.openOrders as OrderInfo[]).map((o: OrderInfo) => [o.id, o]));
   assert.equal(aOrders.size, bOrders.size, `Order count mismatch: ${aOrders.size} vs ${bOrders.size}`);
   for (const [id, oa] of aOrders) {
     const ob = bOrders.get(id);
