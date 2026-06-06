@@ -1,6 +1,5 @@
 use crate::asset::{AssetManager, BalanceManager};
 use crate::config;
-use rust_decimal::Decimal;
 use rust_decimal_macros::*;
 
 pub fn get_simple_market_config() -> config::Market {

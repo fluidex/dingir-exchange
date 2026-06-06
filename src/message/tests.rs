@@ -9,7 +9,7 @@ use std::str::FromStr;
 use super::persist::MsgDataTransformer;
 
 fn test_timestamp() -> NaiveDateTime {
-    NaiveDateTime::from_timestamp_opt(1609459200, 0).unwrap() // 2021-01-01 00:00:00
+    NaiveDateTime::from_timestamp(1609459200, 0) // 2021-01-01 00:00:00
 }
 
 fn test_decimal(s: &str) -> Decimal {

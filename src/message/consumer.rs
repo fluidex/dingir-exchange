@@ -48,7 +48,7 @@ impl<'c> SimpleConsumer<'c> {
     }
 
     pub async fn run_stream(self) -> KafkaError {
-        let topic_list: Vec<&str> = self.handlers.iter().map(|(k, _)| k.as_str()).collect();
+        let topic_list: Vec<&str> = self.handlers.keys().map(|k| k.as_str()).collect();
 
         if let Err(e) = self.consumer.subscribe(topic_list.as_slice()) {
             return e;
@@ -59,7 +59,7 @@ impl<'c> SimpleConsumer<'c> {
         loop {
             match stream.next().await.expect("Kafka's stream has no EOF") {
                 Err(KafkaError::NoMessageReceived) => {
-                    let fs: Vec<PinBoxFuture<()>> = self.handlers.iter().map(|(_, h)| h.on_no_msg(self.consumer)).collect();
+                    let fs: Vec<PinBoxFuture<()>> = self.handlers.values().map(|h| h.on_no_msg(self.consumer)).collect();
                     futures::future::join_all(fs).await;
                 }
                 Err(KafkaError::PartitionEOF(_)) => {} //simply omit this type of error

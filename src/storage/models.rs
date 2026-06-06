@@ -21,7 +21,7 @@ impl DateTimeMilliseconds for TimestampDbType {
     where
         S: Serializer,
     {
-        serializer.serialize_i64(self.timestamp_millis())
+        serializer.serialize_i64(self.and_utc().timestamp_millis())
     }
 }
 
@@ -146,7 +146,7 @@ pub struct UserTrade {
 }
 
 // Can the following struct be auto generated in diesel?
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(sqlx::FromRow, Debug, Clone, serde::Serialize)]
 pub struct OperationLog {
     pub id: i64,
     pub time: TimestampDbType,

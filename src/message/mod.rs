@@ -190,84 +190,8 @@ pub trait MessageManager: Sync + Send {
     fn push_user_message(&mut self, user: &UserMessage);
 }
 
-pub struct KafkaMessageManager {
-    producer: producer::KafkaProducer,
-    full_order: bool,
-}
-
-impl KafkaMessageManager {
-    pub fn new(brokers: &str, full_order: bool) -> Result<Self> {
-        Ok(Self {
-            producer: producer::KafkaProducer::new(brokers, full_order)?,
-            full_order,
-        })
-    }
-}
-
-impl MessageManager for KafkaMessageManager {
-    fn is_block(&self) -> bool {
-        self.producer.is_full()
-    }
-    fn push_order_message(&mut self, order: &OrderMessage) {
-        let message = serde_json::to_string(order).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, ORDERS_TOPIC, message);
-        } else {
-            self.producer.try_send(ORDERS_TOPIC, "", message);
-        }
-    }
-    fn push_trade_message(&mut self, trade: &Trade) {
-        let message = serde_json::to_string(trade).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, TRADES_TOPIC, message);
-        } else {
-            self.producer.try_send(TRADES_TOPIC, "", message);
-        }
-    }
-    fn push_balance_message(&mut self, balance: &BalanceMessage) {
-        let message = serde_json::to_string(balance).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, BALANCES_TOPIC, message);
-        } else {
-            self.producer.try_send(BALANCES_TOPIC, "", message);
-        }
-    }
-    fn push_deposit_message(&mut self, deposit: &DepositMessage) {
-        let message = serde_json::to_string(deposit).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, DEPOSITS_TOPIC, message);
-        } else {
-            self.producer.try_send(DEPOSITS_TOPIC, "", message);
-        }
-    }
-    fn push_withdraw_message(&mut self, withdraw: &WithdrawMessage) {
-        let message = serde_json::to_string(withdraw).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, WITHDRAWS_TOPIC, message);
-        } else {
-            self.producer.try_send(WITHDRAWS_TOPIC, "", message);
-        }
-    }
-    fn push_transfer_message(&mut self, tx: &TransferMessage) {
-        let message = serde_json::to_string(tx).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, INTERNALTX_TOPIC, message);
-        } else {
-            self.producer.try_send(INTERNALTX_TOPIC, "", message);
-        }
-    }
-    fn push_user_message(&mut self, user: &UserMessage) {
-        let message = serde_json::to_string(user).unwrap();
-        if self.full_order {
-            self.producer.try_send(UNIFY_TOPIC, USER_TOPIC, message);
-        } else {
-            self.producer.try_send(USER_TOPIC, "", message);
-        }
-    }
-}
-
-pub type SimpleMessageManager = KafkaMessageManager;
-pub type FullOrderMessageManager = KafkaMessageManager;
+pub type SimpleMessageManager = producer::SimpleMessageManager;
+pub type FullOrderMessageManager = producer::FullOrderMessageManager;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
 // TODO: better naming?
@@ -319,11 +243,11 @@ impl MessageManager for DummyMessageManager {
 */
 
 pub fn new_simple_message_manager(brokers: &str) -> Result<SimpleMessageManager> {
-    KafkaMessageManager::new(brokers, false)
+    SimpleMessageManager::new_and_run(brokers)
 }
 
 pub fn new_full_order_message_manager(brokers: &str) -> Result<FullOrderMessageManager> {
-    KafkaMessageManager::new(brokers, true)
+    FullOrderMessageManager::new_and_run(brokers)
 }
 
 #[cfg(test)]

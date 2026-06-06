@@ -35,9 +35,10 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
 
-    let mut conn = ConnectionType::connect(&settings.db_log)
+    let db_url = settings.db_log.clone();
+    let mut conn = ConnectionType::connect(&db_url)
         .await
-        .expect(&*format!("cannot connect to db at {}", settings.db_log));
+        .unwrap_or_else(|_| panic!("cannot connect to db at {}", db_url));
     persist::MIGRATOR.run(&mut conn).await?;
     log::info!("MIGRATOR done");
 
@@ -70,6 +71,7 @@ async fn grpc_run(mut grpc: GrpcHandler) -> Result<(), Box<dyn std::error::Error
     });
 
     tonic::transport::Server::builder()
+        .max_concurrent_streams(10_000)
         .add_service(MatchengineServer::new(grpc))
         .serve_with_shutdown(addr, async {
             rx.await.ok();

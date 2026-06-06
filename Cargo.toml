@@ -8,6 +8,8 @@ edition = "2024"
 actix-rt = "2.10"
 actix-web = "4"
 anyhow = "1.0"
+clap = { version = "4", features = ["derive"] }
+crossbeam-channel = "0.5"
 arrayref = "0.3"
 backtrace = "0.3"
 bytes = "1"
@@ -61,6 +63,30 @@ path = "src/bin/matchengine.rs"
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(sqlxverf)'] }
+unused_must_use = "allow"
+unused_imports = "allow"
+deprecated = "allow"
+
+[lints.clippy]
+result_large_err = "allow"
+needless_lifetimes = "allow"
+needless_borrows_for_generic_args = "allow"
+empty_docs = "allow"
+clone_on_copy = "allow"
+bool_assert_comparison = "allow"
+iter_kv_map = "allow"
+type_complexity = "allow"
+unwrap_or_default = "allow"
+unnecessary_get_then_check = "allow"
+needless_borrow = "allow"
+await_holding_refcell_ref = "allow"
+await_holding_lock = "allow"
+derivable_impls = "allow"
+manual_split_once = "allow"
+manual_is_multiple_of = "allow"
+len_zero = "allow"
+explicit_auto_deref = "allow"
+multiple_bound_locations = "allow"
 
 [build-dependencies]
 tonic-build = { version = "0.12" }

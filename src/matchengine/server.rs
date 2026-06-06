@@ -76,7 +76,7 @@ impl GrpcHandler {
 
         let stub = Arc::new(RwLock::new(stub));
         //we always wait so the size of channel is no matter
-        let (tx, mut rx) = mpsc::channel(16);
+        let (tx, mut rx) = mpsc::channel(1024);
         let (tx_close, mut rx_close) = oneshot::channel();
 
         let stub_for_dispatch = stub.clone();

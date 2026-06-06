@@ -15,7 +15,7 @@ use crate::sqlxextend::*;
 use types::DbType;
 
 pub const QUERY_LIMIT: i64 = 1000;
-pub const INSERT_LIMIT: i64 = 5000;
+pub const INSERT_LIMIT: i64 = 1_024;
 
 //https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=66bb75f8bb7b55d6bc8bfdb9d97ceb79
 
@@ -474,7 +474,7 @@ where
 
     //we consider no block for writer anymore
     pub fn is_block(&self) -> bool {
-        self.sender.is_none() || ((self.config.capability_limit as f64 * 0.9) as usize) < self.status().pending_count
+        self.sender.is_none() || (self.config.capability_limit * 2) < self.status().pending_count
     }
 
     pub fn status(&self) -> DatabaseWriterStatus {
@@ -603,7 +603,7 @@ where
 //Not use unbounded_channel: in case we mess things up, it may be
 //difficult to find it has eaten up memory. Instead, we wish
 //die fast if code do not work as expected
-const CHANNEL_LIMIT: usize = 1000;
+const CHANNEL_LIMIT: usize = 10_000;
 
 impl<U> DatabaseWriter<U>
 where

@@ -46,6 +46,50 @@ impl OperationLogConsumer for OperationLogSender {
     }
 }
 
+/// Fast file-based operation log writer for performance-critical paths.
+/// Uses a dedicated thread with crossbeam channel and BufWriter for minimal overhead.
+pub struct FastOperationLogWriter {
+    sender: crossbeam_channel::Sender<models::OperationLog>,
+}
+
+impl FastOperationLogWriter {
+    pub fn new(path: &str) -> Self {
+        let (sender, receiver) = crossbeam_channel::bounded(1_000_000);
+        let path = path.to_string();
+        std::thread::spawn(move || {
+            use std::io::{BufWriter, Write};
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .expect("open operation log file");
+            let mut writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
+            while let Ok(log) = receiver.recv() {
+                if serde_json::to_writer(&mut writer, &log).is_err() {
+                    break;
+                }
+                if writer.write_all(b"\n").is_err() {
+                    break;
+                }
+            }
+            let _ = writer.flush();
+        });
+        Self { sender }
+    }
+}
+
+impl OperationLogConsumer for FastOperationLogWriter {
+    fn is_block(&self) -> bool {
+        self.sender.len() >= 990_000
+    }
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog> {
+        self.sender.try_send(item).map_err(|e| match e {
+            crossbeam_channel::TrySendError::Full(item) => item,
+            crossbeam_channel::TrySendError::Disconnected(item) => item,
+        })
+    }
+}
+
 // TODO: reuse pool of two dbs when they are same?
 fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let persist_to_mq = true;
@@ -133,13 +177,8 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     }
 
     let persistor = create_persistor(&settings);
-    let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
-        spawn_limit: 4,
-        apply_benchmark: true,
-        capability_limit: 8192,
-    })
-    .start_schedule(&main_pool)
-    .unwrap();
+    // Use fast file-based writer for operation logs to avoid DB bottleneck
+    let log_handler: Box<dyn OperationLogConsumer + Send + Sync> = Box::new(FastOperationLogWriter::new("/tmp/operation_log.jsonl"));
     Controller {
         settings,
         sequencer,
@@ -150,7 +189,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         update_controller,
         markets,
         asset_market_names,
-        log_handler: Box::<OperationLogSender>::new(log_handler),
+        log_handler,
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
         db_pool: main_pool,

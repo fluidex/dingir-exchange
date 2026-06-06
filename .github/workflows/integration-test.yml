@@ -51,7 +51,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Up docker compose
-        run: docker compose --file "./docker/docker-compose.yaml" up --detach
+        run: docker compose --file "./orchestra/docker/docker-compose.yaml" up --detach
 
       - name: Start exchange server daemon
         run: make startall
