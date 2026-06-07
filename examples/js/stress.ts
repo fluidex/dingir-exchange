@@ -71,7 +71,7 @@ async function stressTest({ parallel, interval, durationMinutes }) {
       // Alternate between user and opponent
       const uid = i % 2 === 0 ? userId : OPPONENT_USER_ID;
       promises.push(
-        putRandOrder(uid, market).catch((e) => {
+        putRandOrder(uid, market).catch(e => {
           errorCount++;
           if (errorCount <= 5) {
             console.error("order error:", e.message || e);
@@ -120,7 +120,7 @@ async function stressTest({ parallel, interval, durationMinutes }) {
   console.log("Total rounds:", count);
   console.log("Total orders:", parallel * count);
   console.log("Errors:", errorCount);
-  console.log("Avg orders/s:", (parallel * count / totalTime).toFixed(1));
+  console.log("Avg orders/s:", ((parallel * count) / totalTime).toFixed(1));
 
   const tradeCountAfter = (await client.marketSummary(market)).trade_count;
   console.log("Trades before:", tradeCountBefore);

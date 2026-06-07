@@ -116,7 +116,7 @@ async function perfTest() {
     });
   }
 
-  const users: UserState[] = userIds.map((id) => ({
+  const users: UserState[] = userIds.map(id => ({
     id,
     activeOrders: new Set(),
     totalOrders: 0,
@@ -128,7 +128,7 @@ async function perfTest() {
   let lastReportTime = startTime;
 
   for (;;) {
-    const promises = users.map((u) => runMixedAction(u, market));
+    const promises = users.map(u => runMixedAction(u, market));
     await Promise.all(promises);
     await sleep(INTERVAL_MS);
     round++;

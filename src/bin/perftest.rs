@@ -292,12 +292,10 @@ async fn run_pair_trade(mut client: MatchengineClient<Channel>, stats: Arc<Stats
             } else {
                 (user_id_ask, OrderSide::Bid as i32)
             }
+        } else if swap {
+            (user_id_bid, OrderSide::Bid as i32)
         } else {
-            if swap {
-                (user_id_bid, OrderSide::Bid as i32)
-            } else {
-                (user_id_bid, OrderSide::Ask as i32)
-            }
+            (user_id_bid, OrderSide::Ask as i32)
         };
         let price = "1400.00".to_string();
         let amount = "0.1000".to_string();
