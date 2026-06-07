@@ -6,11 +6,12 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use types::DbType;
+use types::{ConnectionType, DbType};
 
 use rdkafka::consumer::StreamConsumer;
 
 use message::persist::{self, MIGRATOR, TopicHandlerBuilder};
+use sqlx::Connection;
 
 fn main() {
     dotenv::dotenv().ok();
@@ -37,9 +38,11 @@ fn main() {
 
         let consumer = std::sync::Arc::new(consumer);
 
-        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
+        let mut conn = ConnectionType::connect(&settings.db_history).await.unwrap();
+        MIGRATOR.run(&mut conn).await.ok();
+        drop(conn);
 
-        MIGRATOR.run(&pool).await.ok();
+        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
         let write_config = DatabaseWriterConfig {
             spawn_limit: 4,

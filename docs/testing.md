@@ -86,7 +86,8 @@ cargo run --bin perftest -- [OPTIONS]
 | `--endpoint` | gRPC endpoint | `http://127.0.0.1:50051` |
 | `--mode` | Test mode: `order-put`, `pair-trade`, `batch`, `mixed` | `order-put` |
 | `--workers` | Concurrent client workers | 4 |
-| `--orders-per-worker` | Orders per worker | 10,000 |
+| `--requests` | Total requests across all workers | 10,000 |
+| `--duration-secs` | Test duration in seconds (overrides request count if reached first) | 10 |
 | `--batch-size` | Orders per batch (batch mode only) | 20 |
 
 ### Modes
@@ -97,7 +98,9 @@ Each worker independently submits single `OrderPut` requests. Measures raw gRPC 
 
 #### `pair-trade`
 
-Workers alternate bid/ask orders to guarantee matching. Measures matching throughput (both order ingestion and execution).
+Workers alternate bid/ask orders between two users to guarantee matching. Measures matching throughput (both order ingestion and execution).
+
+> **Note on sustainable running:** The `pair-trade` mode periodically `cancelAll`s open orders (every 50 requests) and swaps the buy/sell roles of the two users every 50 requests. This prevents one user from running out of balance during long-duration tests. Use `--duration-secs` for sustained load tests.
 
 #### `batch`
 
@@ -136,6 +139,20 @@ Throughput: ~40000.00 req/s
 
 * **Failures** – Usually `Status::unknown("Server temporary unavaliable")` when the `task_dispatcher` channel is full, or Kafka producer backpressure. Not order validation failures.
 * **Throughput** – Calculated as `total_requests / elapsed_time`. For batch mode, this is batches per second; multiply by batch size for effective orders/s.
+
+### Client Performance Note
+
+The JavaScript/TypeScript test scripts in `examples/js/` (e.g. `stress.ts`) are convenient for integration testing but **should not be used for performance benchmarking**. The Node.js `grpc-caller` client is the bottleneck, not the engine:
+
+| Client | Mode | Throughput | Notes |
+|--------|------|-----------|-------|
+| Node.js (`ts-node stress.ts`) | dual-user | ~31 req/s | CPU-bound by JS event loop + promisify overhead |
+| Node.js (compiled `dist/stress.js`) | dual-user | ~30 req/s | Same bottleneck; ts-node compilation is not the issue |
+| Rust (`perftest`) | `order-put` | ~2,500 req/s | Single-worker, single-order gRPC |
+| Rust (`perftest`) | `pair-trade` | ~3,200 req/s | 4 workers, dual-user matching |
+| Rust (`perftest`) | `batch` | ~10,000 req/s | Single-worker, 20 orders/batch |
+
+**Always use the Rust `perftest` binary for accurate throughput measurements.**
 
 ### Optimization History
 

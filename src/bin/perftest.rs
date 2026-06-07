@@ -266,11 +266,38 @@ async fn run_pair_trade(mut client: MatchengineClient<Channel>, stats: Arc<Stats
     barrier.wait().await;
 
     for i in 0..requests {
-        // Alternate between ask and bid
+        // Cancel all orders periodically to avoid hitting user_order_num_limit
+        // and to release frozen balances
+        if i > 0 && i % 50 == 0 {
+            let _ = client
+                .order_cancel_all(OrderCancelAllRequest {
+                    user_id: user_id_ask,
+                    market: market.clone(),
+                })
+                .await;
+            let _ = client
+                .order_cancel_all(OrderCancelAllRequest {
+                    user_id: user_id_bid,
+                    market: market.clone(),
+                })
+                .await;
+        }
+
+        // Alternate between ask and bid, swapping roles every 50 requests
+        // so both users cycle between buying and selling for balance sustainability
+        let swap = (i / 50) % 2 == 0;
         let (user_id, side) = if i % 2 == 0 {
-            (user_id_ask, OrderSide::Ask as i32)
+            if swap {
+                (user_id_ask, OrderSide::Ask as i32)
+            } else {
+                (user_id_ask, OrderSide::Bid as i32)
+            }
         } else {
-            (user_id_bid, OrderSide::Bid as i32)
+            if swap {
+                (user_id_bid, OrderSide::Bid as i32)
+            } else {
+                (user_id_bid, OrderSide::Ask as i32)
+            }
         };
         let price = "1400.00".to_string();
         let amount = "0.1000".to_string();

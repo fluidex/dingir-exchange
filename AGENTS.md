@@ -78,8 +78,12 @@ Typical workflow for adding a new RPC or market behavior:
 # Unit tests
 cargo test
 
-# Performance test
-cargo run --bin perftest -- --mode order-put --workers 4 --orders-per-worker 10000
+# Performance test (use Rust perftest; JS clients are ~100× slower)
+cargo run --bin perftest -- --mode order-put --workers 4 --requests 10000
+
+# Sustained pair-trade load test (10 min)
+cargo run --release --bin perftest -- \
+  --mode pair-trade --workers 4 --duration-secs 600 --requests 10000000
 
 # Integration test (requires running services)
 cd examples/js && npx ts-node tests/trade.ts
@@ -92,6 +96,14 @@ cd examples/js && npx ts-node tests/trade.ts
 * **librdkafka** – The `rdkafka` crate links against the system C library. Install via `brew install librdkafka` (macOS) or `apt install librdkafka-dev` (Ubuntu).
 * **sqlx** – Uses `runtime-tokio` with `tls-rustls`. No `sqlx-data.json` is committed; relies on compile-time `DATABASE_URL` for query checking.
 * **Features** – `emit_state_diff` (default) includes verbose state diff in trades for debugging.
+
+### macOS Startup Advisory Lock Workaround
+
+On macOS, `sqlx::migrate::Migrator::run` on a `Pool` can hold a PostgreSQL advisory lock indefinitely, causing the second service (persistor) to hang waiting for the lock.
+
+**Solution:** Start `matchengine` first (it uses a single `PgConnection` for migration), wait for it to complete migrations, then start `persistor`.
+
+Alternatively, `src/bin/persistor.rs` has been updated to use a dedicated `PgConnection` for migration before creating the `Pool`.
 
 ## Important Constants
 

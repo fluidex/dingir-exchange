@@ -86,6 +86,8 @@ apt install cmake librdkafka-dev
 docker-compose --file "./orchestra/docker/docker-compose.yaml" up --detach
 
 # 2. Run database migrations and start all services
+# Note: On macOS the persistor may hang on DB migrations due to advisory locks.
+#       Run `cargo run --bin persistor` separately first, then use `make startall`.
 make startall
 
 # Or start individual binaries:
@@ -109,7 +111,7 @@ Benchmarked on Apple Silicon (M-series) with local PostgreSQL and Kafka:
 |------|-----------|--------------|-------|
 | `order-put` | ~40,000 | ~97.6% | Single orders via gRPC |
 | `batch` | ~200,000 batches/s | ~100% | 20 orders/batch = ~4M orders/s |
-| `pair-trade` | ~35,000 | ~100% | Alternating bid/ask pairs |
+| `pair-trade` | ~3,200 | ~100% | Dual-user with periodic cancel; see `docs/testing.md` |
 
 See [`docs/testing.md`](docs/testing.md) for detailed benchmark methodology.
 
