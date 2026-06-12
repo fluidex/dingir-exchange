@@ -2,7 +2,7 @@ use crate::market::Order;
 use crate::types::MarketRole;
 use crate::types::OrderSide;
 use crate::utils::InternedString;
-use fluidex_common::rust_decimal::Decimal;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -39,9 +39,9 @@ pub struct VerboseTradeState {
 pub struct Trade {
     pub id: u64,
     pub timestamp: f64, // unix epoch timestamp,
-    pub market: String,
-    pub base: String,
-    pub quote: String,
+    pub market: InternedString,
+    pub base: InternedString,
+    pub quote: InternedString,
     pub price: Decimal,
     pub amount: Decimal,
     pub quote_amount: Decimal,

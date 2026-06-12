@@ -2,9 +2,10 @@ use crate::models::tablenames::{ACCOUNT, INTERNALTX, ORDERHISTORY};
 use crate::models::{DateTimeMilliseconds, DecimalDbType, OrderHistory, TimestampDbType};
 use crate::restapi::errors::RpcError;
 use crate::restapi::state::AppState;
+use chrono::DateTime;
 use core::cmp::min;
 use paperclip::actix::web::{self, HttpRequest, Json};
-use paperclip::actix::{api_v2_operation, Apiv2Schema};
+use paperclip::actix::{Apiv2Schema, api_v2_operation};
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Apiv2Schema)]
@@ -68,10 +69,9 @@ pub struct InternalTxResponse {
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Apiv2Schema)]
+#[serde(rename_all = "lowercase")]
 pub enum Order {
-    #[serde(rename = "lowercase")]
     Asc,
-    #[serde(rename = "lowercase")]
     Desc,
 }
 
@@ -82,12 +82,10 @@ impl Default for Order {
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Apiv2Schema)]
+#[serde(rename_all = "lowercase")]
 pub enum Side {
-    #[serde(rename = "lowercase")]
     From,
-    #[serde(rename = "lowercase")]
     To,
-    #[serde(rename = "lowercase")]
     Both,
 }
 
@@ -120,7 +118,7 @@ where
     D: Deserializer<'de>,
 {
     let timestamp = Option::<u64>::deserialize(deserializer)?;
-    Ok(timestamp.map(|ts| TimestampDbType::from_timestamp(ts as i64, 0)))
+    Ok(timestamp.map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap().naive_utc()))
 }
 
 const fn default_limit() -> usize {
@@ -174,7 +172,7 @@ where "#,
     };
 
     let constraint = format!("limit {} offset {}", limit, query.offset);
-    let sql_query = format!("{}{}{}", base_query, condition, constraint);
+    let sql_query = format!("{}{} {}", base_query, condition, constraint);
 
     let query_as = sqlx::query_as(sql_query.as_str());
 

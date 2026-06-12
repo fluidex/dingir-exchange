@@ -1,4 +1,4 @@
-use crate::models::{tablenames::ACCOUNT, AccountDesc};
+use crate::models::{AccountDesc, tablenames::ACCOUNT};
 use crate::restapi::errors::RpcError;
 use crate::restapi::state::AppState;
 use paperclip::actix::api_v2_operation;

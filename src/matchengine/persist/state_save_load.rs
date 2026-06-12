@@ -7,12 +7,12 @@ use crate::models;
 use crate::sqlxextend::*;
 use crate::types;
 use crate::types::SimpleResult;
+use crate::utils::timeutil::{FTimestamp, current_timestamp};
 use crate::{config, storage};
 use arrayref::array_ref;
-use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
-use models::{tablenames, BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory};
-use sqlx::migrate::Migrator;
+use models::{BalanceSlice, BalanceSliceInsert, OperationLog, OrderSlice, SliceHistory, tablenames};
 use sqlx::Connection;
+use sqlx::migrate::Migrator;
 use std::convert::TryFrom;
 use std::time::{Duration, Instant};
 use types::{ConnectionType, DbType};
@@ -301,7 +301,7 @@ pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_mana
         BalanceSliceInsert {
             slice_id,
             user_id: k.user_id as i32,
-            asset: k.asset.clone(),
+            asset: k.asset.to_string(),
             t: k.balance_type as i16,
             balance: *v,
         }
@@ -501,7 +501,7 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
     //tokio runtime in current thread would highly possible being ruined after fork
     //so we put our task under new thread, with another tokio runtime
 
-    let controller = controller.as_ref().unwrap();
+    let controller = unsafe { controller.as_ref().unwrap() };
 
     let thread_handle = std::thread::spawn(move || {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()

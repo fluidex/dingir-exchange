@@ -1,5 +1,5 @@
 import { getTestAccount } from "../accounts";
-import { Account } from "fluidex.js";
+import { Account } from "../fluidex";
 import { defaultClient } from "../client";
 async function main() {
   let acc = Account.fromPrivkey(getTestAccount(15).priv_key);

@@ -2,8 +2,8 @@ use crate::market::Order;
 pub use crate::models::{AccountDesc, BalanceHistory, InternalTx};
 use crate::types::OrderEventType;
 
+use crate::utils::FTimestamp;
 use anyhow::Result;
-use fluidex_common::utils::timeutil::FTimestamp;
 use serde::{Deserialize, Serialize};
 
 pub mod consumer;
@@ -50,7 +50,7 @@ pub struct BalanceMessage {
 impl From<&BalanceHistory> for BalanceMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             business_id: balance.business_id as u64,
             asset: balance.asset.clone(),
@@ -82,7 +82,7 @@ pub struct DepositMessage {
 impl From<&BalanceHistory> for DepositMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -112,7 +112,7 @@ pub struct WithdrawMessage {
 impl From<&BalanceHistory> for WithdrawMessage {
     fn from(balance: &BalanceHistory) -> Self {
         Self {
-            timestamp: balance.time.timestamp() as f64,
+            timestamp: balance.time.and_utc().timestamp() as f64,
             user_id: balance.user_id as u32,
             asset: balance.asset.clone(),
             business: balance.business.clone(),
@@ -190,99 +190,8 @@ pub trait MessageManager: Sync + Send {
     fn push_user_message(&mut self, user: &UserMessage);
 }
 
-pub struct RdProducerStub<T> {
-    pub sender: crossbeam_channel::Sender<(&'static str, String)>,
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T> RdProducerStub<T> {
-    fn push_message_and_topic(&self, message: String, topic_name: &'static str) {
-        //log::debug!("KAFKA: push {} message: {}", topic_name, message);
-        self.sender.try_send((topic_name, message)).unwrap();
-    }
-}
-
-impl<T: producer::MessageScheme + 'static> RdProducerStub<T> {
-    pub fn new_and_run(brokers: &str) -> Result<Self> {
-        //now the channel is just need to provide a small buffer which is
-        //enough to accommodate a pluse request in some time slice of thread
-        let (sender, receiver) = crossbeam_channel::bounded(2048);
-
-        let producer_context: producer::RdProducerContext<T> = Default::default();
-
-        let kafkaproducer = producer_context.new_producer(brokers)?;
-        std::thread::spawn(move || {
-            producer::RdProducerContext::<T>::run_default(kafkaproducer, receiver);
-        });
-        Ok(Self {
-            sender,
-            _phantom: std::marker::PhantomData,
-        })
-    }
-}
-
-impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
-    /*
-    fn push_message(&mut self, msg: &Message) {
-        match msg {
-            Message::OrderMessage{value: order} => {
-                let message = serde_json::to_string(order).unwrap();
-                self.push_message_and_topic(message, ORDERS_TOPIC)
-            },
-            Message::BalanceMessage{value: balance} => {
-                let message = serde_json::to_string(balance).unwrap();
-                self.push_message_and_topic(message, BALANCES_TOPIC)
-            },
-            Message::TradeMessage{value: trade} => {
-                let message = serde_json::to_string(trade).unwrap();
-                self.push_message_and_topic(message, TRADES_TOPIC)
-            }
-        }
-    }
-    */
-
-    fn is_block(&self) -> bool {
-        // https://github.com/fluidex/dingir-exchange/issues/119
-        //self.sender.is_full()
-        //self.sender.len() >= (self.sender.capacity().unwrap() as f64 * 0.9) as usize
-        self.sender.len() >= (self.sender.capacity().unwrap() - 1000)
-    }
-    fn push_order_message(&mut self, order: &OrderMessage) {
-        let message = serde_json::to_string(&order).unwrap();
-        self.push_message_and_topic(message, ORDERS_TOPIC)
-    }
-    fn push_trade_message(&mut self, trade: &Trade) {
-        let message = serde_json::to_string(&trade).unwrap();
-        self.push_message_and_topic(message, TRADES_TOPIC)
-    }
-    fn push_balance_message(&mut self, balance: &BalanceMessage) {
-        let message = serde_json::to_string(&balance).unwrap();
-        self.push_message_and_topic(message, BALANCES_TOPIC)
-    }
-    fn push_deposit_message(&mut self, deposit: &DepositMessage) {
-        let message = serde_json::to_string(&deposit).unwrap();
-        self.push_message_and_topic(message, DEPOSITS_TOPIC)
-    }
-    fn push_withdraw_message(&mut self, withdraw: &WithdrawMessage) {
-        let message = serde_json::to_string(&withdraw).unwrap();
-        self.push_message_and_topic(message, WITHDRAWS_TOPIC)
-    }
-    fn push_transfer_message(&mut self, tx: &TransferMessage) {
-        let message = serde_json::to_string(&tx).unwrap();
-        self.push_message_and_topic(message, INTERNALTX_TOPIC)
-    }
-    fn push_user_message(&mut self, user: &UserMessage) {
-        let message = serde_json::to_string(&user).unwrap();
-        self.push_message_and_topic(message, USER_TOPIC)
-    }
-}
-
-pub type SimpleMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
-
-// TODO: since now we enable SimpleMessageManager & FullOrderMessageManager both,
-// we only need to process useful (deposit,trade etc, which update the rollup global state) msgs only
-// and skip others
-pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
+pub type SimpleMessageManager = producer::SimpleMessageManager;
+pub type FullOrderMessageManager = producer::FullOrderMessageManager;
 
 // https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
 // TODO: better naming?
@@ -340,3 +249,6 @@ pub fn new_simple_message_manager(brokers: &str) -> Result<SimpleMessageManager>
 pub fn new_full_order_message_manager(brokers: &str) -> Result<FullOrderMessageManager> {
     FullOrderMessageManager::new_and_run(brokers)
 }
+
+#[cfg(test)]
+mod tests;

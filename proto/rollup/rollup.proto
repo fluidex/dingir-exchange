@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package rollup_state;
+
+import "google/api/annotations.proto";
+
+service RollupState {
+  rpc L2BlocksQuery(L2BlocksQueryRequest) returns (L2BlocksQueryResponse) {
+    option (google.api.http) = {
+      get : "/rollupapi/l2_blocks"
+    };
+  }
+
+  rpc L2BlockQuery(L2BlockQueryRequest) returns (L2BlockQueryResponse) {
+    option (google.api.http) = {
+      get : "/rollupapi/l2_block/{block_id}"
+    };
+  }
+
+  rpc TokenBalanceQuery(TokenBalanceQueryRequest)
+      returns (TokenBalanceQueryResponse) {
+    option (google.api.http) = {
+      post : "/rollupapi/token_balance/{account_id}/{token_id}"
+      body : "*"
+    };
+  }
+}
+
+message L2BlocksQueryRequest {
+  int64 offset = 1;
+  int64 limit = 2;
+}
+
+message L2BlocksQueryResponse {
+  int64 total = 1;
+  repeated BlockSummary blocks = 2;
+  message BlockSummary {
+    int64 block_height = 1;
+    string merkle_root = 2;
+    double block_time = 3;
+  }
+}
+
+message L2BlockQueryRequest { int64 block_id = 1; }
+
+message L2BlockQueryResponse {
+  string new_root = 1;
+  double created_time = 2;
+  uint64 tx_num = 3;
+  uint64 real_tx_num = 4;
+  TaskStatus status = 5;
+  repeated Tx txs = 6;
+  // TODO: Adds `l1_tx_hash: string`.
+  message Tx {
+    repeated string detail = 1; // TODO: Fixes to decoding TX in issue #132.
+  }
+}
+
+message TokenBalanceQueryRequest {
+  uint32 account_id = 1;
+  uint32 token_id = 2;
+  string token_address = 3;
+  string token_name = 4;
+}
+
+message TokenBalanceQueryResponse {
+  string balance = 1;
+  string balance_raw = 2;
+  uint32 precision = 3;
+}
+
+enum TaskStatus {
+  INITED = 0;
+  WITGENING = 1;
+  WITGENED = 2;
+  PROVING = 3;
+  PROVED = 4;
+}

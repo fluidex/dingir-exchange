@@ -9,11 +9,11 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::iter::Iterator;
 
-use anyhow::{bail, Result};
-use fluidex_common::rust_decimal::prelude::Zero;
-use fluidex_common::rust_decimal::{Decimal, RoundingStrategy};
-use fluidex_common::utils::timeutil::current_timestamp;
+use crate::utils::timeutil::current_timestamp;
+use anyhow::{Result, bail};
 use itertools::Itertools;
+use rust_decimal::prelude::Zero;
+use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
 pub use types::{OrderSide, OrderType};
@@ -388,7 +388,7 @@ impl Market {
             let trade = Trade {
                 id: trade_id,
                 timestamp: current_timestamp(),
-                market: self.name.to_string(),
+                market: self.name.into(),
                 base: self.base.into(),
                 quote: self.quote.into(),
                 price,
@@ -760,7 +760,7 @@ impl Market {
     {
         orderbook
             .values()
-            .group_by(|order_rc| -> Decimal { f(&order_rc.borrow()) })
+            .chunk_by(|order_rc| -> Decimal { f(&order_rc.borrow()) })
             .into_iter()
             .take(limit)
             .map(|(price, group)| PriceInfo {
@@ -814,8 +814,8 @@ mod tests {
     use crate::config::Settings;
     use crate::matchengine::mock;
     use crate::message::{Message, OrderMessage};
-    use fluidex_common::rust_decimal_macros::*;
     use mock::*;
+    use rust_decimal_macros::*;
 
     //#[cfg(feature = "emit_state_diff")]
     #[test]
@@ -823,14 +823,14 @@ mod tests {
         use crate::asset::BalanceUpdateController;
         use crate::matchengine::market::{Market, OrderInput};
         use crate::types::{OrderSide, OrderType};
-        use fluidex_common::rust_decimal::prelude::FromPrimitive;
         use rand::Rng;
+        use rust_decimal::prelude::FromPrimitive;
 
         let only_int = true;
         let broker = std::env::var("KAFKA_BROKER");
         let mut persistor: Box<dyn PersistExector> = match broker {
             Ok(b) => Box::new(crate::persist::MessengerBasedPersistor::new(Box::new(
-                crate::message::FullOrderMessageManager::new_and_run(&b).unwrap(),
+                crate::message::new_full_order_message_manager(&b).unwrap(),
             ))),
             Err(_) => Box::new(crate::persist::FileBasedPersistor::new("market_test_output.txt")),
         };
@@ -873,8 +873,8 @@ mod tests {
         let mut market = Market::new(&market_conf, &Settings::default(), balance_manager).unwrap();
         let mut rng = rand::thread_rng();
         for _ in 0..100 {
-            let user_id = if rng.gen::<bool>() { uid0 } else { uid1 };
-            let side = if rng.gen::<bool>() { OrderSide::BID } else { OrderSide::ASK };
+            let user_id = if rand::random::<bool>() { uid0 } else { uid1 };
+            let side = if rand::random::<bool>() { OrderSide::BID } else { OrderSide::ASK };
             let amount = if only_int {
                 Decimal::from_i32(rng.gen_range(1..10)).unwrap()
             } else {

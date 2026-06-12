@@ -1,10 +1,10 @@
 use crate::market;
 
-use anyhow::{anyhow, bail, Result};
+use crate::rpc::exchange::*;
+use crate::utils::timeutil::FTimestamp;
+use anyhow::{Result, anyhow, bail};
 use arrayref::array_ref;
-use fluidex_common::rust_decimal::{self, prelude::Zero, Decimal};
-use fluidex_common::utils::timeutil::FTimestamp;
-use orchestra::rpc::exchange::*;
+use rust_decimal::{self, Decimal, prelude::Zero};
 
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -33,8 +33,8 @@ impl From<market::Order> for OrderInfo {
                 OrderSide::Bid as i32
             },
             user_id: o.user,
-            create_time: FTimestamp::from(&o.create_time).as_milliseconds(),
-            update_time: FTimestamp::from(&o.update_time).as_milliseconds(),
+            create_time: FTimestamp::from(&o.create_time).0 * 1000.0,
+            update_time: FTimestamp::from(&o.update_time).0 * 1000.0,
             price: o.price.to_string(),
             amount: o.amount.to_string(),
             taker_fee: o.taker_fee.to_string(),
@@ -72,7 +72,7 @@ impl TryFrom<OrderPutRequest> for market::OrderInput {
             market: req.market.clone(),
             post_only: req.post_only,
             signature: if req.signature.is_empty() {
-                log::warn!("empty signature. should only happen in tests");
+                log::debug!("empty signature. should only happen in tests");
                 [0; 64]
             } else {
                 let sig = req.signature.trim_start_matches("0x");

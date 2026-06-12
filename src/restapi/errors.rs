@@ -3,7 +3,7 @@ use std::fmt;
 use thiserror::Error;
 
 use actix_web::error::{QueryPayloadError, ResponseError};
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{HttpResponse, http::StatusCode};
 
 // It is better to use strong typed error for APIs.
 // Use thiserror rather than anyhow if you are a library or service that wants to design your own dedicated error type(s)

@@ -1,6 +1,7 @@
-use super::models::{tablenames, AssetDesc, DbType, MarketDesc, TimestampDbType};
+use super::models::{AssetDesc, DbType, MarketDesc, TimestampDbType, tablenames};
 use crate::config;
 use anyhow::Result;
+use chrono::DateTime;
 
 impl From<AssetDesc> for config::Asset {
     fn from(origin: AssetDesc) -> Self {
@@ -42,7 +43,7 @@ pub struct MarketConfigs {
 // TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadasset_from_db() -> impl std::any::Any {
-    let t = TimestampDbType::from_timestamp(0, 0);
+    let t = DateTime::from_timestamp(0, 0).unwrap().naive_utc();
     sqlx::query_as!(
         AssetDesc,
         "select asset_name, precision_stor, precision_show, create_time from asset where create_time > $1",
@@ -59,7 +60,7 @@ impl Default for MarketConfigs {
 // TODO: fix this
 #[cfg(sqlxverf)]
 fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
-    let t = TimestampDbType::from_timestamp(0, 0);
+    let t = DateTime::from_timestamp(0, 0).unwrap().naive_utc();
     sqlx::query_as!(
         MarketDesc,
         "select id, create_time, base_asset, quote_asset, 
@@ -74,14 +75,14 @@ use futures::TryStreamExt;
 impl MarketConfigs {
     pub fn new() -> Self {
         MarketConfigs {
-            assets_load_time: TimestampDbType::from_timestamp(0, 0),
-            market_load_time: TimestampDbType::from_timestamp(0, 0),
+            assets_load_time: DateTime::from_timestamp(0, 0).unwrap().naive_utc(),
+            market_load_time: DateTime::from_timestamp(0, 0).unwrap().naive_utc(),
         }
     }
 
     pub fn reset_load_time(&mut self) {
-        self.assets_load_time = TimestampDbType::from_timestamp(0, 0);
-        self.market_load_time = TimestampDbType::from_timestamp(0, 0);
+        self.assets_load_time = DateTime::from_timestamp(0, 0).unwrap().naive_utc();
+        self.market_load_time = DateTime::from_timestamp(0, 0).unwrap().naive_utc();
     }
 
     //this load market config from database, instead of loading them from the config

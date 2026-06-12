@@ -110,28 +110,16 @@ class MMByPriceBot {
       orders: [bid_order, ask_order],
     };
   }
-  handleTrade(trade: any) {
-    // console.log(trade);
-    return;
-  }
-  handleOrderbookUpdate(orderbook: any) {
-    // console.log(orderbook);
-    return;
-  }
-  handleOrderEvent() {
-    // console.log("log info");
-    return;
-  }
+  handleTrade(trade) {}
+  handleOrderbookUpdate(orderbook) {}
+  handleOrderEvent() {}
   getLatestPrice(): number {
     return this.latestPrice;
   }
   estimatePrice(): number {
     return 3;
   }
-  getMyBalance() {
-    // console.log("log info");
-    return;
-  }
+  getMyBalance() {}
 }
 
 export { MMByPriceBot };

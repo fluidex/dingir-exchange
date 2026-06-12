@@ -1,0 +1,39 @@
+version: '3.4'
+services:
+  exchange_db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: exchange_db
+    restart: always
+    volumes:
+      - ./volumes/exchange_db/data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: exchange
+      POSTGRES_USER: exchange
+      POSTGRES_PASSWORD: exchange_AA9944
+
+  exchange_zookeeper:
+    image: zookeeper
+    container_name: exchange_zookeeper
+    restart: always
+    ports:
+      - "2181:2181"
+    volumes:
+      - ./volumes/exchange_zookeeper/log:/var/log/zookeeper
+
+  exchange_kafka:
+    image: wurstmeister/kafka:2.13-2.7.0
+    container_name: exchange_kafka
+    restart: always
+    logging:
+      options:
+        max-size: 10m
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./volumes/exchange_kafka/log:/var/log/kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: exchange_zookeeper:2181
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_CREATE_TOPICS: "trades:1:1,orders:1:1,balances:1:1,internaltransfer:1:1,registeruser:1:1,unifyevents:1:1"

@@ -1,11 +1,11 @@
-use crate::models::tablenames::{MARKET, MARKETTRADE};
 use crate::models::MarketDesc;
+use crate::models::tablenames::{MARKET, MARKETTRADE};
 use crate::restapi::errors::RpcError;
 use crate::restapi::types::{KlineReq, KlineResult, TickerResult};
 use crate::restapi::{mock, state};
 use humantime::parse_duration;
 use paperclip::actix::web::{self, HttpRequest, Json};
-use paperclip::actix::{api_v2_operation, Apiv2Schema};
+use paperclip::actix::{Apiv2Schema, api_v2_operation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -346,8 +346,8 @@ pub async fn search_symbols(
 }
 
 use chrono::{self, DurationRound};
-use fluidex_common::rust_decimal::{prelude::*, Decimal};
 use futures::TryStreamExt;
+use rust_decimal::{Decimal, prelude::*};
 use sqlx::types::chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(sqlx::FromRow, Debug, Clone)]
@@ -370,7 +370,7 @@ fn sqlverf_ticker() -> impl std::any::Any {
         "select first(price, time), last(price, time), max(price), min(price), 
         sum(amount), sum(quote_amount) as quote_sum from market_trade where market = $1 and time > $2",
         "USDT_ETH",
-        NaiveDateTime::from_timestamp(100_000_000, 0)
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc()
     )
 }
 
@@ -481,7 +481,7 @@ where
     }
 }
 
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{HttpResponse, http::StatusCode};
 
 impl std::fmt::Display for TradeViewError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -517,8 +517,8 @@ fn sqlverf_history() -> impl std::any::Any {
     group by ts order by ts asc",
         sqlx::postgres::types::PgInterval::try_from(std::time::Duration::new(3600, 0)).unwrap(),
         "ETH_USDT",
-        NaiveDateTime::from_timestamp(100_000_000, 0),
-        NaiveDateTime::from_timestamp(100_000_000, 0),
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc(),
+        DateTime::from_timestamp(100_000_000, 0).unwrap().naive_utc(),
     )
 }
 
@@ -544,8 +544,8 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
         .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // TODO: remove this magic number
         .bind(&req.symbol)
-        .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
-        .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))
+        .bind(DateTime::from_timestamp(req.from as i64, 0).unwrap().naive_utc())
+        .bind(DateTime::from_timestamp(req.to as i64, 0).unwrap().naive_utc())
         .fetch(&app_state.db);
 
     let mut out_t: Vec<i32> = Vec::new();
@@ -556,7 +556,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     let mut out_v: Vec<f32> = Vec::new();
 
     while let Some(item) = query_rows.try_next().await.map_err(TradeViewError::from)? {
-        out_t.push(item.ts.as_ref().map(NaiveDateTime::timestamp).unwrap_or(0) as i32);
+        out_t.push(item.ts.as_ref().map(|t| t.and_utc().timestamp()).unwrap_or(0) as i32);
         out_c.push(item.last.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_o.push(item.first.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
         out_h.push(item.max.as_ref().and_then(Decimal::to_f32).unwrap_or(0.0));
@@ -569,11 +569,11 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     if out_t.is_empty() {
         let next_query = format!("select time from {} where time < $1 order by time desc limit 1", MARKETTRADE);
         let nxt = sqlx::query_scalar(&next_query)
-            .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
+            .bind(DateTime::from_timestamp(req.from as i64, 0).unwrap().naive_utc())
             .fetch_optional(&app_state.db)
             .await
             .map_err(TradeViewError::from)?
-            .map(|x: NaiveDateTime| x.timestamp() as i32);
+            .map(|x: NaiveDateTime| x.and_utc().timestamp() as i32);
 
         return Ok(Json(KlineResult {
             s: String::from("no_data"),

@@ -18,9 +18,9 @@ pub fn intern_string(s: &str) -> &'static str {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InternedString(&'static str);
 
-impl From<&'static str> for InternedString {
-    fn from(str: &'static str) -> Self {
-        InternedString(str)
+impl From<&str> for InternedString {
+    fn from(str: &str) -> Self {
+        InternedString(intern_string(str))
     }
 }
 
@@ -34,6 +34,22 @@ impl std::ops::Deref for InternedString {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         self.0
+    }
+}
+
+impl std::cmp::PartialEq for InternedString {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl std::cmp::Eq for InternedString {}
+
+impl std::hash::Hash for InternedString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Hash the pointer value instead of string content for O(1) hashing.
+        // Safe because intern_string ensures identical content maps to identical pointer.
+        self.0.as_ptr().hash(state);
     }
 }
 

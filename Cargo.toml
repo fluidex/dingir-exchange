@@ -2,47 +2,59 @@
 name = "dingir-exchange"
 version = "0.1.0"
 authors = [ "lispczz <mycinbrin@gmail.com>" ]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-actix-rt = "2.1.0"
-actix-web = "4.0.0-beta.12"
-anyhow = "1.0.38"
-arrayref = "0.3.6"
-bytes = "1.0.1"
-chrono = { version = "0.4.19", features = [ "serde" ] }
-config_rs = { package = "config", version = "0.10.1" }
-const_format = "0.2.15"
-crossbeam-channel = "0.5.0"
-dotenv = "0.15.0"
-fluidex-common = { git = "https://github.com/fluidex/common-rs", branch = "master", features = [ "kafka", "non-blocking-tracing", "rust-decimal-dingir-exchange" ] }
-futures = "0.3.13"
-futures-channel = "0.3.13"
-futures-core = { version = "0.3.13", default-features = false }
-futures-util = { version = "0.3.13", default-features = false }
-hex = "0.4.3"
-humantime = "2.1.0"
-humantime-serde = "1.0.1"
-hyper = "0.14.4"
-itertools = "0.10.0"
-lazy_static = "1.4.0"
-log = "0.4.14"
-nix = "0.20.0"
-num_enum = "0.5.1"
-orchestra = { git = "https://github.com/fluidex/orchestra.git", branch = "master", features = [ "exchange" ] }
-paperclip = { git = "https://github.com/fluidex/paperclip.git", features = [ "actix", "chrono", "rust_decimal" ] }
-qstring = "0.7.2"
-rand = "0.8.3"
-serde = { version = "1.0.124", features = [ "derive" ] }
-serde_json = "1.0.64"
-sqlx = { version = "0.5.1", features = [ "runtime-tokio-rustls", "postgres", "chrono", "decimal", "migrate" ] }
-thiserror = "1.0.24"
-tokio = { version = "1.9.0", features = [ "full" ] }
-tonic = "0.5.2"
+actix-rt = "2.10"
+actix-web = "4"
+anyhow = "1.0"
+clap = { version = "4", features = ["derive"] }
+crossbeam-channel = "0.5"
+arrayref = "0.3"
+backtrace = "0.3"
+bytes = "1"
+chrono = { version = "0.4", features = [ "serde" ] }
+config_rs = { package = "config", version = "0.14" }
+const_format = "0.2"
+dotenv = "0.15"
+babyjubjub-rs = { git = "https://github.com/Fluidex/babyjubjub-rs", optional = true }
+ff = { git = "https://github.com/Fluidex/ff", package = "ff_ce", optional = true }
+futures = "0.3"
+num-bigint = "0.4"
+num-traits = "0.2"
+poseidon-rs = { git = "https://github.com/Fluidex/poseidon-rs", optional = true }
+rdkafka = { version = "0.37", features = [ "cmake-build" ] }
+futures-channel = "0.3"
+futures-core = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false }
+hex = "0.4"
+humantime = "2"
+humantime-serde = "1"
+hyper = "1"
+itertools = "0.13"
+lazy_static = "1.5"
+log = "0.4"
+nix = { version = "0.29", features = [ "process" ] }
+num_enum = "0.7"
+paperclip = { version = "0.9", features = [ "actix4", "chrono", "rust_decimal" ] }
+prost = "0.13"
+qstring = "0.7"
+rand = "0.8"
+rust_decimal = { version = "1.42", features = ["maths"] }
+rust_decimal_macros = "1.40"
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = [ "runtime-tokio", "tls-rustls", "postgres", "chrono", "migrate", "rust_decimal" ] }
+thiserror = "2"
+tokio = { version = "1.40", features = [ "full" ] }
+tonic = "0.12"
 tracing = "0.1"
-tracing-appender = "0.1"
-tracing-subscriber = "0.2"
-ttl_cache = "0.5.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ttl_cache = "0.5"
+simd-json = "0.17.0"
+crossbeam-skiplist = "0.1.3"
+parking_lot = "0.12.5"
 
 [[bin]]
 name = "restapi"
@@ -52,9 +64,40 @@ path = "src/bin/restapi.rs"
 name = "matchengine"
 path = "src/bin/matchengine.rs"
 
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(sqlxverf)'] }
+unused_must_use = "allow"
+unused_imports = "allow"
+deprecated = "allow"
+
+[lints.clippy]
+result_large_err = "allow"
+needless_lifetimes = "allow"
+needless_borrows_for_generic_args = "allow"
+empty_docs = "allow"
+clone_on_copy = "allow"
+bool_assert_comparison = "allow"
+iter_kv_map = "allow"
+type_complexity = "allow"
+unwrap_or_default = "allow"
+unnecessary_get_then_check = "allow"
+needless_borrow = "allow"
+await_holding_refcell_ref = "allow"
+await_holding_lock = "allow"
+derivable_impls = "allow"
+manual_split_once = "allow"
+manual_is_multiple_of = "allow"
+len_zero = "allow"
+explicit_auto_deref = "allow"
+multiple_bound_locations = "allow"
+
+[build-dependencies]
+tonic-build = { version = "0.12" }
+
 [features]
-windows_build = [ "fluidex-common/rdkafka-dynamic" ]
+windows_build = [ "rdkafka/dynamic_linking" ]
 emit_state_diff = [ ]
+zk-rollup = ["dep:babyjubjub-rs", "dep:ff", "dep:poseidon-rs"]
 default = [ "emit_state_diff" ]
 #default = ["windows_build"]
 #default = ["windows_build", "emit_state_diff"]

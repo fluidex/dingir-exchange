@@ -3,7 +3,7 @@ use crate::models::{self, DecimalDbType, TimestampDbType};
 use crate::restapi::errors::RpcError;
 use crate::restapi::state::AppState;
 use crate::restapi::types;
-use chrono::{DateTime, SecondsFormat, Utc};
+use chrono::SecondsFormat;
 use core::cmp::min;
 use paperclip::actix::api_v2_operation;
 use paperclip::actix::web::{self, HttpRequest, Json};
@@ -95,7 +95,7 @@ pub async fn order_trades(
             .into_iter()
             .map(|v| types::MarketTrade {
                 trade_id: v.trade_id,
-                time: DateTime::<Utc>::from_utc(v.time, Utc).to_rfc3339_opts(SecondsFormat::Secs, true),
+                time: v.time.and_utc().to_rfc3339_opts(SecondsFormat::Secs, true),
                 amount: v.amount.to_string(),
                 quote_amount: v.quote_amount.to_string(),
                 price: v.price.to_string(),

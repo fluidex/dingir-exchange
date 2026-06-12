@@ -5,20 +5,36 @@
 #![allow(clippy::single_char_pattern)]
 //#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
+use dingir_exchange::auth;
 use dingir_exchange::config;
 use dingir_exchange::controller::create_controller;
 use dingir_exchange::persist;
 use dingir_exchange::server::GrpcHandler;
 //use dingir_exchange::sqlxextend;
 
+use dingir_exchange::rpc::exchange::matchengine_server::MatchengineServer;
 use dingir_exchange::types::ConnectionType;
-use fluidex_common::non_blocking_tracing;
-use orchestra::rpc::exchange::matchengine_server::MatchengineServer;
 use sqlx::Connection;
+
+#[cfg(feature = "zk-rollup")]
+fn build_auth() -> (auth::DynSignatureVerifier, auth::DynOrderCommitter) {
+    (
+        std::sync::Arc::new(auth::zk::BabyJubJubVerifier),
+        std::sync::Arc::new(auth::zk::ZkOrderCommitter),
+    )
+}
+
+#[cfg(not(feature = "zk-rollup"))]
+fn build_auth() -> (auth::DynSignatureVerifier, auth::DynOrderCommitter) {
+    (
+        std::sync::Arc::new(auth::noop::NoopVerifier),
+        std::sync::Arc::new(auth::noop::NoopCommitter),
+    )
+}
 
 fn main() {
     dotenv::dotenv().ok();
-    let _guard = non_blocking_tracing::setup();
+    let _guard = dingir_exchange::utils::tracing::setup();
 
     let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -36,9 +52,10 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
     let mut settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
 
-    let mut conn = ConnectionType::connect(&settings.db_log)
+    let db_url = settings.db_log.clone();
+    let mut conn = ConnectionType::connect(&db_url)
         .await
-        .expect(&*format!("cannot connect to db at {}", settings.db_log));
+        .unwrap_or_else(|_| panic!("cannot connect to db at {}", db_url));
     persist::MIGRATOR.run(&mut conn).await?;
     log::info!("MIGRATOR done");
 
@@ -48,7 +65,8 @@ async fn prepare() -> anyhow::Result<GrpcHandler> {
         persist::MarketConfigs::new()
     };
 
-    let mut grpc_stub = create_controller((settings.clone(), market_cfg));
+    let (verifier, committer) = build_auth();
+    let mut grpc_stub = create_controller((settings.clone(), market_cfg), verifier, committer);
     log::info!("grpc_stub created");
     grpc_stub.user_manager.load_users_from_db(&mut conn).await?;
     persist::init_from_db(&mut conn, &mut grpc_stub).await?;
@@ -71,6 +89,7 @@ async fn grpc_run(mut grpc: GrpcHandler) -> Result<(), Box<dyn std::error::Error
     });
 
     tonic::transport::Server::builder()
+        .max_concurrent_streams(10_000)
         .add_service(MatchengineServer::new(grpc))
         .serve_with_shutdown(addr, async {
             rx.await.ok();

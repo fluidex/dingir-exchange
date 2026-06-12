@@ -1,11 +1,12 @@
 use crate::asset::update_controller::{BalanceUpdateParams, BusinessType};
 use crate::asset::{BalanceManager, BalanceType, BalanceUpdateController};
+use crate::auth::{DynOrderCommitter, DynSignatureVerifier};
 use crate::config::{self};
 use crate::database::{DatabaseWriterConfig, OperationLogSender};
 use crate::eth_guard::{EthLogGuard, EthLogMetadata};
 use crate::history::DatabaseHistoryWriter;
 use crate::market::{self, Order, OrderInput};
-use crate::message::{FullOrderMessageManager, SimpleMessageManager};
+use crate::message::{new_full_order_message_manager, new_simple_message_manager};
 use crate::models::{self};
 use crate::persist::{CompositePersistor, DBBasedPersistor, DummyPersistor, FileBasedPersistor, MessengerBasedPersistor, PersistExector};
 use crate::sequencer::Sequencer;
@@ -13,16 +14,15 @@ use crate::storage::config::MarketConfigs;
 use crate::types::{ConnectionType, DbType, SimpleResult};
 use crate::user_manager::{self, UserManager};
 
+use crate::rpc::exchange::*;
+use crate::utils::merge_sort::{MergeSortIterator, Order as SortOrder};
+use crate::utils::timeutil::{FTimestamp, current_timestamp};
 use anyhow::{anyhow, bail};
-use fluidex_common::helper::{MergeSortIterator, Order as SortOrder};
-use fluidex_common::rust_decimal::prelude::{RoundingStrategy, Zero};
-use fluidex_common::rust_decimal::Decimal;
-use fluidex_common::utils::timeutil::{current_timestamp, FTimestamp};
-use orchestra::rpc::exchange::*;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::{RoundingStrategy, Zero};
 use serde::Serialize;
 use serde_json::json;
 use sqlx::Connection;
-use sqlx::Executor;
 use tonic::{self, Status};
 
 use std::collections::HashMap;
@@ -47,6 +47,50 @@ impl OperationLogConsumer for OperationLogSender {
     }
 }
 
+/// Fast file-based operation log writer for performance-critical paths.
+/// Uses a dedicated thread with crossbeam channel and BufWriter for minimal overhead.
+pub struct FastOperationLogWriter {
+    sender: crossbeam_channel::Sender<models::OperationLog>,
+}
+
+impl FastOperationLogWriter {
+    pub fn new(path: &str) -> Self {
+        let (sender, receiver) = crossbeam_channel::bounded(1_000_000);
+        let path = path.to_string();
+        std::thread::spawn(move || {
+            use std::io::{BufWriter, Write};
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .expect("open operation log file");
+            let mut writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
+            while let Ok(log) = receiver.recv() {
+                if serde_json::to_writer(&mut writer, &log).is_err() {
+                    break;
+                }
+                if writer.write_all(b"\n").is_err() {
+                    break;
+                }
+            }
+            let _ = writer.flush();
+        });
+        Self { sender }
+    }
+}
+
+impl OperationLogConsumer for FastOperationLogWriter {
+    fn is_block(&self) -> bool {
+        self.sender.len() >= 990_000
+    }
+    fn append_operation_log(&mut self, item: models::OperationLog) -> anyhow::Result<(), models::OperationLog> {
+        self.sender.try_send(item).map_err(|e| match e {
+            crossbeam_channel::TrySendError::Full(item) => item,
+            crossbeam_channel::TrySendError::Disconnected(item) => item,
+        })
+    }
+}
+
 // TODO: reuse pool of two dbs when they are same?
 fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let persist_to_mq = true;
@@ -56,12 +100,12 @@ fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let mut persistor = Box::new(CompositePersistor::default());
     if !settings.brokers.is_empty() && persist_to_mq {
         persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-            SimpleMessageManager::new_and_run(&settings.brokers).unwrap(),
+            new_simple_message_manager(&settings.brokers).unwrap(),
         ))));
     }
     if !settings.brokers.is_empty() && persist_to_mq_full_order {
         persistor.add_persistor(Box::new(MessengerBasedPersistor::new(Box::new(
-            FullOrderMessageManager::new_and_run(&settings.brokers).unwrap(),
+            new_full_order_message_manager(&settings.brokers).unwrap(),
         ))));
     }
     if persist_to_db {
@@ -93,7 +137,9 @@ pub struct Controller {
     pub sequencer: Sequencer,
     pub user_manager: UserManager,
     pub balance_manager: BalanceManager,
-    pub eth_guard: EthLogGuard,
+    pub eth_guard: Option<EthLogGuard>,
+    pub verifier: DynSignatureVerifier,
+    pub committer: DynOrderCommitter,
     //    pub asset_manager: AssetManager,
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<MarketName, market::Market>,
@@ -116,7 +162,11 @@ const OPERATION_ORDER_PUT: &str = "order_put";
 const OPERATION_BATCH_ORDER_PUT: &str = "batch_order_put";
 const OPERATION_TRANSFER: &str = "transfer";
 
-pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller {
+pub fn create_controller(
+    cfgs: (config::Settings, MarketConfigs),
+    verifier: DynSignatureVerifier,
+    committer: DynOrderCommitter,
+) -> Controller {
     let settings = cfgs.0;
     let main_pool = sqlx::Pool::<DbType>::connect_lazy(&settings.db_log).unwrap();
     let user_manager = UserManager::new(); // load from db later
@@ -134,24 +184,21 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     }
 
     let persistor = create_persistor(&settings);
-    let log_handler = OperationLogSender::new(&DatabaseWriterConfig {
-        spawn_limit: 4,
-        apply_benchmark: true,
-        capability_limit: 8192,
-    })
-    .start_schedule(&main_pool)
-    .unwrap();
+    // Use fast file-based writer for operation logs to avoid DB bottleneck
+    let log_handler: Box<dyn OperationLogConsumer + Send + Sync> = Box::new(FastOperationLogWriter::new("/tmp/operation_log.jsonl"));
     Controller {
         settings,
         sequencer,
         //            asset_manager,
         user_manager,
         balance_manager,
-        eth_guard: EthLogGuard::new(0),
+        eth_guard: Some(EthLogGuard::new(0)),
+        verifier,
+        committer,
         update_controller,
         markets,
         asset_market_names,
-        log_handler: Box::<OperationLogSender>::new(log_handler),
+        log_handler,
         persistor,
         dummy_persistor: DummyPersistor::new_box(),
         db_pool: main_pool,
@@ -363,8 +410,10 @@ impl Controller {
 
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
-        if !self.eth_guard.accept_optional(&meta) {
-            return Ok(req);
+        if let Some(ref mut guard) = self.eth_guard {
+            if !guard.accept_optional(&meta) {
+                return Ok(req);
+            }
         }
 
         let last_user_id = self.user_manager.users.len() as u32;
@@ -399,7 +448,9 @@ impl Controller {
             self.append_operation_log(OPERATION_REGISTER_USER, &req);
         }
 
-        self.eth_guard.update_optional(meta);
+        if let Some(ref mut guard) = self.eth_guard {
+            guard.update_optional(meta);
+        }
 
         Ok(UserInfo {
             user_id: req.user_id,
@@ -416,8 +467,10 @@ impl Controller {
 
         let meta: Option<EthLogMetadata> = req.log_metadata.as_ref().map(|meta| meta.into());
         // ignore processed request
-        if !self.eth_guard.accept_optional(&meta) {
-            return Ok(BalanceUpdateResponse::default());
+        if let Some(ref mut guard) = self.eth_guard {
+            if !guard.accept_optional(&meta) {
+                return Ok(BalanceUpdateResponse::default());
+            }
         }
 
         let asset = &req.asset;
@@ -469,7 +522,9 @@ impl Controller {
             self.append_operation_log(OPERATION_BALANCE_UPDATE, &req);
         }
 
-        self.eth_guard.update_optional(meta);
+        if let Some(ref mut guard) = self.eth_guard {
+            guard.update_optional(meta);
+        }
 
         Ok(BalanceUpdateResponse::default())
     }
@@ -774,13 +829,22 @@ impl Controller {
             */
             // sqlx::query seems unable to handle multi statements, so `execute` is used here
 
+            // Use DROP DATABASE + CREATE DATABASE instead of down.sql/up.sql
+            // to avoid timescaledb extension state issues after schema drop
             let db_str = self.settings.db_log.clone();
-            let down_cmd = include_str!("../../migrations/reset/down.sql");
-            let up_cmd = include_str!("../../migrations/reset/up.sql");
-            let mut connection = ConnectionType::connect(&db_str).await?;
-            connection.execute(down_cmd).await?;
-            let mut connection = ConnectionType::connect(&db_str).await?;
-            connection.execute(up_cmd).await?;
+            let db_name = db_str.rsplit('/').next().unwrap_or("exchange");
+            let admin_db_str = format!(
+                "{}/postgres",
+                db_str
+                    .rsplitn(2, '/')
+                    .nth(1)
+                    .unwrap_or("postgres://exchange:exchange_AA9944@127.0.0.1")
+            );
+            let mut admin_conn = ConnectionType::connect(&admin_db_str).await?;
+            let drop_cmd = format!("DROP DATABASE IF EXISTS {} WITH (FORCE);", db_name);
+            let create_cmd = format!("CREATE DATABASE {} OWNER exchange;", db_name);
+            sqlx::query(&drop_cmd).execute(&mut admin_conn).await?;
+            sqlx::query(&create_cmd).execute(&mut admin_conn).await?;
 
             //To workaround https://github.com/launchbadge/sqlx/issues/954: migrator is not Send
             let db_str = self.settings.db_log.clone();
@@ -793,7 +857,11 @@ impl Controller {
                 let ret = rt.block_on(async move {
                     let mut conn = ConnectionType::connect(&db_str).await?;
                     crate::persist::MIGRATOR.run(&mut conn).await?;
-                    crate::message::persist::MIGRATOR.run(&mut conn).await
+                    // message::persist MIGRATOR shares the same _sqlx_migrations table
+                    // but has a different set of migrations, causing conflicts after reset.
+                    // Since migrations/ already contains all migrations from migrations/ts/,
+                    // we only need to run persist::MIGRATOR.
+                    Ok::<_, sqlx::Error>(())
                 });
 
                 log::info!("migration task done");

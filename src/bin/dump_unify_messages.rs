@@ -6,14 +6,13 @@
 
 use std::fs::File;
 use std::io::Write;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use dingir_exchange::{config, message};
-use message::consumer::{Simple, SimpleConsumer, SimpleMessageHandler};
+use message::consumer::{SimpleConsumer, SimpleHandler};
 
-use fluidex_common::non_blocking_tracing;
-use fluidex_common::rdkafka::consumer::StreamConsumer;
-use fluidex_common::rdkafka::message::{BorrowedMessage, Message};
+use rdkafka::consumer::StreamConsumer;
+use rdkafka::message::{BorrowedMessage, Message};
 
 fn get_msg_tag_from_topic(t: &str) -> Option<&'static str> {
     Some(match t {
@@ -34,21 +33,9 @@ struct MessageWriter {
     out_file: Mutex<File>,
 }
 
-impl SimpleMessageHandler for &MessageWriter {
-    fn on_message(&self, msg: &BorrowedMessage<'_>) {
-        let mut file = self.out_file.lock().unwrap();
-        let msg_key = std::str::from_utf8(msg.key().unwrap()).unwrap();
-        if let Some(msgtype) = get_msg_tag_from_topic(msg_key) {
-            let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
-            file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
-                .unwrap();
-        }
-    }
-}
-
 fn main() {
     dotenv::dotenv().ok();
-    let _guard = non_blocking_tracing::setup();
+    let _guard = dingir_exchange::utils::tracing::setup();
 
     let settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
@@ -58,12 +45,12 @@ fn main() {
         .build()
         .expect("build runtime");
 
-    let writer = MessageWriter {
+    let writer = Arc::new(MessageWriter {
         out_file: Mutex::new(File::create("unify_msgs_output.txt").unwrap()),
-    };
+    });
 
     rt.block_on(async move {
-        let consumer: StreamConsumer = fluidex_common::rdkafka::config::ClientConfig::new()
+        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
             .set("group.id", "unify_msg_dumper")
             .set("enable.partition.eof", "false")
@@ -76,8 +63,20 @@ fn main() {
         let consumer = std::sync::Arc::new(consumer);
 
         loop {
+            let writer = writer.clone();
             let cr_main = SimpleConsumer::new(consumer.as_ref())
-                .add_topic(message::UNIFY_TOPIC, Simple::from(&writer))
+                .add_topic(
+                    message::UNIFY_TOPIC,
+                    SimpleHandler::new(move |msg: &BorrowedMessage<'_>| {
+                        let mut file = writer.out_file.lock().unwrap();
+                        let msg_key = std::str::from_utf8(msg.key().unwrap()).unwrap();
+                        if let Some(msgtype) = get_msg_tag_from_topic(msg_key) {
+                            let payloadmsg = std::str::from_utf8(msg.payload().unwrap()).unwrap();
+                            file.write_fmt(format_args!("{{\"type\":\"{}\",\"value\":{}}}\n", msgtype, payloadmsg))
+                                .unwrap();
+                        }
+                    }),
+                )
                 .unwrap();
 
             tokio::select! {
@@ -86,7 +85,7 @@ fn main() {
                     break;
                 },
 
-                err = cr_main.run_stream(|cr|cr.stream()) => {
+                err = cr_main.run_stream() => {
                     log::error!("Kafka consumer error: {}", err);
                 }
             }

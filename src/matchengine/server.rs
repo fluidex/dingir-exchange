@@ -1,3 +1,4 @@
+use crate::auth::{DynOrderCommitter, DynSignatureVerifier};
 use crate::config::{OrderSignatrueCheck, Settings};
 use crate::controller::Controller;
 
@@ -5,8 +6,8 @@ use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use orchestra::rpc::exchange::*;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use crate::rpc::exchange::*;
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tonic::{self, Request, Response, Status};
 
 const MAX_BATCH_ORDER_NUM: usize = 40;
@@ -17,6 +18,8 @@ type ControllerAction = Box<dyn FnOnce(StubType) -> Pin<Box<dyn futures::Future<
 pub struct GrpcHandler {
     stub: StubType,
     settings: Settings,
+    verifier: DynSignatureVerifier,
+    committer: DynOrderCommitter,
     task_dispatcher: mpsc::Sender<ControllerAction>,
     set_close: Option<oneshot::Sender<()>>,
 }
@@ -74,9 +77,11 @@ impl GrpcHandler {
     pub fn new(stub: Controller, settings: Settings) -> Self {
         let mut persist_interval = tokio::time::interval(std::time::Duration::from_secs(stub.settings.persist_interval as u64));
 
+        let verifier = stub.verifier.clone();
+        let committer = stub.committer.clone();
         let stub = Arc::new(RwLock::new(stub));
         //we always wait so the size of channel is no matter
-        let (tx, mut rx) = mpsc::channel(16);
+        let (tx, mut rx) = mpsc::channel(1024);
         let (tx_close, mut rx_close) = oneshot::channel();
 
         let stub_for_dispatch = stub.clone();
@@ -85,6 +90,8 @@ impl GrpcHandler {
             task_dispatcher: tx,
             set_close: Some(tx_close),
             settings,
+            verifier,
+            committer,
             stub,
         };
 
@@ -133,22 +140,18 @@ impl GrpcHandler {
         if self.settings.check_eddsa_signatue == OrderSignatrueCheck::Needed
             || self.settings.check_eddsa_signatue == OrderSignatrueCheck::Auto && !req.signature.is_empty()
         {
-            // check order signature here
-            // order signature checking is not 'write' op, so it need not to be moved into the main thread
-            // it is better to finish it here
-            // TODO: refactor
             let stub = self.stub.read().await;
             if !stub.markets.contains_key(&req.market) {
                 return Err(Status::invalid_argument("invalid market"));
             }
             let market = stub.markets.get(&req.market).unwrap();
-            let order = stub
-                .balance_manager
-                .asset_manager
-                .commit_order(req, market)
+            let msg = stub
+                .committer
+                .commit_order(req, market, &stub.balance_manager.asset_manager)
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
-            let msg = order.hash();
-            if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
+            let user = stub.user_manager.users.get(&req.user_id);
+            let pubkey = user.map(|u| u.l2_pubkey.as_str()).unwrap_or("");
+            if !stub.verifier.verify(pubkey, &msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
         }

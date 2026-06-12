@@ -1,10 +1,10 @@
-use std::collections::{hash_map, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque, hash_map};
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::{sync, task};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::models;
 use crate::types;
@@ -15,7 +15,7 @@ use crate::sqlxextend::*;
 use types::DbType;
 
 pub const QUERY_LIMIT: i64 = 1000;
-pub const INSERT_LIMIT: i64 = 5000;
+pub const INSERT_LIMIT: i64 = 1_024;
 
 //https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=66bb75f8bb7b55d6bc8bfdb9d97ceb79
 
@@ -326,7 +326,7 @@ where
             <InsertTable as CommonSQLQuery<U, sqlx::Postgres>>::sql_statement(),
             entries.len()
         );
-        let ret = match InsertTableBatch::sql_query_fine(entries.as_slice(), &mut conn).await {
+        let ret = match InsertTableBatch::sql_query_fine(entries.as_slice(), &mut *conn).await {
             Ok(_) => {
                 if let Some((now, len)) = self.benchmark {
                     log::debug!(
@@ -370,7 +370,7 @@ impl DatabaseWriterStatus {
     }
 }
 
-pub struct DatabaseWriterEntryImpl<'a, U: std::clone::Clone + Send>(&'a mut sync::mpsc::Sender<WriterMsg<U>>);
+pub struct DatabaseWriterEntryImpl<'a, U: std::clone::Clone + Send>(&'a sync::mpsc::Sender<WriterMsg<U>>);
 
 impl<U> DatabaseWriterEntryImpl<'_, U>
 where
@@ -401,8 +401,8 @@ impl<U> DatabaseWriterEntry<U>
 where
     U: std::clone::Clone + Send,
 {
-    pub fn gen(&mut self) -> DatabaseWriterEntryImpl<'_, U> {
-        DatabaseWriterEntryImpl(&mut self.0)
+    pub fn generate(&self) -> DatabaseWriterEntryImpl<'_, U> {
+        DatabaseWriterEntryImpl(&self.0)
     }
 }
 
@@ -474,7 +474,7 @@ where
 
     //we consider no block for writer anymore
     pub fn is_block(&self) -> bool {
-        self.sender.is_none() || ((self.config.capability_limit as f64 * 0.9) as usize) < self.status().pending_count
+        self.sender.is_none() || (self.config.capability_limit * 2) < self.status().pending_count
     }
 
     pub fn status(&self) -> DatabaseWriterStatus {
@@ -603,7 +603,7 @@ where
 //Not use unbounded_channel: in case we mess things up, it may be
 //difficult to find it has eaten up memory. Instead, we wish
 //die fast if code do not work as expected
-const CHANNEL_LIMIT: usize = 1000;
+const CHANNEL_LIMIT: usize = 10_000;
 
 impl<U> DatabaseWriter<U>
 where

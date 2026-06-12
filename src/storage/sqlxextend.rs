@@ -137,13 +137,13 @@ where
 {
     type Item = Option<i32>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.2 .0 += 1;
-        let ret = match self.2 .1 {
+        self.2.0 += 1;
+        let ret = match self.2.1 {
             Some(i) => {
-                if i > self.2 .0 {
+                if i > self.2.0 {
                     self.0.next()
                 } else {
-                    self.2 .1 = self.1.next();
+                    self.2.1 = self.1.next();
                     return Some(None);
                 }
             }
@@ -179,13 +179,7 @@ impl<T: TableSchemas> CommonSQLQuery<T, sqlx::Postgres> for InsertTable {
                     Some(i) => format!("${}", i),
                     None => String::from("DEFAULT"),
                 })
-                .fold(String::new(), |acc, s| {
-                    if acc.is_empty() {
-                        s
-                    } else {
-                        acc + "," + &s
-                    }
-                })
+                .fold(String::new(), |acc, s| { if acc.is_empty() { s } else { acc + "," + &s } })
         );
         sql
     }
@@ -219,20 +213,29 @@ impl<T: TableSchemas> CommonSQLQuery<[T], sqlx::Postgres> for InsertTableBatch {
     }
     fn sql_statement_rt(t: &[T]) -> String {
         let s = <Self as CommonSQLQuery<[T], sqlx::Postgres>>::sql_statement();
-        (1..(t.len() as i32))
-            .map(|i| (i * T::ARGN + 1, (i + 1) * T::ARGN + 1))
-            .fold(s, |acc, rg| {
-                acc + ",("
-                    + &expand_argsn_gen(rg, T::default_argsn())
-                        .iter()
-                        .map(|i| match i {
-                            Some(i) => format!("${}", i),
-                            None => String::from("DEFAULT"),
-                        })
-                        .fold(String::new(), |acc, s| if acc.is_empty() { s } else { acc + "," + &s })
-                    + ")"
-            })
-            + " ON CONFLICT DO NOTHING"
+        let mut result = String::with_capacity(s.len() + t.len() * (T::ARGN as usize * 4 + 4));
+        result.push_str(&s);
+        let default_argsn = T::default_argsn();
+        for i in 1..(t.len() as i32) {
+            let rg = (i * T::ARGN + 1, (i + 1) * T::ARGN + 1);
+            result.push_str(",(");
+            let args = expand_argsn_gen(rg, default_argsn.clone());
+            for (idx, arg) in args.iter().enumerate() {
+                if idx > 0 {
+                    result.push(',');
+                }
+                match arg {
+                    Some(i) => {
+                        result.push('$');
+                        result.push_str(&i.to_string());
+                    }
+                    None => result.push_str("DEFAULT"),
+                }
+            }
+            result.push(')');
+        }
+        result.push_str(" ON CONFLICT DO NOTHING");
+        result
     }
 }
 

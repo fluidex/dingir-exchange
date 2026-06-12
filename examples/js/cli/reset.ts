@@ -5,7 +5,7 @@ async function main() {
   try {
     await client.debugReset();
   } catch (error) {
-    console.error("Caught error:", error);
+    console.error("Catched error:", error);
   }
 }
 

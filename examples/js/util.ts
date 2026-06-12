@@ -1,7 +1,7 @@
 import { userId, fee, ORDER_SIDE_BID, ORDER_SIDE_ASK, ORDER_TYPE_MARKET, ORDER_TYPE_LIMIT, VERBOSE } from "./config"; // dotenv
 
 import Decimal from "decimal.js";
-let gaussian = require("gaussian");
+var gaussian = require("gaussian");
 import { strict as assert } from "assert";
 import axios from "axios";
 
@@ -21,9 +21,9 @@ export function getRandomFloat(min, max) {
   return Math.random() * (max - min) + min;
 }
 export function getRandomFloatAroundNormal(value, stddev_ratio = 0.02) {
-  let distribution = gaussian(value, value * stddev_ratio);
+  var distribution = gaussian(value, value * stddev_ratio);
   // Take a random sample using inverse transform sampling method.
-  let sample = distribution.ppf(Math.random());
+  var sample = distribution.ppf(Math.random());
   return sample;
 }
 export function getRandomFloatAround(value, ratio = 0.05, abs = 0) {

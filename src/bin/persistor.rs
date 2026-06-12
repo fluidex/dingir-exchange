@@ -6,17 +6,16 @@
 
 use database::{DatabaseWriter, DatabaseWriterConfig};
 use dingir_exchange::{config, database, message, models, types};
-use fluidex_common::non_blocking_tracing;
-use std::pin::Pin;
-use types::DbType;
+use types::{ConnectionType, DbType};
 
-use fluidex_common::rdkafka::consumer::StreamConsumer;
+use rdkafka::consumer::StreamConsumer;
 
-use message::persist::{self, TopicConfig};
+use message::persist::{self, MIGRATOR, TopicHandlerBuilder};
+use sqlx::Connection;
 
 fn main() {
     dotenv::dotenv().ok();
-    let _guard = non_blocking_tracing::setup();
+    let _guard = dingir_exchange::utils::tracing::setup();
 
     let settings = config::Settings::new();
     log::debug!("Settings: {:?}", settings);
@@ -27,7 +26,7 @@ fn main() {
         .expect("build runtime");
 
     rt.block_on(async move {
-        let consumer: StreamConsumer = fluidex_common::rdkafka::config::ClientConfig::new()
+        let consumer: StreamConsumer = rdkafka::config::ClientConfig::new()
             .set("bootstrap.servers", &settings.brokers)
             .set("group.id", &settings.consumer_group)
             .set("enable.partition.eof", "false")
@@ -39,12 +38,11 @@ fn main() {
 
         let consumer = std::sync::Arc::new(consumer);
 
-        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
+        let mut conn = ConnectionType::connect(&settings.db_history).await.unwrap();
+        MIGRATOR.run(&mut conn).await.ok();
+        drop(conn);
 
-        // migrate using `dingir_exchange::persist::MIGRATOR` with '/migrations' for db_history (state_changes)
-        dingir_exchange::persist::MIGRATOR.run(&pool).await.ok();
-        // migrate using `message::persist::MIGRATOR` with '/migrations/ts' for kline additionally
-        message::persist::MIGRATOR.run(&pool).await.ok();
+        let pool = sqlx::Pool::<DbType>::connect(&settings.db_history).await.unwrap();
 
         let write_config = DatabaseWriterConfig {
             spawn_limit: 4,
@@ -65,68 +63,63 @@ fn main() {
 
         let persistor_user: DatabaseWriter<models::AccountDesc> = DatabaseWriter::new(&write_config).start_schedule(&pool).unwrap();
 
-        let trade_cfg = TopicConfig::<message::Trade>::new(message::TRADES_TOPIC)
+        let (trade_cfg, trade_commit) = TopicHandlerBuilder::<message::Trade>::new(message::TRADES_TOPIC)
             .persist_to(&persistor_kline)
-            .persist_to(&persistor_trade)
-            .with_tr::<persist::AskTrade>()
-            .persist_to(&persistor_trade)
-            .with_tr::<persist::BidTrade>();
+            .persist_transformed::<models::UserTrade, persist::AskTrade>(&persistor_trade)
+            .persist_transformed::<models::UserTrade, persist::BidTrade>(&persistor_trade)
+            .build();
 
-        let order_cfg = TopicConfig::<message::OrderMessage>::new(message::ORDERS_TOPIC)
-            .persist_to(&persistor_order)
-            .with_tr::<persist::ClosedOrder>();
+        let (order_cfg, order_commit) = TopicHandlerBuilder::<message::OrderMessage>::new(message::ORDERS_TOPIC)
+            .persist_transformed::<models::OrderHistory, persist::ClosedOrder>(&persistor_order)
+            .build();
 
-        let balance_cfg = TopicConfig::<message::BalanceMessage>::new(message::BALANCES_TOPIC).persist_to(&persistor_balance);
+        let (balance_cfg, balance_commit) = TopicHandlerBuilder::<message::BalanceMessage>::new(message::BALANCES_TOPIC)
+            .persist_to(&persistor_balance)
+            .build();
 
-        let internaltx_cfg = TopicConfig::<message::TransferMessage>::new(message::INTERNALTX_TOPIC).persist_to(&persistor_transfer);
+        let (internaltx_cfg, internaltx_commit) = TopicHandlerBuilder::<message::TransferMessage>::new(message::INTERNALTX_TOPIC)
+            .persist_to(&persistor_transfer)
+            .build();
 
-        let user_cfg = TopicConfig::<message::UserMessage>::new(message::USER_TOPIC).persist_to(&persistor_user);
+        let (user_cfg, user_commit) = TopicHandlerBuilder::<message::UserMessage>::new(message::USER_TOPIC)
+            .persist_to(&persistor_user)
+            .build();
 
         let auto_commit = vec![
-            trade_cfg.auto_commit_start(consumer.clone()),
-            order_cfg.auto_commit_start(consumer.clone()),
-            balance_cfg.auto_commit_start(consumer.clone()),
-            internaltx_cfg.auto_commit_start(consumer.clone()),
-            user_cfg.auto_commit_start(consumer.clone()),
+            trade_commit.auto_commit_start(consumer.clone()),
+            order_commit.auto_commit_start(consumer.clone()),
+            balance_commit.auto_commit_start(consumer.clone()),
+            internaltx_commit.auto_commit_start(consumer.clone()),
+            user_commit.auto_commit_start(consumer.clone()),
         ];
         let consumer = consumer.as_ref();
 
         loop {
             let cr_main = message::consumer::SimpleConsumer::new(consumer)
-                .add_topic_config(&trade_cfg).unwrap()
-                .add_topic_config(&order_cfg).unwrap()
-                .add_topic_config(&balance_cfg).unwrap()
-                .add_topic_config(&internaltx_cfg).unwrap()
-                .add_topic_config(&user_cfg).unwrap()
-//                .add_topic(message::TRADES_TOPIC, MsgDataPersistor::new(&persistor).handle_message::<message::Trade>())
-                ;
+                .add_topic_config(&trade_cfg)
+                .unwrap()
+                .add_topic_config(&order_cfg)
+                .unwrap()
+                .add_topic_config(&balance_cfg)
+                .unwrap()
+                .add_topic_config(&internaltx_cfg)
+                .unwrap()
+                .add_topic_config(&user_cfg)
+                .unwrap();
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
                     log::info!("Ctrl-c received, shutting down");
+                    for ac in auto_commit {
+                        ac.interrut_and_commit(consumer).await;
+                    }
                     break;
                 },
 
-                err = cr_main.run_stream(|cr|cr.stream()) => {
+                err = cr_main.run_stream() => {
                     log::error!("Kafka consumer error: {}", err);
                 }
             }
         }
-
-        tokio::try_join!(
-            persistor_kline.finish(),
-            persistor_trade.finish(),
-            persistor_order.finish(),
-            persistor_balance.finish(),
-            persistor_transfer.finish(),
-            persistor_user.finish(),
-        )
-        .expect("all persistor should success finish");
-        let final_commits: Vec<Pin<Box<dyn std::future::Future<Output = ()> + Send>>> = auto_commit
-            .into_iter()
-            .map(|ac| -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> { Box::pin(ac.final_commit(consumer)) })
-            .collect();
-        futures::future::join_all(final_commits).await;
-        //auto_commit.final_commit(consumer).await;
     })
 }

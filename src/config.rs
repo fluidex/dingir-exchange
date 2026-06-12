@@ -1,6 +1,6 @@
 use config_rs::{Config, File};
-use fluidex_common::rust_decimal::Decimal;
 use paperclip::actix::Apiv2Schema;
+use rust_decimal::Decimal;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -154,15 +154,14 @@ impl Default for Settings {
 
 impl Settings {
     pub fn new() -> Self {
-        // Initializes with `config/default.yaml`.
-        let mut conf = Config::default();
-        conf.merge(File::with_name("config/default")).unwrap();
-
         // Merges with `config/RUN_MODE.yaml` (development as default).
         let run_mode = dotenv::var("RUN_MODE").unwrap_or_else(|_| "development".into());
-        conf.merge(File::with_name(&format!("config/{}", run_mode)).required(false))
-            .unwrap();
-
-        conf.try_into().unwrap()
+        Config::builder()
+            .add_source(File::with_name("config/default"))
+            .add_source(File::with_name(&format!("config/{}", run_mode)).required(false))
+            .build()
+            .unwrap()
+            .try_deserialize()
+            .unwrap()
     }
 }

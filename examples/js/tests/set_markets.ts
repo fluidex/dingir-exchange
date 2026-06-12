@@ -34,7 +34,7 @@ const new_market2 = {
   },
 };
 async function main() {
-  const server = process.env.API_ENDPOINT || "0.0.0.0:8765";
+  const server = process.env.API_ENDPOINT || "localhost:50053";
   console.log("ci mode:", isCI);
   console.log("add asset");
   const ret1 = (await axios.post(`http://${server}/api/exchange/panel/manage/market/assets`, new_asset)).data;

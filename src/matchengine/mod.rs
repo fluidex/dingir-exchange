@@ -1,4 +1,5 @@
 pub mod asset;
+pub mod auth;
 pub mod controller;
 pub mod dto;
 pub mod eth_guard;
