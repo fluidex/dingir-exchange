@@ -301,7 +301,7 @@ pub async fn dump_balance(conn: &mut ConnectionType, slice_id: i64, balance_mana
         BalanceSliceInsert {
             slice_id,
             user_id: k.user_id as i32,
-            asset: k.asset.clone(),
+            asset: k.asset.to_string(),
             t: k.balance_type as i16,
             balance: *v,
         }

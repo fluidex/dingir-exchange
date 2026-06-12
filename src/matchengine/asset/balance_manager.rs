@@ -1,6 +1,7 @@
 use super::asset_manager::AssetManager;
 use crate::config;
 pub use crate::models::BalanceHistory;
+use crate::utils::InternedString;
 
 use anyhow::Result;
 use rust_decimal::Decimal;
@@ -21,7 +22,7 @@ pub enum BalanceType {
 pub struct BalanceMapKey {
     pub user_id: u32,
     pub balance_type: BalanceType,
-    pub asset: String,
+    pub asset: InternedString,
 }
 
 #[derive(Default)]
@@ -55,7 +56,7 @@ impl BalanceManager {
         self.get_by_key(&BalanceMapKey {
             user_id,
             balance_type,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         })
     }
     pub fn get_with_round(&self, user_id: u32, balance_type: BalanceType, asset: &str) -> Decimal {
@@ -76,14 +77,14 @@ impl BalanceManager {
         self.balances.remove(&BalanceMapKey {
             user_id,
             balance_type,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         });
     }
     pub fn set(&mut self, user_id: u32, balance_type: BalanceType, asset: &str, amount: &Decimal) {
         let key = BalanceMapKey {
             user_id,
             balance_type,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         };
         self.set_by_key(key, amount);
     }
@@ -99,7 +100,7 @@ impl BalanceManager {
         let key = BalanceMapKey {
             user_id,
             balance_type,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         };
         let old_value = self.get_by_key(&key);
         let new_value = old_value + amount;
@@ -112,7 +113,7 @@ impl BalanceManager {
         let key = BalanceMapKey {
             user_id,
             balance_type,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         };
         let old_value = self.get_by_key(&key);
         debug_assert!(old_value.ge(&amount));
@@ -135,7 +136,7 @@ impl BalanceManager {
         let key = BalanceMapKey {
             user_id,
             balance_type: BalanceType::AVAILABLE,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         };
         let old_available_value = self.get_by_key(&key);
         debug_assert!(old_available_value.ge(&amount));
@@ -148,7 +149,7 @@ impl BalanceManager {
         let key = BalanceMapKey {
             user_id,
             balance_type: BalanceType::FREEZE,
-            asset: asset.to_owned(),
+            asset: asset.into(),
         };
         let old_frozen_value = self.get_by_key(&key);
         debug_assert!(
@@ -166,7 +167,7 @@ impl BalanceManager {
     pub fn status(&self, asset: &str) -> BalanceStatus {
         let mut result = BalanceStatus::default();
         for (k, amount) in self.balances.iter() {
-            if k.asset.eq(asset) && !amount.is_zero() {
+            if &*k.asset == asset && !amount.is_zero() {
                 result.total += amount;
                 if k.balance_type == BalanceType::AVAILABLE {
                     result.available_count += 1;

@@ -112,7 +112,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         let ask_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
-            market: trade.market.clone(),
+            market: trade.market.to_string(),
             trade_id: trade.id as i64,
             order_id: trade.ask_order_id as i64,
             counter_order_id: trade.bid_order_id as i64, // counter order
@@ -127,7 +127,7 @@ impl HistoryWriter for DatabaseHistoryWriter {
         let bid_trade = models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
-            market: trade.market.clone(),
+            market: trade.market.to_string(),
             trade_id: trade.id as i64,
             order_id: trade.bid_order_id as i64,
             counter_order_id: trade.ask_order_id as i64, // counter order

@@ -52,6 +52,9 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ttl_cache = "0.5"
+simd-json = "0.17.0"
+crossbeam-skiplist = "0.1.3"
+parking_lot = "0.12.5"
 
 [[bin]]
 name = "restapi"

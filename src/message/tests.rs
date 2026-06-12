@@ -81,9 +81,9 @@ fn test_trade() -> Trade {
     Trade {
         id: 999,
         timestamp: 1609459200.0,
-        market: "ETH_USDT".to_string(),
-        base: "ETH".to_string(),
-        quote: "USDT".to_string(),
+        market: "ETH_USDT".into(),
+        base: "ETH".into(),
+        quote: "USDT".into(),
         price: test_decimal("1500.0"),
         amount: test_decimal("1.0"),
         quote_amount: test_decimal("1500.0"),

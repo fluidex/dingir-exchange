@@ -343,7 +343,7 @@ impl<'r> From<&'r super::Trade> for models::MarketTrade {
     fn from(origin: &'r super::Trade) -> Self {
         models::MarketTrade {
             time: utils::FTimestamp(origin.timestamp).into(),
-            market: origin.market.clone(),
+            market: origin.market.to_string(),
             trade_id: origin.id as i64,
             price: origin.price,
             amount: origin.amount,
@@ -411,7 +411,7 @@ impl MsgDataTransformer<models::UserTrade> for AskTrade {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.ask_user_id as i32,
-            market: trade.market.clone(),
+            market: trade.market.to_string(),
             trade_id: trade.id as i64,
             order_id: trade.ask_order_id as i64,
             counter_order_id: trade.bid_order_id as i64, // counter order
@@ -434,7 +434,7 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
         Some(models::UserTrade {
             time: FTimestamp(trade.timestamp).into(),
             user_id: trade.bid_user_id as i32,
-            market: trade.market.clone(),
+            market: trade.market.to_string(),
             trade_id: trade.id as i64,
             order_id: trade.bid_order_id as i64,
             counter_order_id: trade.ask_order_id as i64, // counter order

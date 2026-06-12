@@ -39,9 +39,9 @@ pub struct VerboseTradeState {
 pub struct Trade {
     pub id: u64,
     pub timestamp: f64, // unix epoch timestamp,
-    pub market: String,
-    pub base: String,
-    pub quote: String,
+    pub market: InternedString,
+    pub base: InternedString,
+    pub quote: InternedString,
     pub price: Decimal,
     pub amount: Decimal,
     pub quote_amount: Decimal,

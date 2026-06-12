@@ -388,7 +388,7 @@ impl Market {
             let trade = Trade {
                 id: trade_id,
                 timestamp: current_timestamp(),
-                market: self.name.to_string(),
+                market: self.name.into(),
                 base: self.base.into(),
                 quote: self.quote.into(),
                 price,

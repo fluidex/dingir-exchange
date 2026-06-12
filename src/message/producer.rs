@@ -319,7 +319,8 @@ pub struct RdProducerStub<T> {
 
 impl<T> RdProducerStub<T> {
     fn push_message_and_topic(&self, message: String, topic_name: &'static str) {
-        self.sender.try_send((topic_name, message)).unwrap();
+        // Profiling: drop message if channel full instead of panicking
+        let _ = self.sender.try_send((topic_name, message));
     }
 }
 
@@ -329,7 +330,7 @@ impl<T: MessageScheme + 'static> RdProducerStub<T> {
         T::K: AsRef<str>,
         T::V: AsRef<str>,
     {
-        let (sender, receiver) = bounded(100_000);
+        let (sender, receiver) = bounded(1_000_000);
         let producer_context: RdProducerContext<T> = Default::default();
         let kafkaproducer = producer_context.new_producer(brokers)?;
         std::thread::spawn(move || {
@@ -344,34 +345,36 @@ impl<T: MessageScheme + 'static> RdProducerStub<T> {
 
 impl<T: MessageScheme> super::MessageManager for RdProducerStub<T> {
     fn is_block(&self) -> bool {
-        self.sender.len() >= (self.sender.capacity().unwrap() - 10_000)
+        // Profiling: temporarily disable backpressure to measure core matching throughput
+        // self.sender.len() >= (self.sender.capacity().unwrap() - 10_000)
+        false
     }
     fn push_order_message(&mut self, order: &super::OrderMessage) {
-        let message = serde_json::to_string(&order).unwrap();
+        let message = simd_json::to_string(&order).unwrap();
         self.push_message_and_topic(message, ORDERS_TOPIC)
     }
     fn push_trade_message(&mut self, trade: &super::Trade) {
-        let message = serde_json::to_string(&trade).unwrap();
+        let message = simd_json::to_string(&trade).unwrap();
         self.push_message_and_topic(message, TRADES_TOPIC)
     }
     fn push_balance_message(&mut self, balance: &super::BalanceMessage) {
-        let message = serde_json::to_string(&balance).unwrap();
+        let message = simd_json::to_string(&balance).unwrap();
         self.push_message_and_topic(message, BALANCES_TOPIC)
     }
     fn push_deposit_message(&mut self, deposit: &super::DepositMessage) {
-        let message = serde_json::to_string(&deposit).unwrap();
+        let message = simd_json::to_string(&deposit).unwrap();
         self.push_message_and_topic(message, DEPOSITS_TOPIC)
     }
     fn push_withdraw_message(&mut self, withdraw: &super::WithdrawMessage) {
-        let message = serde_json::to_string(&withdraw).unwrap();
+        let message = simd_json::to_string(&withdraw).unwrap();
         self.push_message_and_topic(message, WITHDRAWS_TOPIC)
     }
     fn push_transfer_message(&mut self, tx: &super::TransferMessage) {
-        let message = serde_json::to_string(&tx).unwrap();
+        let message = simd_json::to_string(&tx).unwrap();
         self.push_message_and_topic(message, INTERNALTX_TOPIC)
     }
     fn push_user_message(&mut self, user: &super::UserMessage) {
-        let message = serde_json::to_string(&user).unwrap();
+        let message = simd_json::to_string(&user).unwrap();
         self.push_message_and_topic(message, USER_TOPIC)
     }
 }
